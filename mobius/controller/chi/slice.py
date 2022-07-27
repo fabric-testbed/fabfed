@@ -43,18 +43,31 @@ class Slice:
         self.project_name = project_name
         self.nodes = []
         self.networks = []
+        self.callbacks = []
 
-    def add_network(self, *, network: dict):
-        if network.get(Config.RES_TYPE) in self.DEFAULT_NETWORKS:
-            return
-        # provision private network
-        # TODO
+    def register_callback(self, cb):
+        self.callbacks.append(cb)
 
-    def add_resource(self, *, resource: dict):
-        # Select your site
+    def add_network(self, resource: dict):
+        site = resource.get(Config.RES_SITE)
+        pool_start = resource.get(Config.RES_NET_POOL_START, None)
+        pool_end = resource.get(Config.RES_NET_POOL_END, None)
+        gateway = resource.get(Config.RES_NET_GATEWAY, None)
+        stitch_provider = resource.get(Config.RES_NET_STITCH_PROV, None)
+
+        net_name = f"Network0"
+        net = Network(name=net_name, site=site, logger=self.logger,
+                      slice_name=self.name, pool_start=pool_start, pool_end=pool_end,
+                      gateway=gateway, stitch_provider=stitch_provider,
+                      project_name=self.project_name)
+        self.networks.append(net)
+
+    def add_node(self, resource: dict):
         site = resource.get(Config.RES_SITE)
         # Select your network; only sharednet and sharedwan works for now
-        network = resource.get(Config.RES_NETWORK)[Config.RES_TYPE]
+        network = resource.get(Config.RES_NETWORK, None)
+        if network:
+            network = network[Config.RES_TYPE]
         if network not in self.DEFAULT_NETWORKS:
             raise Exception("Private network not supported")
 
@@ -69,8 +82,21 @@ class Slice:
             node = Node(name=node_name, image=image, site=site, flavor=flavor, logger=self.logger,
                         key_pair=self.key_pair, slice_name=self.name, network=network,
                         project_name=self.project_name)
-            node.create()
             self.nodes.append(node)
+
+    def add_resource(self, *, resource: dict):
+        # Select your site
+        rtype = resource.get(Config.RES_TYPE)
+        if rtype == Config.RES_TYPE_NETWORK.lower():
+            self.add_network(resource)
+        else:
+            self.add_node(resource)
+
+    def create(self):
+        for n in self.networks:
+            n.create()
+        for n in self.nodes:
+            n.create()
 
     def delete(self):
         for n in self.nodes:
