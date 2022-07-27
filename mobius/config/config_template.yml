@@ -67,6 +67,23 @@ resources:
                            # m1.xlarge => CPU(8), RAM(16GB) Disk(40GB)) for KVM@TACC.
                            # More details for KVM@TACC here: https://chameleoncloud.readthedocs.io/en/latest/technical/kvm.html#launching-instances
 
+    - resource:
+        type: network
+        site: FABRIC.STAR
+        count: 1
+        pool_start: 192.168.100.200
+        pool_end: 192.168.100.250
+        vlan: null
+
+    - resource:
+        type: network
+        site: CHI@UC
+        count: 1
+        pool_start: 192.168.100.100
+        pool_end: 192.168.100.150
+        gateway: 192.168.100.1
+        stitch_provider: fabric
+
 fabric:
   oc-host: orchestrator.fabric-testbed.net
   cm-host: cm.fabric-testbed.net

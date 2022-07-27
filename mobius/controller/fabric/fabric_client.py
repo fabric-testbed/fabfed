@@ -33,6 +33,11 @@ from fabrictestbed_extensions.fablib.slice import Slice
 from mobius.controller.api.api_client import ApiClient
 from mobius.controller.util.config import Config
 
+# XXX monkeypatch fablic Slice
+def register_callback(self, cb):
+    self.callbacks.append(cb)
+Slice.callbacks = []
+Slice.register_callback = register_callback
 
 class FabricClient(ApiClient):
     def __init__(self, *, logger: logging.Logger, fabric_config: dict, runtime_config: dict):
@@ -69,17 +74,22 @@ class FabricClient(ApiClient):
         except Exception as e:
             self.logger.info(f"Error: {e}")
 
-    def add_resources(self, *, resource: dict, slice_name: str) -> Slice or None:
-        if resource.get(Config.RES_COUNT) < 1:
-            return None
-        # Create Slice
+    def get_network_vlans(self):
+        return
 
-        if slice_name in self.slices:
-            self.logger.info(f"Slice {slice_name} already exists!")
-            return None
-        self.logger.debug(f"Adding {resource} to {slice_name}")
-        slice_object = fablib.new_slice(slice_name)
+    def add_network(self, slice_object: Slice, resource: dict):
+        site = resource.get(Config.RES_SITE)
+        pool_start = resource.get(Config.RES_NET_POOL_START, None)
+        pool_end = resource.get(Config.RES_NET_POOL_END, None)
+        gateway = resource.get(Config.RES_NET_GATEWAY, None)
+        stitch_provider = resource.get(Config.RES_NET_STITCH_PROV, None)
+        callback = resource.get(Config.RES_NET_CALLBACK, None)
 
+        if callback:
+            # We need to wait or modify before create
+            pass
+
+    def add_node(self, slice_object: Slice, resource: dict):
         interface_list = []
         node_count = resource.get(Config.RES_COUNT)
         node_name_prefix = resource.get(Config.RES_NAME_PREFIX)
@@ -103,9 +113,25 @@ class FabricClient(ApiClient):
             interface_list.append(iface)
 
         # Layer3 Network (provides data plane internet access)
-        slice_object.add_l3network(name=f"{site}-network", interfaces=interface_list, type=network_type)
+        #slice_object.add_l3network(name=f"{site}-network", interfaces=interface_list, type=network_type)
 
-        self.slices[slice_name] = slice_object
+    def add_resources(self, *, resource: dict, slice_name: str) -> Slice or None:
+        if resource.get(Config.RES_COUNT) < 1:
+            return None
+        # Create Slice
+        if slice_name in self.slices:
+            self.logger.info(f"Slice {slice_name} already exists!")
+            slice_object = self.slices[slice_name]
+        else:
+            slice_object = fablib.new_slice(slice_name)
+            self.slices[slice_name] = slice_object
+
+        self.logger.debug(f"Adding {resource} to {slice_name}")
+        rtype = resource.get(Config.RES_TYPE)
+        if rtype == Config.RES_TYPE_NETWORK.lower():
+            self.add_network(slice_object, resource)
+        else:
+            self.add_node(slice_object, resource)
         return slice_object
 
     def submit_and_wait(self, *, slice_object: Slice) -> str or None:
@@ -123,6 +149,11 @@ class FabricClient(ApiClient):
                     self.slices[slice_object.get_name()] = existing_slices[0]
                     return existing_slices[0].get_slice_id()
 
+            # See if there are callbacks with info to modify slice resources
+            for cb in slice_object.callbacks:
+                data = cb()
+                self.logger.info(f"Callback data: {data} (Available VLANs)")
+
             # Check if the slice has more than one site then add a layer2 network
             # Submit Slice Request
             self.logger.debug("Submit slice request")
@@ -137,6 +168,11 @@ class FabricClient(ApiClient):
             self.logger.error(f"Exception occurred: {e}")
             self.logger.error(traceback.format_exc())
         return None
+
+    def create_resources(self, *, slice_id: str = None, slice_name: str = None):
+        for sname, sobj in self.slices.items():
+            self.logger.info(f"Creating FABRIC slice {sname}")
+            self.submit_and_wait(slice_object=sobj)
 
     def delete_resources(self, *, slice_id: str = None, slice_name: str = None):
         if slice_id is None and slice_name is None and len(self.slices) == 0:

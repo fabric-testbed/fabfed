@@ -87,25 +87,55 @@ class Controller:
         # print('Please input private key passphrase. Press enter for no passphrase.')
         # os.environ['FABRIC_SLICE_PRIVATE_KEY_PASSPHRASE']=getpass()
 
-    def create(self, *, slice_name: str = None):
+    def create(self, *, slice_name: str = None, connected: str = None):
         try:
             self.logger.debug("Starting create")
             if slice_name is None:
                 slice_name = self.config.get_runtime_config()[Config.RUNTIME_SLICE_NAME]
             resources = self.config.get_resource_config()
-            fabric_slice = None
+            active = dict()
             for resource in resources:
                 resource_dict = resource.get(Config.RESOURCE)
                 r_type = resource_dict.get(Config.RES_TYPE).lower()
-                if r_type == Config.RES_TYPE_BM.lower():
-                    # Bare metal on CHI
-                    self.chi_client.add_resources(resource=resource_dict, slice_name=slice_name)
-                elif r_type == Config.RES_TYPE_VM.lower():
-                    # VM on FABRIC
-                    fabric_slice = self.fabric_client.add_resources(resource=resource_dict, slice_name=slice_name)
+                site = resource_dict.get("site", None)
+                if not site:
+                    self.logger.info("No site configured, skipping resource")
+                    continue
+                if site.lower().startswith("fabric"):
+                    client = self.fabric_client
+                elif site.lower().startswith("chi"):
+                    client = self.chi_client
+                else:
+                    self.logger.info(f"Unknown site type {site}")
+                    continue
 
-            if fabric_slice is not None:
-                self.fabric_client.submit_and_wait(slice_object=fabric_slice)
+                if r_type in [Config.RES_TYPE_BM.lower(), Config.RES_TYPE_VM.lower()]:
+                    # XXX make these dicts classes
+                    active.update({site: {"client": client,
+                                          "type": Config.RES_TYPE_NODE,
+                                          "priority": 100,
+                                          "resource": client.add_resources(resource=resource_dict, slice_name=slice_name)}})
+                elif connected and r_type == Config.RES_TYPE_NETWORK.lower():
+                    # Network resources.
+                    net_priority = 20 if "vlan" in resource_dict and resource_dict.get("vlan") == None else 10
+                    active.update({site: {"client": client,
+                                          "type": Config.RES_TYPE_NETWORK,
+                                          "priority": net_priority,
+                                          "resource": client.add_resources(resource=resource_dict, slice_name=slice_name)}})
+
+            # XXX set callback data based on priorities
+            sorted_dict = dict(sorted(active.items(), key=lambda item: item[1]["priority"]))
+            first = None
+            for site, item in sorted_dict.items():
+                if not first:
+                    first = item
+                else:
+                    item.get("resource").register_callback(first.get("client").get_network_vlans)
+
+            # Actually instantiate all the added resources above
+            for site, item in sorted_dict.items():
+                self.logger.info(f"Creating {item.get('type')} resource at {site} for priority {item.get('priority')} item")
+                item.get("client").create_resources()
         except Exception as e:
             self.logger.error(f"Exception occurred while creating resources: {e}")
             self.logger.error(traceback.format_exc())
