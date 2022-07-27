@@ -84,12 +84,15 @@ class ChiClient(ApiClient):
     def get_available_resources(self):
         pass
 
-    def add_resources(self, *, resource: dict, slice_name: str):
-        if resource.get(Config.RES_COUNT) < 1:
-            return None
+    def get_network_vlans(self):
+        for sname, sobj in self.slices.items():
+            for n in sobj.get_networks():
+                #return n.get_vlans()
+                return [3303]
 
-        if slice_name in self.slices:
-            self.logger.info(f"Slice {slice_name} already exists!")
+    def add_resources(self, *, resource: dict, slice_name: str):
+        # Network info may be amended
+        if resource.get(Config.RES_COUNT) < 1:
             return None
 
         self.logger.debug(f"Adding {resource} to {slice_name}")
@@ -99,12 +102,20 @@ class ChiClient(ApiClient):
 
         # Should be done only after setting up the environment
         from mobius.controller.chi.slice import Slice
-        slice_object = Slice(name=slice_name, logger=self.logger, key_pair=self.chi_config.get(Config.CHI_KEY_PAIR),
-                             project_name=self.chi_config.get(Config.CHI_PROJECT_NAME))
-
+        if slice_name in self.slices:
+            self.logger.info(f"Slice {slice_name} already exists!")
+            slice_object = self.slices[slice_name]
+        else:
+            slice_object = Slice(name=slice_name, logger=self.logger, key_pair=self.chi_config.get(Config.CHI_KEY_PAIR),
+                                 project_name=self.chi_config.get(Config.CHI_PROJECT_NAME))
+            self.slices[slice_name] = slice_object
         slice_object.add_resource(resource=resource)
-        self.slices[slice_name] = slice_object
         return slice_object
+
+    def create_resources(self, *, slice_id: str = None, slice_name: str = None):
+        for sname, sobj in self.slices.items():
+            self.logger.info(f"Creating CHI slice {sname}")
+            #sobj.create()
 
     def delete_resources(self, *, slice_id: str = None, slice_name: str = None):
         try:
