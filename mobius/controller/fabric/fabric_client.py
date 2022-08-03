@@ -153,6 +153,8 @@ class FabricClient(ApiClient):
             for cb in slice_object.callbacks:
                 data = cb()
                 self.logger.info(f"Callback data: {data} (Available VLANs)")
+                if not len(data):
+                    exit(1)
 
             # Check if the slice has more than one site then add a layer2 network
             # Submit Slice Request
@@ -169,7 +171,7 @@ class FabricClient(ApiClient):
             self.logger.error(traceback.format_exc())
         return None
 
-    def create_resources(self, *, slice_id: str = None, slice_name: str = None):
+    def create_resources(self, *, slice_id: str = None, slice_name: str = None, rtype: str = None):
         for sname, sobj in self.slices.items():
             self.logger.info(f"Creating FABRIC slice {sname}")
             self.submit_and_wait(slice_object=sobj)

@@ -135,7 +135,7 @@ class Controller:
             # Actually instantiate all the added resources above
             for site, item in sorted_dict.items():
                 self.logger.info(f"Creating {item.get('type')} resource at {site} for priority {item.get('priority')} item")
-                item.get("client").create_resources()
+                item.get("client").create_resources(rtype=item.get("type"))
         except Exception as e:
             self.logger.error(f"Exception occurred while creating resources: {e}")
             self.logger.error(traceback.format_exc())
