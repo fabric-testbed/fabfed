@@ -92,11 +92,13 @@ class Slice:
         else:
             self.add_node(resource)
 
-    def create(self):
-        for n in self.networks:
-            n.create()
-        for n in self.nodes:
-            n.create()
+    def create(self, rtype: str = None):
+        if rtype in [None, Config.RES_TYPE_NETWORK]:
+            for n in self.networks:
+                n.create()
+        if rtype in [None, Config.RES_TYPE_NODE]:
+            for n in self.nodes:
+                n.create()
 
     def delete(self):
         for n in self.nodes:

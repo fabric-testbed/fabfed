@@ -84,11 +84,10 @@ class ChiClient(ApiClient):
     def get_available_resources(self):
         pass
 
-    def get_network_vlans(self):
+    def get_network_vlans(self, slice_name: str = None):
         for sname, sobj in self.slices.items():
             for n in sobj.get_networks():
-                #return n.get_vlans()
-                return [3303]
+                return n.get_vlans()
 
     def add_resources(self, *, resource: dict, slice_name: str):
         # Network info may be amended
@@ -112,10 +111,10 @@ class ChiClient(ApiClient):
         slice_object.add_resource(resource=resource)
         return slice_object
 
-    def create_resources(self, *, slice_id: str = None, slice_name: str = None):
+    def create_resources(self, *, slice_id: str = None, slice_name: str = None, rtype: str = None):
         for sname, sobj in self.slices.items():
             self.logger.info(f"Creating CHI slice {sname}")
-            #sobj.create()
+            sobj.create(rtype)
 
     def delete_resources(self, *, slice_id: str = None, slice_name: str = None):
         try:
