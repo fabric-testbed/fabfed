@@ -49,7 +49,7 @@ class Controller:
         self.fabric_client = None
         self.chi_client = None
 
-        runtime_config = self.config.get_runtime_config()
+        runtime_config = None  # self.config.get_runtime_config()
         fabric_config = self.config.get_fabric_config()
         if fabric_config is not None:
             self.__setup_fabric(fabric_config=fabric_config, runtime_config=runtime_config)
@@ -59,8 +59,7 @@ class Controller:
 
         chi_config = self.config.get_chi_config()
         if chi_config is not None:
-            self.chi_client = ChiClient(logger=self.logger, chi_config=chi_config,
-                                        runtime_config=runtime_config)
+            self.chi_client = ChiClient(logger=self.logger, chi_config=chi_config)
 
     @staticmethod
     def __setup_fabric(*, fabric_config: dict, runtime_config: dict):
@@ -91,7 +90,8 @@ class Controller:
         try:
             self.logger.debug("Starting create")
             if slice_name is None:
-                slice_name = self.config.get_runtime_config()[Config.RUNTIME_SLICE_NAME]
+                raise Exception("TODO Handle slice name")
+                # TODO slice_name = self.config.get_runtime_config()[Config.RUNTIME_SLICE_NAME]
             resources = self.config.get_resource_config()
             active = dict()
             for resource in resources:
