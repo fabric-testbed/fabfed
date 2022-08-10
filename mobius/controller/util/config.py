@@ -25,6 +25,8 @@
 # Author: Komal Thareja (kthare10@renci.org)
 import yaml
 
+from .parser import Parser
+
 
 class ConfigException(Exception):
     pass
@@ -100,14 +102,28 @@ class Config:
         with open(path) as f:
             self.config_dict = yaml.safe_load(f)
 
+        self.providers, self.resources = Parser.parse(path)
+
     def get_fabric_config(self) -> dict:
         return self.config_dict.get(Config.FABRIC, None)
 
-    def get_chi_config(self) -> dict:
-        return self.config_dict.get(Config.CHAMELEON, None)
+    def get_chi_config(self) -> dict or None:
+        for provider in self.providers:
+            if provider.type == 'chi':
+                return provider.attributes
 
-    def get_resource_config(self) -> dict:
-        return self.config_dict.get(Config.RESOURCES, None)
+        return None   # TODO self.config_dict.get(Config.CHAMELEON, None)
+
+    def get_resource_config(self) -> list:
+        ret = []
+
+        for resource in self.resources:
+            if resource.type != 'slice':
+                attrs = dict(resource.attributes)
+                attrs.pop('slice')
+                ret.append(dict(resource=attrs))
+
+        return ret  # self.config_dict.get(Config.RESOURCES, None)
 
     def get_log_config(self) -> dict:
         return self.config_dict.get(Config.LOGGING, None)

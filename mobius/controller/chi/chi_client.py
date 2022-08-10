@@ -30,10 +30,9 @@ from mobius.controller.util.config import Config
 
 
 class ChiClient(ApiClient):
-    def __init__(self, *, logger: logging.Logger, chi_config: dict, runtime_config: dict):
+    def __init__(self, *, logger: logging.Logger, chi_config: dict):
         self.logger = logger
         self.chi_config = chi_config
-        self.runtime_config = runtime_config
         self.slices = {}
 
     def setup_environment(self, *, site: str):
@@ -58,8 +57,8 @@ class ChiClient(ApiClient):
         os.environ['OS_ACCESS_TOKEN_TYPE'] = "access_token"
         os.environ['OS_CLIENT_SECRET'] = "none"
         os.environ['OS_REGION_NAME'] = site
-        os.environ['OS_SLICE_PRIVATE_KEY_FILE'] = self.runtime_config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
-        os.environ['OS_SLICE_PUBLIC_KEY_FILE'] = self.runtime_config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
+        os.environ['OS_SLICE_PRIVATE_KEY_FILE'] = self.chi_config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
+        os.environ['OS_SLICE_PUBLIC_KEY_FILE'] = self.chi_config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
 
     @staticmethod
     def __get_site_identifier(*, site: str):
