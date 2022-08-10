@@ -109,16 +109,17 @@ class Controller:
                     self.logger.info(f"Unknown site type {site}")
                     continue
 
+                key = f"{site}-{r_type}"
                 if r_type in [Config.RES_TYPE_BM.lower(), Config.RES_TYPE_VM.lower()]:
                     # XXX make these dicts classes
-                    active.update({site: {"client": client,
+                    active.update({key: {"client": client,
                                           "type": Config.RES_TYPE_NODE,
                                           "priority": 100,
                                           "resource": client.add_resources(resource=resource_dict, slice_name=slice_name)}})
                 elif connected and r_type == Config.RES_TYPE_NETWORK.lower():
                     # Network resources.
                     net_priority = 20 if "vlan" in resource_dict and resource_dict.get("vlan") == None else 10
-                    active.update({site: {"client": client,
+                    active.update({key: {"client": client,
                                           "type": Config.RES_TYPE_NETWORK,
                                           "priority": net_priority,
                                           "resource": client.add_resources(resource=resource_dict, slice_name=slice_name)}})
