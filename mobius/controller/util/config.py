@@ -104,15 +104,19 @@ class Config:
 
         self.providers, self.resources = Parser.parse(path)
 
-    def get_fabric_config(self) -> dict:
-        return self.config_dict.get(Config.FABRIC, None)
+    def get_fabric_config(self) -> dict or None:
+        for provider in self.providers:
+            if provider.type == 'fabric':
+                return provider.attributes
+
+        return None
 
     def get_chi_config(self) -> dict or None:
         for provider in self.providers:
             if provider.type == 'chi':
                 return provider.attributes
 
-        return None   # TODO self.config_dict.get(Config.CHAMELEON, None)
+        return None
 
     def get_resource_config(self) -> list:
         ret = []
@@ -123,10 +127,7 @@ class Config:
                 attrs.pop('slice')
                 ret.append(dict(resource=attrs))
 
-        return ret  # self.config_dict.get(Config.RESOURCES, None)
+        return ret
 
     def get_log_config(self) -> dict:
         return self.config_dict.get(Config.LOGGING, None)
-
-    def get_runtime_config(self) -> dict:
-        return self.config_dict.get(Config.RUNTIME, None)

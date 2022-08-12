@@ -40,13 +40,35 @@ Slice.callbacks = []
 Slice.register_callback = register_callback
 
 class FabricClient(ApiClient):
-    def __init__(self, *, logger: logging.Logger, fabric_config: dict, runtime_config: dict):
+    def __init__(self, *, logger: logging.Logger, fabric_config: dict):
         """ Constructor """
         self.logger = logger
         self.fabric_config = fabric_config
-        self.runtime_config = runtime_config
         self.node_counter = 0
         self.slices = {}
+
+    def setup_environment(self, *, site: str):
+        import os
+
+        fabric_config = self.fabric_config
+
+        os.environ['FABRIC_CREDMGR_HOST'] = fabric_config.get(Config.FABRIC_CM_HOST)
+        os.environ['FABRIC_ORCHESTRATOR_HOST'] = fabric_config.get(Config.FABRIC_OC_HOST)
+        os.environ['FABRIC_TOKEN_LOCATION'] = fabric_config.get(Config.FABRIC_TOKEN_LOCATION)
+        os.environ['FABRIC_PROJECT_ID'] = fabric_config.get(Config.FABRIC_PROJECT_ID)
+
+        os.environ['FABRIC_BASTION_HOST'] = fabric_config.get(Config.FABRIC_BASTION_HOST)
+        os.environ['FABRIC_BASTION_USERNAME'] = fabric_config.get(Config.FABRIC_BASTION_USER_NAME)
+        os.environ['FABRIC_BASTION_KEY_LOCATION'] = fabric_config.get(Config.FABRIC_BASTION_KEY_LOCATION)
+
+        os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = fabric_config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
+        os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = fabric_config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
+
+        fablib.fablib_object = fablib()
+
+        # import json
+        #
+        # print(json.dumps(fablib.get_config(), indent=4))
 
     def get_resources(self, slice_id: str = None, slice_name: str = None) -> List[Slice] or None:
         if slice_id is None and slice_name is None and len(self.slices) == 0:

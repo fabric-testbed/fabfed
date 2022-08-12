@@ -49,42 +49,17 @@ class Controller:
         self.fabric_client = None
         self.chi_client = None
 
-        runtime_config = None  # self.config.get_runtime_config()
         fabric_config = self.config.get_fabric_config()
         if fabric_config is not None:
-            self.__setup_fabric(fabric_config=fabric_config, runtime_config=runtime_config)
             from mobius.controller.fabric.fabric_client import FabricClient
-            self.fabric_client = FabricClient(logger=self.logger, fabric_config=runtime_config,
-                                              runtime_config=runtime_config)
+
+            self.fabric_client = FabricClient(logger=self.logger, fabric_config=fabric_config)
+            self.fabric_client.setup_environment(site="")
+
 
         chi_config = self.config.get_chi_config()
         if chi_config is not None:
             self.chi_client = ChiClient(logger=self.logger, chi_config=chi_config)
-
-    @staticmethod
-    def __setup_fabric(*, fabric_config: dict, runtime_config: dict):
-        os.environ['FABRIC_CREDMGR_HOST'] = fabric_config.get(Config.FABRIC_CM_HOST)
-        os.environ['FABRIC_ORCHESTRATOR_HOST'] = fabric_config.get(Config.FABRIC_OC_HOST)
-        os.environ['FABRIC_TOKEN_LOCATION'] = fabric_config.get(Config.FABRIC_TOKEN_LOCATION)
-
-        # Set your FABRIC PROJECT ID
-        os.environ['FABRIC_PROJECT_ID'] = fabric_config.get(Config.FABRIC_PROJECT_ID)
-
-        # Bastion IPs
-        os.environ['FABRIC_BASTION_HOST'] = fabric_config.get(Config.FABRIC_BASTION_HOST)
-
-        # Set your Bastion username and private key
-        os.environ['FABRIC_BASTION_USERNAME'] = fabric_config.get(Config.FABRIC_BASTION_USER_NAME)
-        os.environ['FABRIC_BASTION_KEY_LOCATION'] = fabric_config.get(Config.FABRIC_BASTION_KEY_LOCATION)
-
-        # Set the keypair FABRIC will install in your slice.
-        os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = runtime_config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
-        os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = runtime_config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
-
-        # If your slice private key uses a passphrase, set the passphrase
-        # from getpass import getpass
-        # print('Please input private key passphrase. Press enter for no passphrase.')
-        # os.environ['FABRIC_SLICE_PRIVATE_KEY_PASSPHRASE']=getpass()
 
     def create(self, *, slice_name: str = None, connected: str = None):
         try:
@@ -103,10 +78,10 @@ class Controller:
                     continue
                 if site.lower().startswith("fabric"):
                     client = self.fabric_client
-                elif site.lower().startswith("chi"):
+                elif site.lower().startswith("chi") or site.lower().startswith("kvm"):
                     client = self.chi_client
                 else:
-                    self.logger.info(f"Unknown site type {site}")
+                    self.logger.warning(f"Unknown site type {site}")
                     continue
 
                 key = f"{site}-{r_type}"
@@ -142,8 +117,11 @@ class Controller:
             self.logger.error(traceback.format_exc())
 
     def delete(self, *, slice_name: str = None):
-        self.fabric_client.delete_resources(slice_name=slice_name)
-        self.chi_client.delete_resources(slice_name=slice_name)
+        if self.fabric_client:
+            self.fabric_client.delete_resources(slice_name=slice_name)
+
+        if self.chi_client:
+            self.chi_client.delete_resources(slice_name=slice_name)
 
     def get_resources(self) -> list:
         resources = []
