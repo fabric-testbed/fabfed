@@ -85,7 +85,7 @@ class ChiClient(ApiClient):
 
     def get_network_vlans(self, slice_name: str = None):
         for sname, sobj in self.slices.items():
-            for n in sobj.get_networks():
+            for n in sobj.networks:
                 return n.get_vlans()
 
     def add_resources(self, *, resource: dict, slice_name: str):

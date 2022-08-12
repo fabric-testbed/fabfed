@@ -30,9 +30,10 @@ from tabulate import tabulate
 from mobius.controller.chi.network import Network
 from mobius.controller.chi.node import Node
 from mobius.controller.util.config import Config
+from mobius.models import AbstractSlice
 
 
-class Slice:
+class Slice(AbstractSlice):
     DEFAULT_NETWORKS = ["sharednet1", "sharedwan1", "containernet1"]
 
     def __init__(self, *, name: str, logger: logging.Logger, key_pair: str, project_name: str):
@@ -41,12 +42,10 @@ class Slice:
         self.logger = logger
         self.key_pair = key_pair
         self.project_name = project_name
-        self.nodes = []
-        self.networks = []
-        self.callbacks = []
-
-    def register_callback(self, cb):
-        self.callbacks.append(cb)
+        self._nodes = list()
+        self._networks = list()
+        self._services = list()
+        self._callbacks = dict()
 
     def add_network(self, resource: dict):
         site = resource.get(Config.RES_SITE)
@@ -60,7 +59,7 @@ class Slice:
                       slice_name=self.name, pool_start=pool_start, pool_end=pool_end,
                       gateway=gateway, stitch_provider=stitch_provider,
                       project_name=self.project_name)
-        self.networks.append(net)
+        self._networks.append(net)
 
     def add_node(self, resource: dict):
         site = resource.get(Config.RES_SITE)
@@ -82,7 +81,7 @@ class Slice:
             node = Node(name=node_name, image=image, site=site, flavor=flavor, logger=self.logger,
                         key_pair=self.key_pair, slice_name=self.name, network=network,
                         project_name=self.project_name)
-            self.nodes.append(node)
+            self._nodes.append(node)
 
     def add_resource(self, *, resource: dict):
         # Select your site
@@ -101,15 +100,12 @@ class Slice:
                 n.create()
 
     def delete(self):
-        for n in self.nodes:
+        for n in self._nodes:
             self.logger.info(f"Deleting node: {n}")
             n.delete()
-        for n in self.networks:
+        for n in self._networks:
             self.logger.info(f"Deleting network: {n}")
             n.delete()
-
-    def get_nodes(self) -> List[Node]:
-        return self.nodes
 
     def list_nodes(self) -> list:
         table = []
@@ -125,9 +121,6 @@ class Slice:
 
         return tabulate(table, headers=["ID", "Name", "Site", "Flavor", "Image",
                                         "Management IP", "State"])
-
-    def get_networks(self) -> List[Network]:
-        return self.networks
 
     def __str__(self):
         table = [["Slice Name", self.name],
