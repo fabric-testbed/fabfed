@@ -35,12 +35,10 @@ from mobius.controller.api.api_client import ApiClient
 from mobius.controller.util.config import Config
 
 
-def register_callback(self, cb):
-    # monkey patch
-    self.callbacks.append(cb)
-
-
-Slice.callbacks = []
+# XXX monkeypatch fablic Slice
+def register_callback(self, cb, cb_key=None):
+    self._callbacks.update({cb_key: cb})
+Slice._callbacks = dict()
 Slice.register_callback = register_callback
 
 
@@ -246,11 +244,11 @@ class FabricClient(ApiClient):
     def _submit_and_wait(self, *, slice_object: Slice) -> str or None:
         try:
             # See if there are callbacks with info to modify slice resources
-            # for cb in slice_object.callbacks:
-            #     data = cb()
-            #     self.logger.info(f"Callback data: {data} (Available VLANs)")
-            #     if not len(data):
-            #         exit(1)
+            for cb in slice_object._callbacks:
+                data = cb()
+                self.logger.info(f"Callback data: {data} (Available VLANs)")
+                if not len(data):
+                    exit(1)
 
             # TODO Check if the slice has more than one site then add a layer2 network
             # Submit Slice Request

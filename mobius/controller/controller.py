@@ -156,7 +156,7 @@ class Controller:
                 if not first:
                     first = item
                 else:
-                    item.get("resource").register_callback(first.get("client").get_network_vlans)
+                    item.get("resource").register_callback("vlans", first.get("client").get_network_vlans)
 
             # Actually instantiate all the added resources above
             for key, item in sorted_dict.items():
