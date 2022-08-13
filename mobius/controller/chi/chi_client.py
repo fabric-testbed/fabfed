@@ -112,7 +112,7 @@ class ChiClient(ApiClient):
 
     def create_resources(self, *, slice_id: str = None, slice_name: str = None, rtype: str = None):
         for sname, sobj in self.slices.items():
-            self.logger.info(f"Creating CHI slice {sname}")
+            self.logger.info(f"Creating CHI using slice {sname} rtype={rtype}")
             sobj.create(rtype)
 
     def delete_resources(self, *, slice_id: str = None, slice_name: str = None):

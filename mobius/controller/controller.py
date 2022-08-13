@@ -43,7 +43,7 @@ class Controller:
                                            backupCount=int(log_config.get(Config.PROPERTY_CONF_LOG_RETAIN)),
                                            maxBytes=int(log_config.get(Config.PROPERTY_CONF_LOG_SIZE)))
         logging.basicConfig(level=log_level,
-                            format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
+                            format="%(asctime)s [%(threadName)s] [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
                             handlers=[logging.StreamHandler(), file_handler], force=True)
 
         self.fabric_client = None
