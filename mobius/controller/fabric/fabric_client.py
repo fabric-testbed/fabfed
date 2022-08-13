@@ -190,7 +190,7 @@ class FabricClient(ApiClient):
             return slice_id
         except Exception as e:
             self.logger.error(f"Exception occurred: {e}")
-            self.logger.error(traceback.format_exc())
+            # TODO self.logger.error(traceback.format_exc())
         return None
 
     def create_resources(self, *, slice_id: str = None, slice_name: str = None, rtype: str = None):
