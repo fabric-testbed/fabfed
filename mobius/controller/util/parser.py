@@ -55,7 +55,7 @@ class ResourceConfig(BaseConfig):
     def __init__(self, type: str, name: str, attrs:  Dict, slize: SliceConfig):
         super().__init__(type, name, attrs)
         assert slize, f"slice is required for {name}"
-        assert isinstance(slice, SliceConfig), f"expected SliceConfig for {name}"
+        assert isinstance(slize, SliceConfig), f"expected SliceConfig for {name}"
         self._slice = slize
         self._resource_dependencies = set()
 
