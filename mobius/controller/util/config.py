@@ -25,7 +25,8 @@
 # Author: Komal Thareja (kthare10@renci.org)
 import yaml
 
-from .parser import Parser
+from .parser import Parser, ResourceConfig
+from typing import List
 
 
 class ConfigException(Exception):
@@ -102,7 +103,7 @@ class Config:
         with open(path) as f:
             self.config_dict = yaml.safe_load(f)
 
-        self.providers, self.resources = Parser.parse(path)
+        self.providers, self.slices, self.resources = Parser.parse(path)
 
     def get_fabric_config(self) -> dict or None:
         for provider in self.providers:
@@ -118,16 +119,8 @@ class Config:
 
         return None
 
-    def get_resource_config(self) -> list:
-        ret = []
-
-        for resource in self.resources:
-            if resource.type != 'slice':
-                attrs = dict(resource.attributes)
-                attrs.pop('slice')
-                ret.append(dict(resource=attrs))
-
-        return ret
+    def get_resource_config(self) -> List[ResourceConfig]:
+        return self.resources
 
     def get_log_config(self) -> dict:
         return self.config_dict.get(Config.LOGGING, None)
