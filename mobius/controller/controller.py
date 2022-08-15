@@ -23,12 +23,12 @@
 #
 # Author Komal Thareja (kthare10@renci.org)
 import logging
-import os
 import traceback
 from logging.handlers import RotatingFileHandler
 
 from mobius.controller.chi.chi_client import ChiClient
 from mobius.controller.util.config import Config
+import sys
 
 
 class Controller:
@@ -43,7 +43,7 @@ class Controller:
                                            backupCount=int(log_config.get(Config.PROPERTY_CONF_LOG_RETAIN)),
                                            maxBytes=int(log_config.get(Config.PROPERTY_CONF_LOG_SIZE)))
         logging.basicConfig(level=log_level,
-                            format="%(asctime)s [%(threadName)s] [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
+                            format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
                             handlers=[logging.StreamHandler(), file_handler], force=True)
 
         self.fabric_client = None
@@ -54,64 +54,117 @@ class Controller:
             from mobius.controller.fabric.fabric_client import FabricClient
 
             self.fabric_client = FabricClient(logger=self.logger, fabric_config=fabric_config)
-            self.fabric_client.setup_environment(site="")
-
+            self.fabric_client.setup_environment()
 
         chi_config = self.config.get_chi_config()
         if chi_config is not None:
             self.chi_client = ChiClient(logger=self.logger, chi_config=chi_config)
 
-    def create(self, *, slice_name: str = None, connected: str = None):
+    def simple_create(self):
         try:
             self.logger.debug("Starting create")
-            if slice_name is None:
-                raise Exception("TODO Handle slice name")
-                # TODO slice_name = self.config.get_runtime_config()[Config.RUNTIME_SLICE_NAME]
+            resources = self.config.get_resource_config()
+            for resource in resources:
+                slice_config = resource.slice
+                provider = slice_config.provider.type
+
+                if provider == "fabric":
+                    client = self.fabric_client
+                elif provider == 'chi':
+                    client = self.chi_client
+                else:
+                    self.logger.warning(f"Unknown provider type {provider}")
+                    continue
+
+                slice_name = slice_config.name
+                resource_dict = resource.attributes
+                resource_dict['resource_type'] = resource.type  # TODO pass along resource type/name differently
+                resource_dict['resource_name'] = resource.name
+
+                if resource.has_dependencies():
+                    resource_dict['has_dependencies'] = True
+                    resource_dict['dependencies'] = resource.dependencies
+                else:
+                    resource_dict['has_dependencies'] = False
+
+                if resource.is_node:
+                    client.add_resources(resource=resource_dict, slice_name=slice_name)
+                elif resource.is_network:
+                    client.add_resources(resource=resource_dict, slice_name=slice_name)
+
+            client.create_resources(slice_name=slice_name, rtype=None)
+        except Exception as e:
+            self.logger.error(f"Exception occurred while creating resources: {e}")
+            self.logger.error(traceback.format_exc())
+
+    def create(self, *, connected: str = None):
+        if True:
+            return self.simple_create()
+
+        try:
+            self.logger.debug("Starting create")
             resources = self.config.get_resource_config()
             active = dict()
             for resource in resources:
-                resource_dict = resource.get(Config.RESOURCE)
-                r_type = resource_dict.get(Config.RES_TYPE).lower()
-                site = resource_dict.get("site", None)
-                if not site:
-                    self.logger.info("No site configured, skipping resource")
-                    continue
-                if site.lower().startswith("fabric"):
+                slice_config = resource.slice
+                provider = slice_config.provider.type
+
+                if provider == "fabric":
                     client = self.fabric_client
-                elif site.lower().startswith("chi") or site.lower().startswith("kvm"):
+                elif provider == 'chi':
                     client = self.chi_client
                 else:
-                    self.logger.warning(f"Unknown site type {site}")
+                    self.logger.warning(f"Unknown provider type {provider}")
                     continue
 
-                key = f"{site}-{r_type}"
-                if r_type in [Config.RES_TYPE_BM.lower(), Config.RES_TYPE_VM.lower()]:
-                    # XXX make these dicts classes
+                slice_name = slice_config.name
+                resource_dict = resource.attributes
+                key = f"{slice_name}-{resource.name}"  # TODO key may not be unique
+                resource_dict['resource_type'] = resource.type  # TODO pass along resource type/name differently
+                resource_dict['resource_name'] = resource.name
+
+                if resource.has_dependencies():
+                    resource_dict['has_dependencies'] = True
+                    resource_dict['dependencies'] = resource.dependencies
+                else:
+                    resource_dict['has_dependencies'] = False
+
+                if resource.is_node:
+                    # TODO  make these dicts classes
                     active.update({key: {"client": client,
-                                          "type": Config.RES_TYPE_NODE,
-                                          "priority": 100,
-                                          "resource": client.add_resources(resource=resource_dict, slice_name=slice_name)}})
-                elif connected and r_type == Config.RES_TYPE_NETWORK.lower():
-                    # Network resources.
-                    net_priority = 20 if "vlan" in resource_dict and resource_dict.get("vlan") == None else 10
+                                         "type": Config.RES_TYPE_NODE,
+                                         "slice_name":  slice_name,
+                                         "priority": 100,
+                                         "resource": client.add_resources(resource=resource_dict,
+                                                                          slice_name=slice_name)}})
+                elif resource.is_network:
+                    print("JJJJJ", resource, resource.attributes, file=sys.stderr)
+                    net_priority = 20 if ("vlan" in resource_dict and not resource_dict.get(
+                        "vlan")) and connected else 10
                     active.update({key: {"client": client,
-                                          "type": Config.RES_TYPE_NETWORK,
-                                          "priority": net_priority,
-                                          "resource": client.add_resources(resource=resource_dict, slice_name=slice_name)}})
+                                         "type": Config.RES_TYPE_NETWORK,
+                                         "slice_name": slice_name,
+                                         "priority": net_priority,
+                                         "resource": client.add_resources(resource=resource_dict,
+                                                                          slice_name=slice_name)}})
 
             # XXX set callback data based on priorities
-            sorted_dict = dict(sorted(active.items(), key=lambda item: item[1]["priority"]))
+            sorted_dict = dict(sorted(active.items(), key=lambda it: it[1]["priority"]))
+            print(sorted_dict, file=sys.stderr)
             first = None
-            for site, item in sorted_dict.items():
+            for key, item in sorted_dict.items():
                 if not first:
                     first = item
                 else:
                     item.get("resource").register_callback(first.get("client").get_network_vlans)
 
             # Actually instantiate all the added resources above
-            for site, item in sorted_dict.items():
-                self.logger.info(f"Creating {item.get('type')} resource at {site} for priority {item.get('priority')} item")
-                item.get("client").create_resources(rtype=item.get("type"))
+            for key, item in sorted_dict.items():
+                self.logger.info(
+                    f"Creating {item.get('type')} resource at {key} for priority {item.get('priority')} item")
+
+                item.get("client").create_resources(slice_name=item.get("slice_name"), rtype=item.get("type"))
+
         except Exception as e:
             self.logger.error(f"Exception occurred while creating resources: {e}")
             self.logger.error(traceback.format_exc())
@@ -138,4 +191,3 @@ class Controller:
                     resources.append(x)
 
         return resources
-
