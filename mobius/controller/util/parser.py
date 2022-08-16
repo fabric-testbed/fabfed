@@ -233,6 +233,19 @@ def order_resources(dependency_map:  Dict[ResourceConfig, Set[ResourceConfig]]) 
     return ordered_resources
 
 
+def normalize(objs):  # TODO looks like we need this  for chameleon provider
+    for obj in objs:
+        attrs = {}
+
+        for key, value in obj.attributes.items():
+            if isinstance(value, SimpleNamespace):
+                attrs[key] = vars(value)
+            else:
+                attrs[key] = value
+
+        obj.attributes = attrs
+
+
 class Parser:
     def __init__(self):
         pass
@@ -243,11 +256,20 @@ class Parser:
             return next(label for label in lst if not label.startswith("__"))
 
         type = extract_label(dir(obj))
-        value = obj.__getattribute__(type)[0]
-        name = extract_label(dir(value))
-        value = value.__getattribute__(name)[0]
-        attrs = value.__dict__
-        return type, name, attrs
+
+        try:
+            def extract_label(lst):
+                return next(label for label in lst if not label.startswith("__"))
+
+            type = extract_label(dir(obj))
+            value = obj.__getattribute__(type)[0]
+            name = extract_label(dir(value))
+            value = value.__getattribute__(name)[0]
+            attrs = value.__dict__
+            return type, name, attrs
+        except:
+            raise Exception(f"need to supply as a triplet {type}")
+
 
     @staticmethod
     def _parse_resource(obj) -> BaseConfig:
@@ -296,10 +318,10 @@ class Parser:
     @staticmethod
     def validate_resources(resources:  List[ResourceConfig]):
         if len(resources) == 0:
-            raise Exception("no slices found ...")
+            raise Exception("no resources found ...")
 
         if len(resources) != len(set(resources)):
-            raise Exception(f'detected duplicate slices')
+            raise Exception(f'detected duplicate  resources')
 
     @staticmethod
     def parse(file_name) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
@@ -310,11 +332,15 @@ class Parser:
             obj = yaml.safe_load(stream)
             obj = json.loads(json.dumps(obj), object_hook=load_object)
 
-        if not hasattr(obj, 'provider'):
-            raise Exception("no providers supplied ")
+        if not hasattr(obj, 'provider') or obj.provider is None:
+            raise Exception("no providers found")
 
         providers = [Parser._parse_provider(provider) for provider in obj.provider]
         Parser.validate_providers(providers)
+        normalize(providers)
+
+        if not hasattr(obj, 'resource') or obj.resource is None:
+            raise Exception("no resources found ...")
 
         resource_base_configs = [Parser._parse_resource(resource) for resource in obj.resource]
 
