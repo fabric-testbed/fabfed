@@ -1,0 +1,73 @@
+#############
+# This config is minimal to test vlan dependency. 
+# change password, key pair, username, .....
+# The submit would fail for fabric since there are no nodes. (Status.INVALID_ARGUMENTS, Either topology None or slice graph None must be specified)
+# But the add_network metthod would show it has the vlan ....
+#############
+provider:
+  - fabric:
+    - my_fabric_provider:
+       - oc-host: orchestrator.fabric-testbed.net
+         cm-host: cm.fabric-testbed.net
+         token-location: /Users/jdoe/FABRIC/tokens.json
+         bastion-host: bastion-1.fabric-testbed.net
+         bastion-user-name: jdoe_0000016675
+         bastion-key-location: /Users/jdoe/FABRIC/my-aes-bastion
+         project_id: 990d8a8b-7e50-4d13-a3be-0f133ffa8653
+         slice-private-key-location: /Users/jdoe/FABRIC/my-aes-sliver
+         slice-public-key-location: /Users/jdoe/FABRIC/my-aes-sliver.pub
+  - chi:
+    - my_chi_provider:
+        - user: jdoe@lbl.gov@accounts.google.com
+          password: XXXXXXX
+          auth_url:
+            tacc: https://chi.tacc.chameleoncloud.org:5000/v3
+            uc: https://chi.uc.chameleoncloud.org:5000/v3
+            kvm: https://kvm.tacc.chameleoncloud.org:5000/v3
+            edge: https://chi.edge.chameleoncloud.org:5000/v3
+          client_id:
+            tacc: keystone-tacc-prod
+            uc: keystone-uc-prod
+            kvm: keystone-kvm-prod
+            edge: keystone-edge-prod
+          key_pair: jdoe 
+          project_name: CH-822154
+          project_id:
+            tacc: a400724e818d40cbba1a5c6b5e714462
+            uc: ae76673270164b048b59d3bd30676721
+            kvm: a400724e818d40cbba1a5c6b5e714462
+            edge:
+          slice-private-key-location: /Users/jdoe/FABRIC/my-aes-sliver
+          slice-public-key-location: /Users/jdoe/FABRIC/my-aes-sliver.pub
+
+resource:
+  - slice:
+      - my_fabric_slice:
+          - provider: '{{ fabric.my_fabric_provider }}'
+  - slice:
+      - my_chi_slice:
+          - provider: '{{ chi.my_chi_provider }}'
+
+  - network:
+      - my_chi_network:
+          - slice:  '{{ slice.my_chi_slice }}'
+            site: CHI@UC
+            pool_start: 192.168.100.100
+            pool_end: 192.168.100.150
+            gateway: 192.168.100.1
+            stitch_provider: fabric
+
+  - network:
+      - my_fabric_network:
+          - slice: '{{ slice.my_fabric_slice }}'
+            site: FABRIC.STAR
+            pool_start: 192.168.100.200
+            pool_end: 192.168.100.250
+            vlan: '{{ network.my_chi_network.vlans}}'
+
+logging:
+  log-file: ./mobius.log
+  log-level: INFO
+  log-retain: 5
+  log-size: 5000000
+  logger: mobius
