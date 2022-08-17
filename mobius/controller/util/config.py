@@ -25,7 +25,7 @@
 # Author: Komal Thareja (kthare10@renci.org)
 import yaml
 
-from .parser import Parser, ResourceConfig
+from .parser import Parser, ResourceConfig, ProviderConfig
 from typing import List
 
 
@@ -105,19 +105,8 @@ class Config:
 
         self.providers, self.slices, self.resources = Parser.parse(path)
 
-    def get_fabric_config(self) -> dict or None:
-        for provider in self.providers:
-            if provider.type == 'fabric':
-                return provider.attributes
-
-        return None
-
-    def get_chi_config(self) -> dict or None:
-        for provider in self.providers:
-            if provider.type == 'chi':
-                return provider.attributes
-
-        return None
+    def get_provider_config(self) -> List[ProviderConfig]:
+        return self.providers
 
     def get_resource_config(self) -> List[ResourceConfig]:
         return self.resources

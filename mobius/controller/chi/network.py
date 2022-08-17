@@ -95,14 +95,16 @@ class Network:
             ),
         }]
         chi.lease.create_lease(lease_name=self.leased_resource_name, reservations=reservations)
-        self.logger.info("Waiting for the lease to be Active")
-        try:
-            chi.lease.wait_for_active(self.leased_resource_name)
-        except Exception as e:
-            self.logger.error("Error occurred while waiting for the lease to be Active")
-            self.__delete_lease()
-            return False
-        return True
+
+        for i in range(self.retry):
+            try:
+                self.logger.info(f"Waiting for the lease to be Active try={i+1}")
+                chi.lease.wait_for_active(self.leased_resource_name)
+                return True
+            except:
+                self.logger.warning(f"Error occurred while waiting for the lease to be Active tried  {i+1}")
+
+        return False
 
     def get_reservation_id(self):
         existing_lease = None

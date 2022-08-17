@@ -34,6 +34,7 @@ from fabrictestbed_extensions.fablib.slice import Slice
 from mobius.controller.api.api_client import ApiClient
 from mobius.controller.util.config import Config
 
+from mobius.models import AbstractResourceListener
 
 # XXX monkeypatch fablic Slice
 def register_callback(self, cb, cb_key=None):
@@ -42,7 +43,7 @@ Slice._callbacks = dict()
 Slice.register_callback = register_callback
 
 
-class FabricClient(ApiClient):
+class FabricClient(ApiClient, AbstractResourceListener):
     def __init__(self, *, logger: logging.Logger, fabric_config: dict):
         """ Constructor """
         self.logger = logger
@@ -51,6 +52,7 @@ class FabricClient(ApiClient):
         self.slices = {}
         self.slice_created = {}
         self.pending = {}
+        self.resource_listener = None
 
     def setup_environment(self):
         import os
@@ -71,9 +73,25 @@ class FabricClient(ApiClient):
 
         fablib.fablib_object = fablib()
 
-        # import json
-        #
-        # print(json.dumps(fablib.get_config(), indent=4))
+    def set_resource_listener(self, resource_listener):
+        self.resource_listener = resource_listener
+
+    def on_added(self, source, slice_name, resource: dict):
+        pass
+
+    def on_created(self, source, slice_name, resource):
+        for pending_resources in self.pending.values():
+            for pending_resource in pending_resources:
+                for dependency in pending_resource['dependencies']:
+                    temp = dependency[1]
+
+                    if temp.slice.name == slice_name and temp.name == resource['name']:
+                        resolved_dependencies = pending_resource['resolved_dependencies']
+                        resolved_dependency = (dependency[0], resource[dependency[2]])
+                        resolved_dependencies.append(resolved_dependency)
+
+    def on_deleted(self, source, slice_name, resource):
+        pass
 
     def get_resources(self, slice_id: str = None, slice_name: str = None) -> List[Slice] or None:
         if slice_id is None and slice_name is None and len(self.slices) == 0:
@@ -105,56 +123,16 @@ class FabricClient(ApiClient):
         return
 
     def _add_network(self, slice_object: Slice, resource: dict):
-        print("********************** BEGIN ADDING NEWTOWK  ...", file=sys.stderr)
-        print(resource['has_dependencies'], file=sys.stderr)
-        print(resource['dependencies'], file=sys.stderr)
-        network_name = resource['resource_name']
-        interfaces = []
+        if resource['resolved_dependencies']:
+            print("I have vlan ", resource['resolved_dependencies'], file=sys.stderr)
 
-        try:
-            if resource['has_dependencies']:
-                for key, item in resource['dependencies']:
-                    # if item[1] != 'node':
-                    #     raise Exception("only handling node dependencies for now")
+            if resource in self.pending[slice_object.get_name()]:
+                self.pending[slice_object.get_name()].remove(resource)
+        else:
+            print("I am mising vlan ", resource['resolved_dependencies'], file=sys.stderr)
 
-                    # print("&&&&& BbEGIN &&&&&", file=sys.stderr)
-                    # print("ME:", resource, file=sys.stderr)
-                    # print("key:", key, file=sys.stderr)
-                    # print(item.name, file=sys.stderr)
-                    # print(item.type, file=sys.stderr)
-                    # print(item.attributes, file=sys.stderr)
-                    # print("theirslice", item.slice.name, file=sys.stderr)
-                    # print("this slice", slice_object.slice_name, file=sys.stderr)
-                    # print('count:', item.attributes.get('count', 1), file=sys.stderr)
-                    # print("&&&&& END  &&&&&", file=sys.stderr)
-
-                    node_count = item.attributes.get('count', 1)
-                    node_name = item.name
-
-                    if node_count == 1:
-                        node = slice_object.get_node(name=node_name)
-                        print("Coucou:", node.get_name(), file=sys.stderr)
-                        iface = node.get_interfaces()[0]
-                        interfaces.append(iface)
-                        continue
-
-                    for i in range(node_count):
-                        node_name = f"{node_name}{i}"
-                        node = slice_object.get_node(name=node_name)
-                        iface = node.get_interfaces()[0]
-                        interfaces.append(iface)
-
-        except Exception as e:
-            self.logger.warning(f"Exception attempted when creating network  {network_name}  : {e}")
-            # TODO HANDLE LIST
-            self.pending[slice_object.get_name()] = [resource]
-            print("*********************** END ADDING NEWTOWK  ...", file=sys.stderr)
-            return
-
-        print("AHAAAAAAHHHHA:", len(interfaces), file=sys.stderr)
-        slice_object.add_l2network(name=network_name, interfaces=interfaces)
-        print("*********************** END ADDING NEWTOWK  ...", file=sys.stderr)
-        # sys.exit(1)
+            if resource not in self.pending[slice_object.get_name()]:
+                self.pending[slice_object.get_name()].append(resource)
 
         # site = resource.get(Config.RES_SITE)
         # pool_start = resource.get(Config.RES_NET_POOL_START, None)
@@ -170,7 +148,7 @@ class FabricClient(ApiClient):
     def _add_node(self, slice_object: Slice, resource: dict):
         # TODO interface_list = []
         node_count = resource.get(Config.RES_COUNT, 1)
-        node_name = resource.get('resource_name')
+        node_name = resource.get(Config.RES_NAME_PREFIX)
         image = resource.get(Config.RES_IMAGE)
         nic_model = resource.get(Config.RES_NIC_MODEL, 'NIC_Basic')
         site = resource.get(Config.RES_SITE, Config.FABRIC_RANDOM)
@@ -184,12 +162,6 @@ class FabricClient(ApiClient):
             site = fablib.get_random_site()
             self.logger.info(f"getting random site {site}")
 
-        # Add node
-        if node_count == 1:
-            node = slice_object.add_node(name=node_name, image=image, site=site, cores=cores, ram=ram, disk=disk)
-            node.add_component(model=nic_model, name="nic1")
-            return
-
         for i in range(node_count):
             node_name = f"{node_name}{i}"
             node = slice_object.add_node(name=node_name, image=image, site=site, cores=cores, ram=ram, disk=disk)
@@ -202,8 +174,6 @@ class FabricClient(ApiClient):
         # slice_object.add_l3network(name=f"{site}-network", interfaces=interface_list, type=network_type)
 
     def add_resources(self, *, resource: dict, slice_name: str) -> Slice or None:
-        print("aes_add_resources:", resource, file=sys.stderr)
-
         if resource.get(Config.RES_COUNT, 1) < 1:
             return None
 
@@ -216,9 +186,11 @@ class FabricClient(ApiClient):
                 slice_object = fablib.new_slice(slice_name)
                 self.slices[slice_name] = slice_object
                 self.slice_created[slice_name] = False
+                self.pending[slice_name] = []
             else:
                 self.slices[slice_name] = slice_object
                 self.slice_created[slice_name] = True
+                self.pending[slice_name] = []
 
         # TODO ALLOW NETWORK THIS TO GO THROUGH
         # rtype = resource.get('resource_type')
@@ -231,7 +203,7 @@ class FabricClient(ApiClient):
             return slice_object
 
         self.logger.debug(f"Adding {resource} to {slice_name}")
-        rtype = resource.get('resource_type')
+        rtype = resource.get(Config.RES_TYPE)
         if rtype == Config.RES_TYPE_NETWORK.lower():
             self._add_network(slice_object, resource)
         elif rtype == Config.RES_TYPE_NODE.lower():
@@ -276,22 +248,22 @@ class FabricClient(ApiClient):
             self.logger.warning(f"already provisioned ...  will not bother to create any resource to {slice_name}")
             return
 
-        print("$$$$$$$$$$$$ BEGIN CREATE", file=sys.stderr)
         slice_object = self.slices[slice_name]
-        print("Before", self.pending, file=sys.stderr)
+        pending = self.pending.get(slice_name)
+
+        for resource in pending:
+            self.add_resources(resource=resource, slice_name=slice_name)
 
         if slice_name in self.pending:
-            pending = self.pending.get(slice_name)
             for resource in pending:
                 self.add_resources(resource=resource, slice_name=slice_name)
 
-            # TODO pop only if all pending have been crated
-            self.pending.pop(slice_name)
+        if pending:
+            self.logger.warning(f"still have pending {len(pending)} resources")
+            return
 
-        print("After", self.pending, file=sys.stderr)
         self._submit_and_wait(slice_object=slice_object)
         self.slice_created[slice_name] = True
-        print("$$$$$$$$$$$$ END CREATE", file=sys.stderr)
 
     def delete_resources(self, *, slice_id: str = None, slice_name: str = None):
         if slice_id is None and slice_name is None and len(self.slices) == 0:

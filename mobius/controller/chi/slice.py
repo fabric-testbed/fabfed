@@ -38,7 +38,6 @@ class Slice(AbstractSlice):
 
     def __init__(self, *, name: str, logger: logging.Logger, key_pair: str, project_name: str):
         self.name = name
-        self.node_counter = 0
         self.logger = logger
         self.key_pair = key_pair
         self.project_name = project_name
@@ -46,6 +45,10 @@ class Slice(AbstractSlice):
         self._networks = list()
         self._services = list()
         self._callbacks = dict()
+        self.resource_listener = None
+
+    def set_resource_listener(self, resource_listener):
+        self.resource_listener = resource_listener
 
     def add_network(self, resource: dict):
         site = resource.get(Config.RES_SITE)
@@ -54,12 +57,15 @@ class Slice(AbstractSlice):
         gateway = resource.get(Config.RES_NET_GATEWAY, None)
         stitch_provider = resource.get(Config.RES_NET_STITCH_PROV, None)
 
-        net_name = f"Network0"
+        net_name = resource.get(Config.RES_NAME_PREFIX)
         net = Network(name=net_name, site=site, logger=self.logger,
                       slice_name=self.name, pool_start=pool_start, pool_end=pool_end,
                       gateway=gateway, stitch_provider=stitch_provider,
                       project_name=self.project_name)
         self._networks.append(net)
+
+        if self.resource_listener:
+            self.resource_listener.on_added(self, self.name, vars(net))
 
     def add_node(self, resource: dict):
         site = resource.get(Config.RES_SITE)
@@ -70,18 +76,20 @@ class Slice(AbstractSlice):
         if network not in self.DEFAULT_NETWORKS:
             raise Exception("Private network not supported")
 
-        node_count = resource.get(Config.RES_COUNT)
+        node_count = resource.get(Config.RES_COUNT, 1)
         image = resource.get(Config.RES_IMAGE)
         node_name_prefix = resource.get(Config.RES_NAME_PREFIX)
         flavor = resource.get(Config.RES_FLAVOR)[Config.RES_FLAVOR_NAME]
 
         for n in range(0, node_count):
-            node_name = f"{node_name_prefix}{self.node_counter}"
-            self.node_counter += 1
+            node_name = f"{node_name_prefix}{n}"
             node = Node(name=node_name, image=image, site=site, flavor=flavor, logger=self.logger,
                         key_pair=self.key_pair, slice_name=self.name, network=network,
                         project_name=self.project_name)
             self._nodes.append(node)
+
+            if self.resource_listener:
+                self.resource_listener.on_added(self, self.name, vars(node))
 
     def add_resource(self, *, resource: dict):
         # Select your site
@@ -95,9 +103,15 @@ class Slice(AbstractSlice):
         if rtype in [None, Config.RES_TYPE_NETWORK]:
             for n in self.networks:
                 n.create()
+
+                if self.resource_listener:
+                    self.resource_listener.on_created(self, self.name, vars(n))
         if rtype in [None, Config.RES_TYPE_NODE]:
             for n in self.nodes:
                 n.create()
+
+                if self.resource_listener:
+                    self.resource_listener.on_created(self, self.name, vars(n))
 
     def delete(self):
         for n in self._nodes:

@@ -28,12 +28,15 @@ import os
 from mobius.controller.api.api_client import ApiClient
 from mobius.controller.util.config import Config
 
+from mobius.models import AbstractResourceListener
 
-class ChiClient(ApiClient):
+
+class ChiClient(ApiClient, AbstractResourceListener):
     def __init__(self, *, logger: logging.Logger, chi_config: dict):
         self.logger = logger
         self.chi_config = chi_config
         self.slices = {}
+        self.resource_listener = None
 
     def setup_environment(self, *, site: str):
         """
@@ -59,6 +62,21 @@ class ChiClient(ApiClient):
         os.environ['OS_REGION_NAME'] = site
         os.environ['OS_SLICE_PRIVATE_KEY_FILE'] = self.chi_config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
         os.environ['OS_SLICE_PUBLIC_KEY_FILE'] = self.chi_config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
+
+    def set_resource_listener(self, resource_listener):
+        self.resource_listener = resource_listener
+
+    def on_added(self, source, slice_name, resource: dict):
+        if self.resource_listener:
+            self.resource_listener.on_added(self, slice_name, resource)
+
+    def on_created(self, source, slice_name, resource: dict):
+        if self.resource_listener:
+            self.resource_listener.on_created(self, slice_name, resource)
+
+    def on_deleted(self, source, slice_name, resource: dict):
+        if self.resource_listener:
+            self.resource_listener.on_deleted(self, slice_name, resource)
 
     @staticmethod
     def __get_site_identifier(*, site: str):
@@ -90,10 +108,10 @@ class ChiClient(ApiClient):
 
     def add_resources(self, *, resource: dict, slice_name: str):
         # Network info may be amended
-        if resource.get(Config.RES_COUNT) < 1:
+        if resource.get(Config.RES_COUNT, 1) < 1:
             return None
 
-        self.logger.debug(f"Adding {resource} to {slice_name}")
+        self.logger.info(f"Adding {resource} to {slice_name}")
 
         site = resource.get(Config.RES_SITE)
         self.setup_environment(site=site)
@@ -101,12 +119,13 @@ class ChiClient(ApiClient):
         # Should be done only after setting up the environment
         from mobius.controller.chi.slice import Slice
         if slice_name in self.slices:
-            self.logger.info(f"Slice {slice_name} already exists!")
             slice_object = self.slices[slice_name]
         else:
             slice_object = Slice(name=slice_name, logger=self.logger, key_pair=self.chi_config.get(Config.CHI_KEY_PAIR),
                                  project_name=self.chi_config.get(Config.CHI_PROJECT_NAME))
+            slice_object.set_resource_listener(self)
             self.slices[slice_name] = slice_object
+
         slice_object.add_resource(resource=resource)
         return slice_object
 
@@ -126,4 +145,4 @@ class ChiClient(ApiClient):
                 for s in self.slices.values():
                     s.delete()
         except Exception as e:
-            self.logger.info(f"Fail: {e}")
+            self.logger.error(f"Fail: {e}")

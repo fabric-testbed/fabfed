@@ -28,7 +28,24 @@ from logging.handlers import RotatingFileHandler
 
 from mobius.controller.chi.chi_client import ChiClient
 from mobius.controller.util.config import Config
-import sys
+
+from mobius.models import AbstractResourceListener
+
+
+class ResourceListener(AbstractResourceListener):
+    def __init__(self,  providers):
+        self.providers = providers
+
+    def on_added(self, source, slice_name, resource: dict):
+        pass
+
+    def on_created(self, source, slice_name, resource):
+        for provider in self.providers.values():
+            if provider != source:
+                provider.on_created(self, slice_name, resource)
+
+    def on_deleted(self, source, slice_name, resource):
+        pass
 
 
 class Controller:
@@ -46,44 +63,43 @@ class Controller:
                             format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
                             handlers=[logging.StreamHandler(), file_handler], force=True)
 
-        self.fabric_client = None
-        self.chi_client = None
+        provider_configs = self.config.get_provider_config()
+        self.providers = {}
 
-        fabric_config = self.config.get_fabric_config()
-        if fabric_config is not None:
-            from mobius.controller.fabric.fabric_client import FabricClient
+        for provider_config in provider_configs:
+            if provider_config.type == 'fabric':
+                from mobius.controller.fabric.fabric_client import FabricClient
 
-            self.fabric_client = FabricClient(logger=self.logger, fabric_config=fabric_config)
-            self.fabric_client.setup_environment()
-
-        chi_config = self.config.get_chi_config()
-        if chi_config is not None:
-            self.chi_client = ChiClient(logger=self.logger, chi_config=chi_config)
+                provider = FabricClient(logger=self.logger, fabric_config=provider_config.attributes)
+                provider.setup_environment()
+                self.providers[provider_config.name] = provider
+            elif provider_config.type == 'chi':
+                provider = ChiClient(logger=self.logger, chi_config=provider_config.attributes)
+                self.providers[provider_config.name] = provider
+            else:
+                raise Exception(f"no provider for {provider_config.name}")
 
     def simple_create(self):
+        resources = self.config.get_resource_config()
+        resource_listener = ResourceListener(self.providers)
+
+        for provider in self.providers.values():
+            provider.set_resource_listener(resource_listener)
+
         try:
-            self.logger.debug("Starting create")
-            resources = self.config.get_resource_config()
+            self.logger.debug("Starting adding")
             for resource in resources:
                 slice_config = resource.slice
-                provider = slice_config.provider.type
-
-                if provider == "fabric":
-                    client = self.fabric_client
-                elif provider == 'chi':
-                    client = self.chi_client
-                else:
-                    self.logger.warning(f"Unknown provider type {provider}")
-                    continue
-
+                client = self.providers[slice_config.provider_name]
                 slice_name = slice_config.name
                 resource_dict = resource.attributes
-                resource_dict['resource_type'] = resource.type  # TODO pass along resource type/name differently
-                resource_dict['resource_name'] = resource.name
+                resource_dict[Config.RES_TYPE] = resource.type
+                resource_dict[Config.RES_NAME_PREFIX] = resource.name
 
                 if resource.has_dependencies():
                     resource_dict['has_dependencies'] = True
                     resource_dict['dependencies'] = resource.dependencies
+                    resource_dict['resolved_dependencies'] = []
                 else:
                     resource_dict['has_dependencies'] = False
 
@@ -91,41 +107,39 @@ class Controller:
                     client.add_resources(resource=resource_dict, slice_name=slice_name)
                 elif resource.is_network:
                     client.add_resources(resource=resource_dict, slice_name=slice_name)
+        except Exception as e:
+            self.logger.error(f"Exception occurred while adding resources: {e}")
+            raise e
 
-            client.create_resources(slice_name=slice_name, rtype=None)
+        try:
+            self.logger.debug("Starting adding")
+            for resource in resources:
+                client = self.providers[resource.slice.provider_name]
+
+                client.create_resources(slice_name=slice_name, rtype=None)
         except Exception as e:
             self.logger.error(f"Exception occurred while creating resources: {e}")
-            self.logger.error(traceback.format_exc())
+            raise e
+            # self.logger.error(traceback.format_exc())
 
     def create(self, *, connected: str = None):
-        if True:
-            return self.simple_create()
-
         try:
             self.logger.debug("Starting create")
             resources = self.config.get_resource_config()
             active = dict()
             for resource in resources:
                 slice_config = resource.slice
-                provider = slice_config.provider.type
-
-                if provider == "fabric":
-                    client = self.fabric_client
-                elif provider == 'chi':
-                    client = self.chi_client
-                else:
-                    self.logger.warning(f"Unknown provider type {provider}")
-                    continue
-
+                client = self.providers[slice_config.provider_name]
                 slice_name = slice_config.name
                 resource_dict = resource.attributes
-                key = f"{slice_name}-{resource.name}"  # TODO key may not be unique
-                resource_dict['resource_type'] = resource.type  # TODO pass along resource type/name differently
-                resource_dict['resource_name'] = resource.name
+                key = f"{slice_name}-{resource.name}-{resource.type}"
+                resource_dict[Config.RES_TYPE] = resource.type
+                resource_dict[Config.RES_NAME_PREFIX] = resource.name
 
                 if resource.has_dependencies():
                     resource_dict['has_dependencies'] = True
                     resource_dict['dependencies'] = resource.dependencies
+                    resource_dict['resolved_dependencies'] = []
                 else:
                     resource_dict['has_dependencies'] = False
 
@@ -138,7 +152,6 @@ class Controller:
                                          "resource": client.add_resources(resource=resource_dict,
                                                                           slice_name=slice_name)}})
                 elif resource.is_network:
-                    print("JJJJJ", resource, resource.attributes, file=sys.stderr)
                     net_priority = 20 if ("vlan" in resource_dict and not resource_dict.get(
                         "vlan")) and connected else 10
                     active.update({key: {"client": client,
@@ -150,7 +163,6 @@ class Controller:
 
             # XXX set callback data based on priorities
             sorted_dict = dict(sorted(active.items(), key=lambda it: it[1]["priority"]))
-            print(sorted_dict, file=sys.stderr)
             first = None
             for key, item in sorted_dict.items():
                 if not first:
@@ -170,24 +182,16 @@ class Controller:
             self.logger.error(traceback.format_exc())
 
     def delete(self, *, slice_name: str = None):
-        if self.fabric_client:
-            self.fabric_client.delete_resources(slice_name=slice_name)
-
-        if self.chi_client:
-            self.chi_client.delete_resources(slice_name=slice_name)
+        for provider in self.providers.values():
+            provider.delete_resources(slice_name=slice_name)
 
     def get_resources(self) -> list:
         resources = []
-        if self.chi_client:
-            chi_slices = self.chi_client.get_resources()
-            if chi_slices is not None:
-                for x in chi_slices:
-                    resources.append(x)
 
-        if self.fabric_client:
-            fabric_slices = self.fabric_client.get_resources()
-            if fabric_slices is not None:
-                for x in fabric_slices:
-                    resources.append(x)
+        for provider in self.providers.values():
+            slices = provider.get_resources()
+
+            if slices:
+                resources.extend(slices)
 
         return resources
