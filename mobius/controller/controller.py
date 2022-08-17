@@ -115,6 +115,7 @@ class Controller:
             self.logger.debug("Starting adding")
             for resource in resources:
                 client = self.providers[resource.slice.provider_name]
+                slice_name = resource.slice.name
 
                 client.create_resources(slice_name=slice_name, rtype=None)
         except Exception as e:
