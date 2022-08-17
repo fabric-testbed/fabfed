@@ -192,12 +192,6 @@ class FabricClient(ApiClient, AbstractResourceListener):
                 self.slice_created[slice_name] = True
                 self.pending[slice_name] = []
 
-        # TODO ALLOW NETWORK THIS TO GO THROUGH
-        # rtype = resource.get('resource_type')
-        # if rtype == Config.RES_TYPE_NETWORK.lower():
-        #     self._add_network(slice_object, resource)
-        #     return
-
         if self.slice_created[slice_name]:
             self.logger.warning(f"already provisioned ...  will not bother to add any resource to {slice_name}")
             return slice_object
