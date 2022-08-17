@@ -8,10 +8,30 @@ class AbstractNode(ABC):
 class AbstractNetwork(ABC):
     pass
 
+
 class AbstractService(ABC):
     pass
 
+
+class AbstractResourceListener(ABC):
+    @abstractmethod
+    def on_added(self, source, slice_name, resource: dict):
+        pass
+
+    @abstractmethod
+    def on_created(self, source, slice_name, resource: dict):
+        pass
+
+    @abstractmethod
+    def on_deleted(self, source, slice_name, resource: dict):
+        pass
+
+
 class AbstractSlice(ABC):
+    @abstractmethod
+    def set_resource_listener(self, resource_listener):
+        pass
+
     @abstractmethod
     def create(self, rtype: str = None):
         pass

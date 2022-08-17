@@ -41,6 +41,14 @@ class SliceConfig(BaseConfig):
     def provider(self) -> ProviderConfig:
         return self._provider
 
+    @property
+    def provider_name(self) -> str:
+        return self._provider.name
+
+    @property
+    def provider_type(self) -> str:
+        return self._provider.type
+
     def __str__(self) -> str:
         return super().__str__() + '@' + self.provider.__str__()
 
@@ -67,6 +75,9 @@ class ResourceConfig(BaseConfig):
     def dependencies(self):
         return self._resource_dependencies
 
+    def add_dependency(self, dependency):
+        self._resource_dependencies.add(dependency)
+
     def has_dependencies(self):
         return len(self._resource_dependencies) > 0
 
@@ -83,7 +94,7 @@ class ResourceConfig(BaseConfig):
         return self.slice.provider
 
     def __str__(self) -> str:
-        return super().__str__() + ' using slice ' + self.slice.__str__()
+        return super().__str__() + ' using ' + self.slice.__str__()
 
     def __eq__(self, other):
         return (self.name, self.type, self.slice) == (other.name, other.type, other.slice)
@@ -125,12 +136,14 @@ class Evaluator:
         config_entries.extend(self.providers)
         config_entries.extend(self.resources)
 
-        if len(parts) > 2:
-            raise Exception(f"this {path} is not handled just yet")
+        if len(parts) < 2:
+            raise Exception(f"bad dependency {path}")
 
         for config_entry in config_entries:
             if config_entry.type == parts[0] and config_entry.name == parts[1]:
-                return config_entry
+                ret = BaseConfig(config_entry.type, config_entry.name, config_entry.attributes)
+                ret._hide = '.'.join(parts[2:])
+                return ret
 
         raise Exception(f"config entry not found at {path}")
 
@@ -182,29 +195,33 @@ class ResourceDependencyEvaluator:
 
     def _find_resource(self, basic_config):
         index = self.resources.index(resource_from_basic_config(basic_config, self.slices))
-        assert index > 0, "expected to find resource in list"
+        assert index >= 0, "expected to find resource in list"
         return self.resources[index]
 
     def evaluate(self) -> Dict[ResourceConfig, Set[ResourceConfig]]:
         dependency_map: Dict[ResourceConfig, Set[ResourceConfig]] = {}
 
+        def add_dependency(res, name, obj):
+            value = obj._hide if hasattr(obj, '_hide') else None
+            found = self._find_resource(obj)
+            dependency = (name, found, value)
+            res.add_dependency(dependency)
+            dependency_map[resource].add(found)
+
         for resource in self.resources:
-            dependency_map[resource] = dependencies = set()
+            dependency_map[resource] = set()
 
             for key, value in resource.attributes.items():
                 if isinstance(value, BaseConfig):
-                    resource._resource_dependencies.add((value.name, val.type))
-                    dependencies.add(self._find_resource(value))
+                    add_dependency(resource, key, value)
                 elif isinstance(value, list):
-                    for x in value:
-                        if isinstance(x, BaseConfig):
-                            resource._resource_dependencies.add((key, self._find_resource(x)))
-                            dependencies.add(self._find_resource(x))
+                    for val in value:
+                        if isinstance(val, BaseConfig):
+                            add_dependency(resource, key, val)
                 elif isinstance(value, dict):
                     for val in value.values():
                         if isinstance(val, BaseConfig):
-                            resource._resource_dependencies.add((val.name, val.type))
-                            dependencies.add(self._find_resource(val))
+                            add_dependency(resource, key, val)
                 elif isinstance(value, SimpleNamespace):
                     raise Exception(key)
 
@@ -267,9 +284,8 @@ class Parser:
             value = value.__getattribute__(name)[0]
             attrs = value.__dict__
             return type, name, attrs
-        except:
+        except Exception:
             raise Exception(f"need to supply as a triplet {type}")
-
 
     @staticmethod
     def _parse_resource(obj) -> BaseConfig:
