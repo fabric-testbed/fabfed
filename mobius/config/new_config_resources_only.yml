@@ -1,0 +1,64 @@
+resource:
+  - slice:
+      - my_fabric_slice:
+          - provider: '{{ fabric.my_fabric_provider }}'
+  - slice:
+      - my_chi_slice:
+          - provider: '{{ chi.my_chi_provider }}'
+
+  - node:
+      - my_fabric_node:
+          - slice:  '{{ slice.my_fabric_slice }}'
+            type: VM
+            # site: FABRIC.RANDOM
+            site: 'STAR'
+            count: 1
+            image: default_rocky_8
+            nic_model: NIC_ConnectX_5
+            name_prefix: node
+            network:
+              type: IPv4
+            flavor:
+              cores: 2
+              ram: 8
+              disk: 10
+
+  - node:
+      - my_chi_node:
+          - slice:  '{{ slice.my_chi_slice }}'
+            type: Baremetal
+            site: CHI@UC
+            image: CC-Ubuntu20.04
+            network:
+              # type: sharednet1
+              type: my_chi_network
+            name_prefix: node
+            flavor:
+              name: m1.medium
+
+  - network:
+      - my_chi_network:
+          - slice:  '{{ slice.my_chi_slice }}'
+            site: CHI@UC
+            subnet: "192.168.100.0/24"
+            pool_start: 192.168.100.100
+            pool_end: 192.168.100.150
+            gateway: 192.168.100.1
+            stitch_provider: fabric
+
+  - network:
+      - my_fabric_network:
+          - slice: '{{ slice.my_fabric_slice }}'
+            site: 'STAR'
+            subnet: "192.168.100.0/24"
+            pool_start: 192.168.100.200
+            pool_end: 192.168.100.250
+            vlan: '{{ network.my_chi_network.vlans}}'
+            interface: '{{ node.my_fabric_node.interfaces }}'
+
+logging:
+  log-file: ./mobius.log
+  log-level: INFO
+  log-retain: 5
+  log-size: 5000000
+  logger: mobius
