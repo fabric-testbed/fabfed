@@ -90,31 +90,22 @@ class Node:
 
         # Lease doesn't exist Create a Lease
         self.logger.info(f"Creating the lease - {self.leased_resource_name}")
-        reservations = [{
-            "resource_type": "physical:host",
-            "resource_properties": f'["==", "$node_type", "{self.flavor}"]',
-            "hypervisor_properties": "",
-            "min": 1,
-            "max": 1,
-        }]
+        reservations = []
+        chameleon_node_type = "compute_cascadelake_r" # TODO This should not be hardocded
 
-        ret = chi.lease.create_lease(lease_name=self.leased_resource_name, reservations=reservations)
-        if not ret:
-            self.logger.error(f"not able to create lease {self.leased_resource_name}, {reservations} ret={ret}")
-            return False
+        chi.lease.add_node_reservation(reservations, count=1, node_type=chameleon_node_type)
+        self.logger.info(f"Creating lease {self.leased_resource_name} {reservations}")
+        chi.lease.create_lease(lease_name=self.leased_resource_name, reservations=reservations)
 
-        self.logger.info("Waiting for the lease to be Active")
-        try:
-            chi.lease.wait_for_active(self.leased_resource_name)
-            return True
-        except Exception as e:
-            self.logger.error("Error occurred while waiting for the lease to be Active")
-
+        for i in range(self.retry):
             try:
-                self.__delete_lease()
+                self.logger.info(f"Waiting for the lease to be Active. num_tries={i+1}")
+                chi.lease.wait_for_active(self.leased_resource_name)
+                return True
             except:
-                self.logger.warning("Error occurred while trying to delete non active lease ")
-            return False
+                self.logger.warning(f"Error occurred while waiting for the lease to be Active. num_tries={i+1}")
+
+        return False
 
     def get_reservation_id(self):
         existing_lease = None
@@ -135,16 +126,17 @@ class Node:
         try:
             server_id = chi.server.get_server_id(self.leased_resource_name)
             if server_id is not None:
+                self.logger.info(f"SERVER_ID: {server_id}")
                 server = chi.server.get_server(server_id)
-                self.logger.info(f"Server: {server._info}")
+                self.logger.debug(f"Server: {server._info}")
                 self.state = server._info['OS-EXT-STS:vm_state']
                 addresses = server._info['addresses'][self.network]
                 for a in addresses:
                     if a['OS-EXT-IPS:type'] == 'floating':
                         self.mgmt_ip = a['addr']
                 return True
-        except Exception as e:
-            self.logger.info(f"Server {self.leased_resource_name} does not exist")
+        except:
+            self.logger.warning(f"Server {self.leased_resource_name} does not exist")
         return False
 
     def __create_kvm(self):
