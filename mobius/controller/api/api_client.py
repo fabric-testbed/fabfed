@@ -27,7 +27,7 @@ from abc import ABC, abstractmethod
 
 class ApiClient(ABC):
     @abstractmethod
-    def get_resources(self, slice_id: str = None, slice_name: str = None):
+    def get_resources(self, slice_name: str = None):
         """
         Return set of the allocated Resources
         """
@@ -45,7 +45,7 @@ class ApiClient(ABC):
         """
 
     @abstractmethod
-    def delete_resources(self, *, slice_id: str = None, slice_name: str = None):
+    def delete_resources(self, *, slice_name: str = None):
         """
         Delete provisioned resources
         """

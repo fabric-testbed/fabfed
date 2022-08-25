@@ -22,23 +22,24 @@
 # SOFTWARE.
 #
 # Author Komal Thareja (kthare10@renci.org)
-import logging
-import os
-import time
 import json
+import logging
+import time
 
 import chi
-from chi.lease import Lease, get_lease_id, get_node_reservation
-from chi.server import get_server
+# from chi.lease import Lease
+# from chi.server import get_server
+
 
 class Network:
     def __init__(self, *, name: str, site: str, project_name: str,
-                 logger: logging.Logger, slice_name: str, pool_start: str,
+                 logger: logging.Logger, slice_name: str, subnet: str, pool_start: str,
                  pool_end: str, gateway: str, stitch_provider: str):
         self.name = name
         self.site = site
         self.project_name = project_name
         self.slice_name = slice_name
+        self.subnet = subnet
         self.pool_start = pool_start
         self.pool_end = pool_end
         self.gateway = gateway
@@ -52,14 +53,16 @@ class Network:
 
     def __is_lease_active(self) -> bool:
         lease = chi.lease.get_lease(self.leased_resource_name)
+
         if lease is not None:
             status = lease["status"]
+            self.logger.debug(f"Lease {self.leased_resource_name} is in state {status}")
+
             if status == 'ERROR':
-                self.logger.error("Lease is in ERROR state")
                 return False
             elif status == 'ACTIVE':
-                self.logger.info("Lease is in ACTIVE state")
                 return True
+
         return False
 
     def __delete_lease(self):
@@ -71,7 +74,7 @@ class Network:
         existing_lease = None
         try:
             existing_lease = chi.lease.get_lease(self.leased_resource_name)
-        except Exception as e:
+        except:
             self.logger.info(f"No lease found with name: {self.leased_resource_name}")
 
         # Lease Exists
@@ -119,43 +122,68 @@ class Network:
         return self.vlans
 
     def create(self):
-        # Select your project
+        # Select your project  and your site
         chi.set('project_name', self.project_name)
         chi.set('project_domain_name', 'default')
-
-        # Select your site
         chi.use_site(self.site)
 
         if not self.__create_lease():
+            self.logger.error(f"Stopping the provisioning as the lease {self.leased_resource_name} could not be created")
             return
 
-        # Created Lease is not Active
         if not self.__is_lease_active():
-            self.logger.error("Stopping the provisioning as the lease could not be created")
+            self.logger.error(f"Stopping the provisioning as the lease {self.leased_resource_name} is not active")
             return
 
-        self.logger.info(f"Using the lease {self.leased_resource_name}")
+        self.logger.info(f"Using Active lease {self.leased_resource_name}")
 
         network_vlan = None
-        while network_vlan == None:
+
+        while not network_vlan:
             try:
-                #Get the network
                 chameleon_network = chi.network.get_network(self.name)
-
-                #Get the network ID
                 chameleon_network_id = chameleon_network['id']
-                print(f'Chameleon Network ID: {chameleon_network_id}')
-
-                #Get the VLAN tag (needed for FABRIC stitching)
                 network_vlan = chameleon_network['provider:segmentation_id']
-                self.logger.info(f'network_vlan: {network_vlan}')
-                self.vlans.append(network_vlan)
             except:
                 self.logger.info(f'Chameleon Network is not ready. Trying again!')
                 time.sleep(10)
 
+        self.logger.info(f'Chameleon: network_name: {self.name}, network_vlan: {network_vlan}')
+        self.vlans.append(network_vlan)
+
+        chameleon_subnet_name = self.name + '-subnet'
+        chameleon_subnet = chi.network.get_subnet(chameleon_subnet_name)
+
+        if not chameleon_subnet:
+            chameleon_subnet = chi.network.create_subnet(chameleon_subnet_name, chameleon_network_id,
+                                                         cidr=self.subnet,
+                                                         allocation_pool_start=self.pool_start,
+                                                         allocation_pool_end=self.pool_end,
+                                                         gateway_ip=self.gateway)
+
+        self.logger.debug(f'Chameleon: subnet: {chameleon_subnet}')
+        chameleon_router_name = self.name + '-router'
+
+        chameleon_router = None
+
+        # we do not use get as it throws an exception if not found. So we list them
+        for router in chi.network.list_routers():
+            if router['name'] == chameleon_router_name:
+                chameleon_router = router
+                break
+
+        if chameleon_router:
+            self.logger.info(f'Chameleon: router already created  : {chameleon_router_name}')
+            self.logger.debug(f'Chameleon: router: {chameleon_router}')
+        else:
+            chameleon_router = chi.network.create_router(chameleon_router_name, gw_network_name='public')
+            chi.network.add_subnet_to_router_by_name(chameleon_router_name, chameleon_subnet_name)
+            self.logger.info(f'Chameleon: router created : {chameleon_router_name}')
+            self.logger.debug(f'Chameleon: router: {chameleon_router}')
+
     def delete(self):
-        net_id = chi.server.get_network_id(f"{self.leased_resource_name}")
-        if net_id is not None:
-            self.logger.info("Deleting network")
-            chi.server.delete_server(net_id=net_id)
+        net_id = chi.server.get_network_id(f"{self.name}")
+
+        if net_id:
+            self.logger.info(f"Deleting network {self.name} net_id={net_id}")
+            chi.network.delete_network(net_id=net_id)

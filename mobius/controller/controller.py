@@ -23,7 +23,6 @@
 #
 # Author Komal Thareja (kthare10@renci.org)
 import logging
-import traceback
 from logging.handlers import RotatingFileHandler
 
 from mobius.controller.chi.chi_client import ChiClient
@@ -79,7 +78,7 @@ class Controller:
             else:
                 raise Exception(f"no provider for {provider_config.name}")
 
-    def simple_create(self):
+    def create(self):
         resources = self.config.get_resource_config()
         resource_listener = ResourceListener(self.providers)
 
@@ -99,7 +98,7 @@ class Controller:
                 if resource.has_dependencies():
                     resource_dict['has_dependencies'] = True
                     resource_dict['dependencies'] = resource.dependencies
-                    resource_dict['resolved_dependencies'] = []
+                    resource_dict['resolved_dependencies'] = set()
                 else:
                     resource_dict['has_dependencies'] = False
 
@@ -121,70 +120,13 @@ class Controller:
         except Exception as e:
             self.logger.error(f"Exception occurred while creating resources: {e}")
             raise e
-            # self.logger.error(traceback.format_exc())
-
-    def create(self, *, connected: str = None):
-        try:
-            self.logger.debug("Starting create")
-            resources = self.config.get_resource_config()
-            active = dict()
-            for resource in resources:
-                slice_config = resource.slice
-                client = self.providers[slice_config.provider_name]
-                slice_name = slice_config.name
-                resource_dict = resource.attributes
-                key = f"{slice_name}-{resource.name}-{resource.type}"
-                resource_dict[Config.RES_TYPE] = resource.type
-                resource_dict[Config.RES_NAME_PREFIX] = resource.name
-
-                if resource.has_dependencies():
-                    resource_dict['has_dependencies'] = True
-                    resource_dict['dependencies'] = resource.dependencies
-                    resource_dict['resolved_dependencies'] = []
-                else:
-                    resource_dict['has_dependencies'] = False
-
-                if resource.is_node:
-                    # TODO  make these dicts classes
-                    active.update({key: {"client": client,
-                                         "type": Config.RES_TYPE_NODE,
-                                         "slice_name":  slice_name,
-                                         "priority": 100,
-                                         "resource": client.add_resources(resource=resource_dict,
-                                                                          slice_name=slice_name)}})
-                elif resource.is_network:
-                    net_priority = 20 if ("vlan" in resource_dict and not resource_dict.get(
-                        "vlan")) and connected else 10
-                    active.update({key: {"client": client,
-                                         "type": Config.RES_TYPE_NETWORK,
-                                         "slice_name": slice_name,
-                                         "priority": net_priority,
-                                         "resource": client.add_resources(resource=resource_dict,
-                                                                          slice_name=slice_name)}})
-
-            # XXX set callback data based on priorities
-            sorted_dict = dict(sorted(active.items(), key=lambda it: it[1]["priority"]))
-            first = None
-            for key, item in sorted_dict.items():
-                if not first:
-                    first = item
-                else:
-                    item.get("resource").register_callback("vlans", first.get("client").get_network_vlans)
-
-            # Actually instantiate all the added resources above
-            for key, item in sorted_dict.items():
-                self.logger.info(
-                    f"Creating {item.get('type')} resource at {key} for priority {item.get('priority')} item")
-
-                item.get("client").create_resources(slice_name=item.get("slice_name"), rtype=item.get("type"))
-
-        except Exception as e:
-            self.logger.error(f"Exception occurred while creating resources: {e}")
-            self.logger.error(traceback.format_exc())
 
     def delete(self, *, slice_name: str = None):
-        for provider in self.providers.values():
-            provider.delete_resources(slice_name=slice_name)
+        for slice_config in self.config.get_slice_config():
+            if not slice_name or slice_name == slice_config.name:
+                client = self.providers[slice_config.provider_name]
+                client.init_slice(slice_name=slice_config.name, resource=slice_config.attributes)
+                client.delete_resources(slice_name=slice_config.name)
 
     def get_resources(self) -> list:
         resources = []
