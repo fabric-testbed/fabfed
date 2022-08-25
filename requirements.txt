@@ -2,5 +2,5 @@ requests
 kafka-python
 paramiko
 PyYAML==5.4
-fabrictestbed-extensions==1.2
+fabrictestbed-extensions==1.2.1
 python-chi

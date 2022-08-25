@@ -91,7 +91,18 @@ class ChiClient(ApiClient, AbstractResourceListener):
         elif site == "CHI@Edge":
             return "edge"
 
-    def get_resources(self, slice_id: str = None, slice_name: str = None):
+    def init_slice(self, *, resource: dict, slice_name: str):
+        self.logger.info(f"initializing  slice {slice_name}: slice_attributes={resource}")
+
+        if slice_name not in self.slices:
+            from mobius.controller.chi.slice import Slice
+
+            slice_object = Slice(name=slice_name, logger=self.logger, key_pair=self.chi_config.get(Config.CHI_KEY_PAIR),
+                                 project_name=self.chi_config.get(Config.CHI_PROJECT_NAME))
+            slice_object.set_resource_listener(self)
+            self.slices[slice_name] = slice_object
+
+    def get_resources(self, *, slice_name: str = None):
         if slice_name is not None:
             if slice_name in self.slices:
                 return [self.slices.get(slice_name)]
@@ -111,7 +122,8 @@ class ChiClient(ApiClient, AbstractResourceListener):
         if resource.get(Config.RES_COUNT, 1) < 1:
             return None
 
-        self.logger.info(f"Adding {resource} to {slice_name}")
+        self.logger.info(f"Adding {resource['name_prefix']} to {slice_name}")
+        self.logger.debug(f"Adding {resource} to {slice_name}")
 
         site = resource.get(Config.RES_SITE)
         self.setup_environment(site=site)
@@ -129,20 +141,19 @@ class ChiClient(ApiClient, AbstractResourceListener):
         slice_object.add_resource(resource=resource)
         return slice_object
 
-    def create_resources(self, *, slice_id: str = None, slice_name: str = None, rtype: str = None):
-        for sname, sobj in self.slices.items():
-            self.logger.info(f"Creating CHI using slice {sname} rtype={rtype}")
-            sobj.create(rtype)
+    def create_resources(self, *,  slice_name: str = None, rtype: str = None):
+        self.logger.info(f"Creating  CHI using slice {slice_name} rtype={rtype}")
 
-    def delete_resources(self, *, slice_id: str = None, slice_name: str = None):
-        try:
-            if slice_name is not None:
-                if slice_name in self.slices:
-                    self.logger.info(f"Deleting slice {slice_name}")
-                    slice_object = self.slices.get(slice_name)
-                    slice_object.delete()
-            else:
-                for s in self.slices.values():
-                    s.delete()
-        except Exception as e:
-            self.logger.error(f"Fail: {e}")
+        chi_slice = self.slices[slice_name]
+        chi_slice.create()
+
+    def delete_resources(self, *, slice_name: str = None):
+        if slice_name in self.slices:
+            self.logger.info(f"Deleting CHI slice {slice_name}")
+            slice_object = self.slices[slice_name]
+            slice_object.delete()
+            return
+
+        for slice_name, slice_object in self.slices.items():
+            self.logger.info(f"Deleting CHI slice {slice_name}")
+            slice_object.delete()

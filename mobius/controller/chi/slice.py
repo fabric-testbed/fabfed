@@ -52,6 +52,7 @@ class Slice(AbstractSlice):
 
     def add_network(self, resource: dict):
         site = resource.get(Config.RES_SITE)
+        subnet = resource.get(Config.RES_SUBNET)
         pool_start = resource.get(Config.RES_NET_POOL_START, None)
         pool_end = resource.get(Config.RES_NET_POOL_END, None)
         gateway = resource.get(Config.RES_NET_GATEWAY, None)
@@ -59,7 +60,7 @@ class Slice(AbstractSlice):
 
         net_name = resource.get(Config.RES_NAME_PREFIX)
         net = Network(name=net_name, site=site, logger=self.logger,
-                      slice_name=self.name, pool_start=pool_start, pool_end=pool_end,
+                      slice_name=self.name, subnet=subnet, pool_start=pool_start, pool_end=pool_end,
                       gateway=gateway, stitch_provider=stitch_provider,
                       project_name=self.project_name)
         self._networks.append(net)
@@ -73,8 +74,10 @@ class Slice(AbstractSlice):
         network = resource.get(Config.RES_NETWORK, None)
         if network:
             network = network[Config.RES_TYPE]
-        if network not in self.DEFAULT_NETWORKS:
-            raise Exception("Private network not supported")
+
+        # TDOO Looks like we need stich networks 
+        # if network not in self.DEFAULT_NETWORKS:
+        #     raise Exception("Private network not supported")
 
         node_count = resource.get(Config.RES_COUNT, 1)
         image = resource.get(Config.RES_IMAGE)
@@ -123,7 +126,7 @@ class Slice(AbstractSlice):
 
     def list_nodes(self) -> list:
         table = []
-        for node in self.get_nodes():
+        for node in self.nodes:
             table.append([node.get_reservation_id(),
                           node.get_name(),
                           node.get_site(),

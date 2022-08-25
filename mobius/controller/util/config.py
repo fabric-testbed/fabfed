@@ -25,7 +25,7 @@
 # Author: Komal Thareja (kthare10@renci.org)
 import yaml
 
-from .parser import Parser, ResourceConfig, ProviderConfig
+from .parser import Parser, ResourceConfig, ProviderConfig, SliceConfig
 from typing import List
 
 
@@ -82,6 +82,7 @@ class Config:
     RES_NET_GATEWAY = "gateway"
     RES_NET_STITCH_PROV = "stitch_provider"
     RES_NET_CALLBACK = "callback"
+    RES_SUBNET = 'subnet'
 
     LOGGING = "logging"
     PROPERTY_CONF_LOG_FILE = 'log-file'
@@ -104,6 +105,9 @@ class Config:
             self.config_dict = yaml.safe_load(f)
 
         self.providers, self.slices, self.resources = Parser.parse(path)
+
+    def get_slice_config(self) -> List[SliceConfig]:
+        return self.slices
 
     def get_provider_config(self) -> List[ProviderConfig]:
         return self.providers
