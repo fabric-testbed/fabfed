@@ -152,7 +152,10 @@ class Network:
         self.vlans.append(network_vlan)
 
         chameleon_subnet_name = self.name + '-subnet'
-        chameleon_subnet = chi.network.get_subnet(chameleon_subnet_name)
+        try:
+            chameleon_subnet = chi.network.get_subnet(chameleon_subnet_name)
+        except Exception:
+            chameleon_subnet = None
 
         if not chameleon_subnet:
             chameleon_subnet = chi.network.create_subnet(chameleon_subnet_name, chameleon_network_id,
