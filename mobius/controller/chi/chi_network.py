@@ -49,6 +49,8 @@ class Network:
         self.retry = 5
         self.state = None
         self.leased_resource_name = f'{self.slice_name}-{self.name}'
+        self. chameleon_subnet_name = self.name + '-subnet'
+        self.chameleon_router_name = self.name + '-router'
         self.vlans = list()
 
     def __is_lease_active(self) -> bool:
@@ -151,37 +153,36 @@ class Network:
         self.logger.info(f'Chameleon: network_name: {self.name}, network_vlan: {network_vlan}')
         self.vlans.append(network_vlan)
 
-        chameleon_subnet_name = self.name + '-subnet'
         try:
-            chameleon_subnet = chi.network.get_subnet(chameleon_subnet_name)
+            chameleon_subnet = chi.network.get_subnet(self.chameleon_subnet_name)
+            self.logger.info(f'Chameleon: subnet already created:  {self.chameleon_subnet_name}')
         except Exception:
             chameleon_subnet = None
 
         if not chameleon_subnet:
-            chameleon_subnet = chi.network.create_subnet(chameleon_subnet_name, chameleon_network_id,
+            chameleon_subnet = chi.network.create_subnet(self.chameleon_subnet_name, chameleon_network_id,
                                                          cidr=self.subnet,
                                                          allocation_pool_start=self.pool_start,
                                                          allocation_pool_end=self.pool_end,
                                                          gateway_ip=self.gateway)
+            self.logger.info(f'Chameleon: created subnet {self.chameleon_subnet_name}')
 
         self.logger.debug(f'Chameleon: subnet: {chameleon_subnet}')
-        chameleon_router_name = self.name + '-router'
-
         chameleon_router = None
 
         # we do not use get as it throws an exception if not found. So we list them
         for router in chi.network.list_routers():
-            if router['name'] == chameleon_router_name:
+            if router['name'] == self.chameleon_router_name:
                 chameleon_router = router
                 break
 
         if chameleon_router:
-            self.logger.info(f'Chameleon: router already created  : {chameleon_router_name}')
+            self.logger.info(f'Chameleon: router already created  : {self.chameleon_router_name}')
             self.logger.debug(f'Chameleon: router: {chameleon_router}')
         else:
-            chameleon_router = chi.network.create_router(chameleon_router_name, gw_network_name='public')
-            chi.network.add_subnet_to_router_by_name(chameleon_router_name, chameleon_subnet_name)
-            self.logger.info(f'Chameleon: router created : {chameleon_router_name}')
+            chameleon_router = chi.network.create_router(self.chameleon_router_name, gw_network_name='public')
+            chi.network.add_subnet_to_router_by_name(self.chameleon_router_name, self.chameleon_subnet_name)
+            self.logger.info(f'Chameleon: router created : {self.chameleon_router_name}')
             self.logger.debug(f'Chameleon: router: {chameleon_router}')
 
     def delete(self):
@@ -189,4 +190,4 @@ class Network:
 
         if net_id:
             self.logger.info(f"Deleting network {self.name} net_id={net_id}")
-            chi.network.delete_network(net_id=net_id)
+            # chi.network.delete_network(net_id=net_id)

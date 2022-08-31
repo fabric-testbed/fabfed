@@ -26,7 +26,7 @@ import logging
 
 from tabulate import tabulate
 
-from mobius.controller.chi.network import Network
+from mobius.controller.chi.chi_network import Network
 from mobius.controller.chi.chi_node import Node
 from mobius.controller.util.config import Config
 from mobius.models import AbstractSlice
