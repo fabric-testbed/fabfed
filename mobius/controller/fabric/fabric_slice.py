@@ -45,7 +45,12 @@ class FabricSlice(AbstractSlice, AbstractResourceListener):
         self._networks = list()
         self._services = list()
         self.pending = []
-        self.slice_object: Slice = fablib.get_slice(name=name)
+        self.logger.info(f"init slice name = {name}")
+
+        try:
+            self.slice_object: Slice = fablib.get_slice(name=name)
+        except:
+            self.slice_object = None
 
         if self.slice_object:
             self.slice_created = True
@@ -72,7 +77,7 @@ class FabricSlice(AbstractSlice, AbstractResourceListener):
         for pending_resource in self.pending:
             for dependency in pending_resource['dependencies']:
                 # TODO add temp.type to this if statement ....
-                if dependency.resoruce.slice.name == slice_name and dependency.resoruce.name == resource['name']:
+                if dependency.resource.slice.name == slice_name and dependency.resource.name == resource['name']:
                     resolved_dependencies = pending_resource['resolved_dependencies']
                     ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")
                     value = resource[dependency.attribute]

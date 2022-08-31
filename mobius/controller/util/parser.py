@@ -222,7 +222,7 @@ class ResourceDependencyEvaluator:
 
     def add_dependency(self, res: ResourceConfig, key: str, dependency_info: DependencyInfo):
         found = self._find_resource(dependency_info.resource)
-        temp = Dependency(key=key, resource=dependency_info.resource, attribute=dependency_info.attribute)
+        temp = Dependency(key=key, resource=found, attribute=dependency_info.attribute)
         res.add_dependency(temp)
         self.dependency_map[res].add(found)
 
