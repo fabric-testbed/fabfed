@@ -1,8 +1,14 @@
 import json
+from collections import namedtuple
 from types import SimpleNamespace
-from typing import List, Union, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set
 
 import yaml
+
+
+class ParseConfigException(Exception):
+    """Base class for other exceptions"""
+    pass
 
 
 class BaseConfig:
@@ -59,6 +65,11 @@ class SliceConfig(BaseConfig):
         return hash(self.name + self.type + self.provider.type)
 
 
+DependencyInfo = namedtuple("DependencyInfo", "resource  attribute")
+
+Dependency = namedtuple("Dependency", "key resource  attribute")
+
+
 class ResourceConfig(BaseConfig):
     def __init__(self, type: str, name: str, attrs:  Dict, slize: SliceConfig):
         super().__init__(type, name, attrs)
@@ -72,7 +83,7 @@ class ResourceConfig(BaseConfig):
         return self._slice
 
     @property
-    def dependencies(self):
+    def dependencies(self) -> Set[Dependency]:
         return self._resource_dependencies
 
     def add_dependency(self, dependency):
@@ -104,23 +115,35 @@ class ResourceConfig(BaseConfig):
 
 
 def slice_from_basic_config(basic_config) -> SliceConfig:
-    attrs = basic_config.attributes.copy()  # TODO check before pop
-    provider = attrs.pop('provider')  # TODO check presence of provider
+    attrs = basic_config.attributes.copy()
+
+    if 'provider' not in attrs:
+        raise ParseConfigException(f"slice missing provider {basic_config.name}")
+
+    provider = attrs.pop('provider')
+
+    if not isinstance(provider, ProviderConfig):
+        raise ParseConfigException(f"malformed provider config  for {basic_config.name}")
+
     return SliceConfig(basic_config.type, basic_config.name, attrs, provider)
 
 
 def resource_from_basic_config(basic_config, slices) -> ResourceConfig:
     attrs = basic_config.attributes.copy()
-    temp = attrs.pop('slice')  # TODO check before pop
+
+    if 'slice' not in attrs:
+        raise ParseConfigException(f"resource missing slice {basic_config.name}")
+
+    temp = attrs.pop('slice')
     temp_provider = temp.attributes.get('provider', None)
 
     if not temp_provider:
-        raise Exception()
+        raise ParseConfigException(f"slice {temp} missing provider while parsing {basic_config}")
 
     index = slices.index(SliceConfig(temp.type, temp.name, {}, temp_provider))
 
     if index < 0:
-        raise Exception("did not find a slice ")
+        raise ParseConfigException(f"did not find slice {temp.name} for {basic_config}")
 
     return ResourceConfig(basic_config.type, basic_config.name, attrs, slices[index])
 
@@ -130,58 +153,56 @@ class Evaluator:
         self.providers = providers
         self.resources = resources
 
-    def find_object(self, path: str) -> BaseConfig:
+    def find_object(self, path: str) -> BaseConfig or Dependency:
         parts = path.split('.')
         config_entries: List[BaseConfig] = []
         config_entries.extend(self.providers)
         config_entries.extend(self.resources)
 
         if len(parts) < 2:
-            raise Exception(f"bad dependency {path}")
+            raise ParseConfigException(f"bad dependency {path}")
 
         for config_entry in config_entries:
             if config_entry.type == parts[0] and config_entry.name == parts[1]:
-                ret = BaseConfig(config_entry.type, config_entry.name, config_entry.attributes)
-                ret._hide = '.'.join(parts[2:])
-                return ret
+                if config_entry.type == 'node' or config_entry.type == 'network':
+                    return DependencyInfo(resource=config_entry, attribute='.'.join(parts[2:]))
 
-        raise Exception(f"config entry not found at {path}")
+                return config_entry
 
-    def handle_substitution(self,  value: str) -> Union[str, BaseConfig]:
-        value = value.strip()
+        raise ParseConfigException(f'config entry not found at {path}')
 
-        if value.startswith('{{') and value.endswith('}}'):
-            path = value[2:-2].strip()
-            return self.find_object(path)
+    def handle_substitution(self, value):
+        if isinstance(value, str):
+            value = value.strip()
 
-        return value
+            if value.startswith('{{') and value.endswith('}}'):
+                path = value[2:-2].strip()
+                return self.find_object(path)
+
+            return value
+        elif isinstance(value, list):
+            temp = []
+            for val in value:
+                temp.append(self.handle_substitution(val))
+            return temp
+        elif isinstance(value, dict):
+            temp = {}
+
+            for k, val in value.items():
+                temp[k] = self.handle_substitution(val)
+
+            return temp
+        elif isinstance(value, SimpleNamespace):
+            return self.handle_substitution(vars(value))
+        else:
+            return value
 
     def evaluate(self) -> Tuple[List[ProviderConfig], List[BaseConfig]]:
         for config_resource_entry in self.resources:
             attrs = {}
 
             for key, value in config_resource_entry.attributes.items():
-                attrs[key] = value
-
-                if isinstance(value, str):
-                    attrs[key] = self.handle_substitution(value)
-                elif isinstance(value, list):
-                    attrs[key] = [self.handle_substitution(val) for val in value if isinstance(val, str)]
-                elif isinstance(value, dict):
-                    raise Exception(f"evaluator encountered dict ....{key}")
-                elif isinstance(value, SimpleNamespace):
-                    attrs[key] = vars(value)
-                    temp = []
-
-                    for item in attrs[key].items():
-                        val = item[1]
-
-                        if isinstance(val, str):
-                            val = self.handle_substitution(val)
-
-                        temp.append((item[0], val))
-
-                    attrs[key] = dict(temp)
+                attrs[key] = self.handle_substitution(value)
 
             config_resource_entry.attributes = attrs
 
@@ -192,40 +213,40 @@ class ResourceDependencyEvaluator:
     def __init__(self, resources: List[ResourceConfig], slices: List[SliceConfig]):
         self.resources = resources
         self.slices = slices
+        self.dependency_map: Dict[ResourceConfig, Set[ResourceConfig]] = {}
 
     def _find_resource(self, basic_config):
         index = self.resources.index(resource_from_basic_config(basic_config, self.slices))
         assert index >= 0, "expected to find resource in list"
         return self.resources[index]
 
+    def add_dependency(self, res: ResourceConfig, key: str, dependency_info: DependencyInfo):
+        found = self._find_resource(dependency_info.resource)
+        temp = Dependency(key=key, resource=dependency_info.resource, attribute=dependency_info.attribute)
+        res.add_dependency(temp)
+        self.dependency_map[res].add(found)
+
+    def handle_dependency(self, resource: ResourceConfig, key: str, value):
+        if isinstance(value, DependencyInfo):
+            self.add_dependency(resource, key, value)
+        elif isinstance(value, list):
+            for val in value:
+                self.handle_dependency(resource, key, val)
+        elif isinstance(value, dict):
+            prefix = key + '.'
+            for k, val in value.items():
+                self.handle_dependency(resource, prefix + k, val)
+        elif isinstance(value, SimpleNamespace):
+            raise Exception(key)
+
     def evaluate(self) -> Dict[ResourceConfig, Set[ResourceConfig]]:
-        dependency_map: Dict[ResourceConfig, Set[ResourceConfig]] = {}
-
-        def add_dependency(res, name, obj):
-            value = obj._hide if hasattr(obj, '_hide') else None
-            found = self._find_resource(obj)
-            dependency = (name, found, value)
-            res.add_dependency(dependency)
-            dependency_map[resource].add(found)
-
         for resource in self.resources:
-            dependency_map[resource] = set()
+            self.dependency_map[resource] = set()
 
             for key, value in resource.attributes.items():
-                if isinstance(value, BaseConfig):
-                    add_dependency(resource, key, value)
-                elif isinstance(value, list):
-                    for val in value:
-                        if isinstance(val, BaseConfig):
-                            add_dependency(resource, key, val)
-                elif isinstance(value, dict):
-                    for val in value.values():
-                        if isinstance(val, BaseConfig):
-                            add_dependency(resource, key, val)
-                elif isinstance(value, SimpleNamespace):
-                    raise Exception(key)
+                self.handle_dependency(resource, key, value)
 
-        return dependency_map
+        return self.dependency_map
 
 
 def order_resources(dependency_map:  Dict[ResourceConfig, Set[ResourceConfig]]) -> List[ResourceConfig]:
@@ -263,38 +284,45 @@ def normalize(objs):  # TODO looks like we need this  for chameleon provider
         obj.attributes = attrs
 
 
+def parse_triplet(obj: SimpleNamespace) -> Tuple[str, str, Dict]:
+    def extract_label(lst):
+        return next(label for label in lst if not label.startswith("__"))
+
+    if not isinstance(obj, SimpleNamespace):
+        raise ParseConfigException(f"expecting a triplet {obj}")
+
+    try:
+        type = extract_label(dir(obj))
+        value = obj.__getattribute__(type)[0]
+        name = extract_label(dir(value))
+
+        if len(obj.__getattribute__(type)) > 1:
+            raise ParseConfigException(f"did not expect a block after {name} of type {type}")
+
+        attrs = value.__getattribute__(name)[0].__dict__
+
+        if len(value.__getattribute__(name)) > 1:
+            raise ParseConfigException(f"did not expect a block after {attrs} under {name} of type {type}")
+
+        return type, name, attrs
+    except ParseConfigException as e:
+        raise e
+    except Exception as e:
+        raise ParseConfigException(f" exception occurred while parsing triplet {obj}") from e
+
+
 class Parser:
     def __init__(self):
         pass
 
     @staticmethod
-    def _parse_object(obj) -> Tuple[str, str, Dict]:
-        def extract_label(lst):
-            return next(label for label in lst if not label.startswith("__"))
-
-        type = extract_label(dir(obj))
-
-        try:
-            def extract_label(lst):
-                return next(label for label in lst if not label.startswith("__"))
-
-            type = extract_label(dir(obj))
-            value = obj.__getattribute__(type)[0]
-            name = extract_label(dir(value))
-            value = value.__getattribute__(name)[0]
-            attrs = value.__dict__
-            return type, name, attrs
-        except Exception:
-            raise Exception(f"need to supply as a triplet {type}")
-
-    @staticmethod
-    def _parse_resource(obj) -> BaseConfig:
-        type, name, attributes = Parser._parse_object(obj)
+    def _parse_resource(obj: SimpleNamespace) -> BaseConfig:
+        type, name, attributes = parse_triplet(obj)
         return BaseConfig(type, name, attributes)
 
     @staticmethod
-    def _parse_provider(obj) -> ProviderConfig:
-        type, name, attributes = Parser._parse_object(obj)
+    def _parse_provider(obj: SimpleNamespace) -> ProviderConfig:
+        type, name, attributes = parse_triplet(obj)
         return ProviderConfig(type, name, attributes)
 
     @staticmethod
@@ -316,60 +344,61 @@ class Parser:
         return resources
 
     @staticmethod
-    def validate_providers(providers:  List[ProviderConfig]):
+    def _validate_providers(providers: List[ProviderConfig]):
         if len(providers) == 0:
-            raise Exception("no providers found ...")
+            raise ParseConfigException("no providers found ...")
 
         if len(providers) != len(set(providers)):
-            raise Exception(f'detected duplicate providers')
+            raise ParseConfigException(f'detected duplicate providers')
 
     @staticmethod
-    def validate_slices(slices:  List[SliceConfig]):
+    def _validate_slices(slices: List[SliceConfig]):
         if len(slices) == 0:
-            raise Exception("no slices found ...")
+            raise ParseConfigException("no slices found ...")
 
         if len(slices) != len(set(slices)):
-            raise Exception(f'detected duplicate slices')
+            raise ParseConfigException(f'detected duplicate slices')
 
     @staticmethod
-    def validate_resources(resources:  List[ResourceConfig]):
+    def _validate_resources(resources: List[ResourceConfig]):
         if len(resources) == 0:
-            raise Exception("no resources found ...")
+            raise ParseConfigException("no resources found ...")
 
         if len(resources) != len(set(resources)):
-            raise Exception(f'detected duplicate  resources')
+            raise ParseConfigException(f'detected duplicate  resources')
 
     @staticmethod
-    def parse(file_name) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
-        def load_object(dct):
-            return SimpleNamespace(**dct)
+    def parse(*, file_name=None, content=None) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
+        if file_name:
+            with open(file_name, 'r') as stream:
+                obj = yaml.safe_load(stream)
+        else:
+            obj = yaml.safe_load(content)
 
-        with open(file_name, 'r') as stream:
-            obj = yaml.safe_load(stream)
-            obj = json.loads(json.dumps(obj), object_hook=load_object)
+        obj = json.loads(json.dumps(obj), object_hook=lambda dct: SimpleNamespace(**dct))
 
         if not hasattr(obj, 'provider') or obj.provider is None:
-            raise Exception("no providers found")
+            raise ParseConfigException("no providers found")
 
         providers = [Parser._parse_provider(provider) for provider in obj.provider]
-        Parser.validate_providers(providers)
+        Parser._validate_providers(providers)
         normalize(providers)
 
         if not hasattr(obj, 'resource') or obj.resource is None:
-            raise Exception("no resources found ...")
+            raise ParseConfigException("no resources found ...")
 
         resource_base_configs = [Parser._parse_resource(resource) for resource in obj.resource]
-
         evaluator = Evaluator(providers, resource_base_configs)
         providers, resource_configs = evaluator.evaluate()
 
         slices = Parser._filter_slices(resource_configs)
-        Parser.validate_slices(slices)
+        Parser._validate_slices(slices)
 
         resources = Parser._filter_resources(resource_configs, slices)
-        Parser.validate_resources(resources)
+        Parser._validate_resources(resources)
 
         dependency_evaluator = ResourceDependencyEvaluator(resources, slices)
         dependency_map = dependency_evaluator.evaluate()
         ordered_resources = order_resources(dependency_map)
+
         return providers, slices, ordered_resources
