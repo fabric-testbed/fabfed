@@ -71,18 +71,16 @@ class FabricSlice(AbstractSlice, AbstractResourceListener):
     def on_created(self, source, slice_name, resource):
         for pending_resource in self.pending:
             for dependency in pending_resource['dependencies']:
-                temp = dependency[1]
-
                 # TODO add temp.type to this if statement ....
-                if temp.slice.name == slice_name and temp.name == resource['name']:
+                if dependency.resoruce.slice.name == slice_name and dependency.resoruce.name == resource['name']:
                     resolved_dependencies = pending_resource['resolved_dependencies']
                     ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")
-                    value = resource[dependency[2]]
+                    value = resource[dependency.attribute]
 
                     if isinstance(value, list):
-                        resolved_dependency = ResolvedDependency(attr=dependency[0], value=tuple(value))
+                        resolved_dependency = ResolvedDependency(attr=dependency.key, value=tuple(value))
                     else:
-                        resolved_dependency = ResolvedDependency(attr=dependency[0], value=value)
+                        resolved_dependency = ResolvedDependency(attr=dependency.key, value=value)
 
                     resolved_dependencies.add(resolved_dependency)
 

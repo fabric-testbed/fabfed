@@ -10,18 +10,9 @@ resource:
       - my_fabric_node:
           - slice:  '{{ slice.my_fabric_slice }}'
             type: VM
-            # site: FABRIC.RANDOM
             site: 'STAR'
-            count: 1
             image: default_rocky_8
             nic_model: NIC_ConnectX_5
-            name_prefix: node
-            network:
-              type: IPv4
-            flavor:
-              cores: 2
-              ram: 8
-              disk: 10
 
   - node:
       - my_chi_node:
@@ -29,10 +20,7 @@ resource:
             type: Baremetal
             site: CHI@UC
             image: CC-Ubuntu20.04
-            network:
-              # type: sharednet1
-              type: my_chi_network
-            name_prefix: node
+            network: '{{ network.my_chi_network.name }}'
             flavor:
               name: m1.medium
 

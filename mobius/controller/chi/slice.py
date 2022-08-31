@@ -23,7 +23,6 @@
 #
 # Author Komal Thareja (kthare10@renci.org)
 import logging
-from typing import List
 
 from tabulate import tabulate
 
@@ -70,14 +69,20 @@ class Slice(AbstractSlice):
 
     def add_node(self, resource: dict):
         site = resource.get(Config.RES_SITE)
-        # Select your network; only sharednet and sharedwan works for now
-        network = resource.get(Config.RES_NETWORK, None)
-        if network:
-            network = network[Config.RES_TYPE]
+        network = resource.get(Config.RES_NETWORK)
 
-        # TDOO Looks like we need stich networks 
-        # if network not in self.DEFAULT_NETWORKS:
-        #     raise Exception("Private network not supported")
+        if not isinstance(network, str):
+            found = False
+
+            for net in self.networks:
+                if net.name == network.resource.name:
+                    net_vars = vars(net)
+                    network = net_vars[network.attribute]
+                    found = True
+                    break
+
+            if not found:
+                raise Exception(f"could not resolve internal network dependency {network}")
 
         node_count = resource.get(Config.RES_COUNT, 1)
         image = resource.get(Config.RES_IMAGE)

@@ -104,7 +104,7 @@ class Config:
         with open(path) as f:
             self.config_dict = yaml.safe_load(f)
 
-        self.providers, self.slices, self.resources = Parser.parse(path)
+        self.providers, self.slices, self.resources = Parser.parse(file_name=path)
 
     def get_slice_config(self) -> List[SliceConfig]:
         return self.slices
