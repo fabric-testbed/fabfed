@@ -58,7 +58,8 @@ class FabricClient(ApiClient, AbstractResourceListener):
         os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = fabric_config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
         os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = fabric_config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
 
-        fablib.show_config()
+        fablib.fablib_object = fablib()
+        # fablib.show_config()
 
     def set_resource_listener(self, resource_listener):
         self.resource_listener = resource_listener
