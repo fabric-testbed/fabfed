@@ -162,7 +162,7 @@ class FabricSlice(AbstractSlice, AbstractResourceListener):
         except Exception as e:
             self.logger.error(f"Exception occurred: {e}")
             self.logger.error(traceback.format_exc())
-            return None
+            raise e
 
     def create(self, rtype: str = None):
         if self.slice_created:
