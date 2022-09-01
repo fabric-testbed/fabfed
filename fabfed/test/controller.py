@@ -24,7 +24,7 @@
 # Author Komal Thareja (kthare10@renci.org)
 import time
 
-from mobius.controller.controller import Controller
+from fabfed.controller.controller import Controller
 
 if __name__ == "__main__":
     #controller = Controller(config_file_location="./config.yml")

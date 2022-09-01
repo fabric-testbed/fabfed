@@ -29,8 +29,8 @@ from typing import List
 from fabrictestbed_extensions.fablib.node import Node
 from fabrictestbed_extensions.fablib.slice import Slice
 
-from mobius.controller.util.config import Config
-from mobius.models import AbstractNode
+from fabfed.controller.util.config import Config
+from fabfed.models import AbstractNode
 
 Component = namedtuple("Component", "model  name")
 
