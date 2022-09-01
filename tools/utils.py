@@ -15,7 +15,7 @@ def build_parser():
         '\n'
         'Example:'
         '\n'
-        "      mobius -c config.yaml -apply"
+        "      fabfed -c config.yaml -apply"
         '\n'
     )
 

@@ -30,9 +30,9 @@ from fabrictestbed_extensions.fablib.fablib import fablib
 from fabrictestbed_extensions.fablib.slice import Slice
 from tabulate import tabulate
 
-from mobius.controller.util.config import Config
-from mobius.models import AbstractResourceListener
-from mobius.models import AbstractSlice
+from fabfed.controller.util.config import Config
+from fabfed.models import AbstractResourceListener
+from fabfed.models import AbstractSlice
 from .fabric_node import FabricNode, NodeBuilder
 from .fabric_network import FabricNetwork, NetworkBuilder
 

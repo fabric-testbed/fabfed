@@ -28,8 +28,8 @@ from ipaddress import IPv4Address, IPv4Network
 from fabrictestbed_extensions.fablib.network_service import NetworkService
 from fabrictestbed_extensions.fablib.slice import Slice
 
-from mobius.controller.util.config import Config
-from mobius.models import AbstractNetwork
+from fabfed.controller.util.config import Config
+from fabfed.models import AbstractNetwork
 
 
 class FabricNetwork(AbstractNetwork):

@@ -26,7 +26,7 @@
 #
 # Author: Komal Thareja (kthare10@renci.org)
 from setuptools import setup, find_packages
-from mobius import __VERSION__
+from fabfed import __VERSION__
 # To install the library, run the following
 #
 # python setup.py install
@@ -41,13 +41,13 @@ with open("requirements.txt", "r") as fh:
     requirements = fh.read()
 
 setup(
-    name="mobius-py",
+    name="fabfed-py",
     version=__VERSION__,
-    description="Mobius Framework",
+    description="Fabfed Framework",
     author="Komal Thareja",
     author_email="kthare10@renci.org",
     url="https://github.com/RENCI-NRIG/Mobius",
-    keywords=["Mobius Framework", "Cloud", "FABRIC", "Chameleon", "MOC"],
+    keywords=["Fabfed Framework", "Cloud", "FABRIC", "Chameleon", "MOC"],
     install_requires=requirements,
     setup_requires=requirements,
     packages=find_packages(),
@@ -62,7 +62,7 @@ setup(
     python_requires='>=3.7',
     entry_points={
        'console_scripts': [
-              'mobius = mobius.tools.mobius:main',
+              'fabfed = tools.fabfed:main',
        ]
     },
 )

@@ -1,4 +1,4 @@
-from mobius.controller.util.parser import Parser, ParseConfigException, DependencyInfo
+from fabfed.controller.util.parser import Parser, ParseConfigException, DependencyInfo
 import pytest
 
 
