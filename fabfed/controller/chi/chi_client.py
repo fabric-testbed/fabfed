@@ -25,10 +25,10 @@
 import logging
 import os
 
-from mobius.controller.api.api_client import ApiClient
-from mobius.controller.util.config import Config
+from fabfed.controller.api.api_client import ApiClient
+from fabfed.controller.util.config import Config
 
-from mobius.models import AbstractResourceListener
+from fabfed.models import AbstractResourceListener
 
 
 class ChiClient(ApiClient, AbstractResourceListener):
@@ -95,7 +95,7 @@ class ChiClient(ApiClient, AbstractResourceListener):
         self.logger.info(f"initializing  slice {slice_name}: slice_attributes={resource}")
 
         if slice_name not in self.slices:
-            from mobius.controller.chi.chi_slice import Slice
+            from fabfed.controller.chi.chi_slice import Slice
 
             slice_object = Slice(name=slice_name, logger=self.logger, key_pair=self.chi_config.get(Config.CHI_KEY_PAIR),
                                  project_name=self.chi_config.get(Config.CHI_PROJECT_NAME))
@@ -129,7 +129,7 @@ class ChiClient(ApiClient, AbstractResourceListener):
         self.setup_environment(site=site)
 
         # Should be done only after setting up the environment
-        from mobius.controller.chi.chi_slice import Slice
+        from fabfed.controller.chi.chi_slice import Slice
         if slice_name in self.slices:
             slice_object = self.slices[slice_name]
         else:

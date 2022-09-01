@@ -1,7 +1,7 @@
 from . import utils
 import sys
 
-from mobius.controller.controller import Controller
+from fabfed.controller.controller import Controller
 
 
 # noinspection PyArgumentList
