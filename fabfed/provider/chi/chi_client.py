@@ -25,10 +25,10 @@
 import logging
 import os
 
-from fabfed.controller.api.api_client import ApiClient
-from fabfed.controller.util.config import Config
+from fabfed.provider.api.api_client import ApiClient
+from fabfed.util.config import Config
 
-from fabfed.models import AbstractResourceListener
+from fabfed.model import AbstractResourceListener
 
 
 class ChiClient(ApiClient, AbstractResourceListener):
@@ -95,7 +95,7 @@ class ChiClient(ApiClient, AbstractResourceListener):
         self.logger.info(f"initializing  slice {slice_name}: slice_attributes={resource}")
 
         if slice_name not in self.slices:
-            from fabfed.controller.chi.chi_slice import Slice
+            from fabfed.provider.chi.chi_slice import Slice
 
             slice_object = Slice(name=slice_name, logger=self.logger, key_pair=self.chi_config.get(Config.CHI_KEY_PAIR),
                                  project_name=self.chi_config.get(Config.CHI_PROJECT_NAME))
@@ -129,7 +129,7 @@ class ChiClient(ApiClient, AbstractResourceListener):
         self.setup_environment(site=site)
 
         # Should be done only after setting up the environment
-        from fabfed.controller.chi.chi_slice import Slice
+        from fabfed.provider.chi.chi_slice import Slice
         if slice_name in self.slices:
             slice_object = self.slices[slice_name]
         else:
