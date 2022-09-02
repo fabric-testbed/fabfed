@@ -1,4 +1,4 @@
-from fabfed.controller.api.api_client import ApiClient
+from fabfed.provider.api.api_client import ApiClient
 from typing import List, Dict
 
 
@@ -8,14 +8,14 @@ class ProviderFactory:
 
     def init_provider(self, kind: str, name: str, config, logger):
         if kind == 'fabric':
-            from fabfed.controller.fabric.fabric_client import FabricClient
+            from fabfed.provider.fabric.fabric_client import FabricClient
 
             provider = FabricClient(logger=logger, fabric_config=config)
 
             provider.setup_environment()
             self._providers[name + '@' + kind] = provider
         elif kind == 'chi':
-            from fabfed.controller.chi.chi_client import ChiClient
+            from fabfed.provider.chi.chi_client import ChiClient
 
             provider = ChiClient(logger=logger, chi_config=config)
             self._providers[name + '@' + kind] = provider

@@ -26,10 +26,10 @@ import logging
 
 from tabulate import tabulate
 
-from fabfed.controller.chi.chi_network import Network
-from fabfed.controller.chi.chi_node import Node
-from fabfed.controller.util.config import Config
-from fabfed.models import AbstractSlice
+from fabfed.provider.chi.chi_network import Network
+from fabfed.provider.chi.chi_node import Node
+from fabfed.util.config import Config
+from fabfed.model import AbstractSlice
 
 
 class Slice(AbstractSlice):

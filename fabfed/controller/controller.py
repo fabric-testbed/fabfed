@@ -25,10 +25,10 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-from fabfed.controller.chi.chi_client import ChiClient
-from fabfed.controller.util.config import Config
+from fabfed.provider.chi.chi_client import ChiClient
+from fabfed.util.config import Config
 
-from fabfed.models import AbstractResourceListener
+from fabfed.model import AbstractResourceListener
 
 
 class ResourceListener(AbstractResourceListener):
@@ -67,7 +67,7 @@ class Controller:
 
         for provider_config in provider_configs:
             if provider_config.type == 'fabric':
-                from fabfed.controller.fabric.fabric_client import FabricClient
+                from fabfed.provider.fabric.fabric_client import FabricClient
 
                 provider = FabricClient(logger=self.logger, fabric_config=provider_config.attributes)
                 provider.setup_environment()
