@@ -27,10 +27,10 @@ from typing import List, Dict
 
 from fabrictestbed_extensions.fablib.fablib import fablib
 from fabrictestbed_extensions.fablib.resources import Resources
-from fabfed.controller.api.api_client import ApiClient
-from fabfed.controller.fabric.fabric_slice import FabricSlice
-from fabfed.controller.util.config import Config
-from fabfed.models import AbstractResourceListener
+from fabfed.provider.api.api_client import ApiClient
+from fabfed.provider.fabric.fabric_slice import FabricSlice
+from fabfed.util.config import Config
+from fabfed.model import AbstractResourceListener
 
 
 class FabricClient(ApiClient, AbstractResourceListener):
