@@ -25,18 +25,16 @@
 import logging
 import os
 
-from fabfed.provider.api.api_client import ApiClient
+from fabfed.provider.api.api_client import Provider
 from fabfed.util.config import Config
 
-from fabfed.model import AbstractResourceListener
+from fabfed.model import ResourceListener
+from fabfed.model.state import ProviderState
 
 
-class ChiClient(ApiClient, AbstractResourceListener):
-    def __init__(self, *, logger: logging.Logger, chi_config: dict):
-        self.logger = logger
-        self.chi_config = chi_config
-        self.slices = {}
-        self.resource_listener = None
+class ChiProvider(Provider, ResourceListener):
+    def __init__(self, *, type, name, logger: logging.Logger, config: dict):
+        super().__init__(type=type, name=name, logger=logger, config=config)
 
     def setup_environment(self, *, site: str):
         """
@@ -46,25 +44,23 @@ class ChiClient(ApiClient, AbstractResourceListener):
         @param site: site name
         """
         site_id = self.__get_site_identifier(site=site)
-        os.environ['OS_AUTH_URL'] = self.chi_config.get(Config.CHI_AUTH_URL)[site_id]
+        os.environ['OS_AUTH_URL'] = self.config.get(Config.CHI_AUTH_URL)[site_id]
         os.environ['OS_IDENTITY_API_VERSION'] = "3"
         os.environ['OS_INTERFACE'] = "public"
-        os.environ['OS_PROJECT_ID'] = self.chi_config.get(Config.CHI_PROJECT_ID)[site_id]
-        os.environ['OS_USERNAME'] = self.chi_config.get(Config.CHI_USER)
+        os.environ['OS_PROJECT_ID'] = self.config.get(Config.CHI_PROJECT_ID)[site_id]
+        os.environ['OS_USERNAME'] = self.config.get(Config.CHI_USER)
         os.environ['OS_PROTOCOL'] = "openid"
         os.environ['OS_AUTH_TYPE'] = "v3oidcpassword"
-        os.environ['OS_PASSWORD'] = self.chi_config.get(Config.CHI_PASSWORD)
+        os.environ['OS_PASSWORD'] = self.config.get(Config.CHI_PASSWORD)
         os.environ['OS_IDENTITY_PROVIDER'] = "chameleon"
-        os.environ['OS_DISCOVERY_ENDPOINT'] = "https://auth.chameleoncloud.org/auth/realms/chameleon/.well-known/openid-configuration"
-        os.environ['OS_CLIENT_ID'] = self.chi_config.get(Config.CHI_CLIENT_ID)[site_id]
+        os.environ['OS_DISCOVERY_ENDPOINT'] = \
+            "https://auth.chameleoncloud.org/auth/realms/chameleon/.well-known/openid-configuration"
+        os.environ['OS_CLIENT_ID'] = self.config.get(Config.CHI_CLIENT_ID)[site_id]
         os.environ['OS_ACCESS_TOKEN_TYPE'] = "access_token"
         os.environ['OS_CLIENT_SECRET'] = "none"
         os.environ['OS_REGION_NAME'] = site
-        os.environ['OS_SLICE_PRIVATE_KEY_FILE'] = self.chi_config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
-        os.environ['OS_SLICE_PUBLIC_KEY_FILE'] = self.chi_config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
-
-    def set_resource_listener(self, resource_listener):
-        self.resource_listener = resource_listener
+        os.environ['OS_SLICE_PRIVATE_KEY_FILE'] = self.config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
+        os.environ['OS_SLICE_PUBLIC_KEY_FILE'] = self.config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
 
     def on_added(self, source, slice_name, resource: dict):
         if self.resource_listener:
@@ -90,34 +86,13 @@ class ChiClient(ApiClient, AbstractResourceListener):
             return "kvm"
         elif site == "CHI@Edge":
             return "edge"
-
-    def init_slice(self, *, resource: dict, slice_name: str):
-        self.logger.info(f"initializing  slice {slice_name}: slice_attributes={resource}")
-
-        if slice_name not in self.slices:
-            from fabfed.provider.chi.chi_slice import Slice
-
-            slice_object = Slice(name=slice_name, logger=self.logger, key_pair=self.chi_config.get(Config.CHI_KEY_PAIR),
-                                 project_name=self.chi_config.get(Config.CHI_PROJECT_NAME))
-            slice_object.set_resource_listener(self)
-            self.slices[slice_name] = slice_object
-
-    def get_resources(self, *, slice_name: str = None):
-        if slice_name is not None:
-            if slice_name in self.slices:
-                return [self.slices.get(slice_name)]
         else:
-            return self.slices.values()
+            return "uc"
 
-    def get_available_resources(self):
+    def init_slice(self, *, slice_config: dict, slice_name: str):
         pass
 
-    def get_network_vlans(self, slice_name: str = None):
-        for sname, sobj in self.slices.items():
-            for n in sobj.networks:
-                return n.get_vlans()
-
-    def add_resources(self, *, resource: dict, slice_name: str):
+    def add_resource(self, *, resource: dict, slice_name: str):
         # Network info may be amended
         if resource.get(Config.RES_COUNT, 1) < 1:
             return None
@@ -129,31 +104,50 @@ class ChiClient(ApiClient, AbstractResourceListener):
         self.setup_environment(site=site)
 
         # Should be done only after setting up the environment
-        from fabfed.provider.chi.chi_slice import Slice
+        from fabfed.provider.chi.chi_slice import ChiSlice
         if slice_name in self.slices:
             slice_object = self.slices[slice_name]
         else:
-            slice_object = Slice(name=slice_name, logger=self.logger, key_pair=self.chi_config.get(Config.CHI_KEY_PAIR),
-                                 project_name=self.chi_config.get(Config.CHI_PROJECT_NAME))
+            slice_object = ChiSlice(name=slice_name, logger=self.logger, key_pair=self.config.get(Config.CHI_KEY_PAIR),
+                                    project_name=self.config.get(Config.CHI_PROJECT_NAME))
             slice_object.set_resource_listener(self)
             self.slices[slice_name] = slice_object
 
         slice_object.add_resource(resource=resource)
         return slice_object
 
-    def create_resources(self, *,  slice_name: str = None, rtype: str = None):
-        self.logger.info(f"Creating  CHI using slice {slice_name} rtype={rtype}")
+    def destroy_resources(self, *, provider_state: ProviderState):
+        """
+        Delete provisioned resources
+         """
+        for slice_state in provider_state.slice_states:
+            self.logger.info(f"Deleting slice {slice_state.name}")
 
-        chi_slice = self.slices[slice_name]
-        chi_slice.create()
+            all = []
+            all.extend(slice_state.network_states)
+            all.extend(slice_state.node_states)
 
-    def delete_resources(self, *, slice_name: str = None):
-        if slice_name in self.slices:
-            self.logger.info(f"Deleting CHI slice {slice_name}")
-            slice_object = self.slices[slice_name]
-            slice_object.delete()
-            return
+            site = None
 
-        for slice_name, slice_object in self.slices.items():
-            self.logger.info(f"Deleting CHI slice {slice_name}")
-            slice_object.delete()
+            for temp in all:
+                site = temp.attributes.get('site', None)
+
+                if site:
+                    break
+
+            assert site, "no site ...."
+
+            self.setup_environment(site=site)
+
+            from fabfed.provider.chi.chi_slice import ChiSlice
+
+            if slice_state.name in self.slices:
+                slice_object = self.slices[slice_state.name]
+            else:
+                slice_object = ChiSlice(name=slice_state.name, logger=self.logger,
+                                        key_pair=self.config.get(Config.CHI_KEY_PAIR),
+                                        project_name=self.config.get(Config.CHI_PROJECT_NAME))
+                slice_object.set_resource_listener(self)
+                self.slices[slice_state.name] = slice_object
+
+            slice_object.destroy(slice_state=slice_state)

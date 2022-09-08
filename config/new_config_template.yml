@@ -1,8 +1,9 @@
 #############
-# This config is minimal to test vlan dependency. 
+# This config is incomplete and is used to test vlan dependency. 
+#
 # change password, key pair, username, .....
 # The submit would fail for fabric since there are no nodes. (Status.INVALID_ARGUMENTS, Either topology None or slice graph None must be specified)
-# But the add_network metthod would show it has the vlan ....
+# The add_network metthod would show it has the vlan ....
 #############
 provider:
   - fabric:
