@@ -24,14 +24,15 @@
 # Author Komal Thareja (kthare10@renci.org)
 import logging
 from logging.handlers import RotatingFileHandler
+from typing import List
 
-from fabfed.provider.chi.chi_client import ChiClient
+from fabfed.model import ResourceListener
+from fabfed.model import Slice
+from fabfed.model.state import ProviderState
 from fabfed.util.config import Config
 
-from fabfed.model import AbstractResourceListener
 
-
-class ResourceListener(AbstractResourceListener):
+class ControllerResourceListener(ResourceListener):
     def __init__(self,  providers):
         self.providers = providers
 
@@ -67,23 +68,32 @@ class Controller:
 
         for provider_config in provider_configs:
             if provider_config.type == 'fabric':
-                from fabfed.provider.fabric.fabric_client import FabricClient
+                from fabfed.provider.fabric.fabric_provider import FabricProvider
 
-                provider = FabricClient(logger=self.logger, fabric_config=provider_config.attributes)
+                provider = FabricProvider(type=provider_config.type, name=provider_config.name, logger=self.logger,
+                                          config=provider_config.attributes)
                 provider.setup_environment()
                 self.providers[provider_config.name] = provider
             elif provider_config.type == 'chi':
-                provider = ChiClient(logger=self.logger, chi_config=provider_config.attributes)
+                from fabfed.provider.chi.chi_provider import ChiProvider
+
+                provider = ChiProvider(type=provider_config.type, name=provider_config.name, logger=self.logger,
+                                       config=provider_config.attributes)
                 self.providers[provider_config.name] = provider
             else:
                 raise Exception(f"no provider for {provider_config.name}")
 
     def create(self):
         resources = self.config.get_resource_config()
-        resource_listener = ResourceListener(self.providers)
+        resource_listener = ControllerResourceListener(self.providers)
 
         for provider in self.providers.values():
             provider.set_resource_listener(resource_listener)
+
+        # TODO This nneds tp be uncommented ....
+        # for slice_config in self.config.get_slice_config():
+        #     client = self.providers[slice_config.provider_name]
+        #     client.init_slice(slice_name=slice_config.name, resource=slice_config.attributes)
 
         try:
             self.logger.debug("Starting adding")
@@ -103,38 +113,49 @@ class Controller:
                     resource_dict['has_dependencies'] = False
 
                 if resource.is_node:
-                    client.add_resources(resource=resource_dict, slice_name=slice_name)
+                    client.add_resource(resource=resource_dict, slice_name=slice_name)
                 elif resource.is_network:
-                    client.add_resources(resource=resource_dict, slice_name=slice_name)
+                    client.add_resource(resource=resource_dict, slice_name=slice_name)
         except Exception as e:
             self.logger.error(f"Exception occurred while adding resources: {e}")
             raise e
 
         try:
-            self.logger.debug("Starting adding")
+            self.logger.debug("Starting create ....")
             for resource in resources:
                 client = self.providers[resource.slice.provider_name]
                 slice_name = resource.slice.name
 
-                client.create_resources(slice_name=slice_name, rtype=None)
+                client.create_resources(slice_name=slice_name)
         except Exception as e:
             self.logger.error(f"Exception occurred while creating resources: {e}")
             raise e
 
-    def delete(self, *, slice_name: str = None):
+    def delete(self, *, provider_states: List[ProviderState]):
         for slice_config in self.config.get_slice_config():
-            if not slice_name or slice_name == slice_config.name:
-                client = self.providers[slice_config.provider_name]
-                client.init_slice(slice_name=slice_config.name, resource=slice_config.attributes)
-                client.delete_resources(slice_name=slice_config.name)
+            client = self.providers[slice_config.provider_name]
+            client.init_slice(slice_name=slice_config.name, slice_config=slice_config.attributes)
 
-    def get_resources(self) -> list:
+        for provider_state in provider_states:
+            client = self.providers[provider_state.name]
+            client.destroy_resources(provider_state=provider_state)
+
+    def get_slices(self) -> List[Slice]:
         resources = []
 
         for provider in self.providers.values():
-            slices = provider.get_resources()
+            slices = provider.get_slices()
 
             if slices:
                 resources.extend(slices)
 
         return resources
+
+    def get_states(self) -> List[ProviderState]:
+        provider_states = []
+
+        for provider in self.providers.values():
+            provider_state = provider.get_state()
+            provider_states.append(provider_state)
+
+        return provider_states

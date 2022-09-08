@@ -22,30 +22,69 @@
 # SOFTWARE.
 #
 # Author Komal Thareja (kthare10@renci.org)
+import logging
 from abc import ABC, abstractmethod
+from fabfed.model import Slice
+from typing import List
+from fabfed.model.state import ProviderState
 
 
-class ApiClient(ABC):
+class Provider(ABC):
+    def __init__(self, *, type, name, logger: logging.Logger, config: dict):
+        self.type = type
+        self.name = name
+        self.logger = logger
+        self.config = config
+        self.slices = {}
+        self.resource_listener = None
+
+    def set_resource_listener(self, resource_listener):
+        """
+        Set the resource listener
+        """
+        self.resource_listener = resource_listener
+
     @abstractmethod
-    def get_resources(self, slice_name: str = None):
+    def init_slice(self, *, slice_config: dict, slice_name: str):
+        pass
+
+    def get_slices(self) -> List[Slice]:
         """
-        Return set of the allocated Resources
+        Returns list of the allocated slices
         """
+        return list(self.slices.values())
 
     @abstractmethod
-    def get_available_resources(self):
-        """
-        Return set of the available Resources
-        """
-
-    @abstractmethod
-    def add_resources(self, *, resource: dict, slice_name: str):
+    def add_resource(self, *, resource: dict, slice_name: str):
         """
         Build the topology
         """
 
-    @abstractmethod
-    def delete_resources(self, *, slice_name: str = None):
+    def create_resources(self, *,  slice_name: str):
+        """
+        This call will be called for every resource
+        """
+
+        self.logger.info(f"Creating slice {slice_name}")
+        chi_slice = self.slices[slice_name]
+        chi_slice.create()
+
+    def get_state(self) -> ProviderState:
+        """
+        Returns state of resources
+        """
+        slice_states = []
+
+        for slice_object in self.slices.values():
+            slice_states.append(slice_object.get_state())
+
+        return ProviderState(self.type, self.name, dict(), slice_states)
+
+    def destroy_resources(self, *, provider_state: ProviderState):
         """
         Delete provisioned resources
-        """
+         """
+        for slice_state in provider_state.slice_states:
+            slice_object = self.slices[slice_state.name]
+            self.logger.info(f"Deleting slice {slice_state.name}")
+            slice_object.destroy(slice_state=slice_state)

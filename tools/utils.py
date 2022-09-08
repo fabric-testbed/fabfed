@@ -22,5 +22,6 @@ def build_parser():
     parser = create_parser(description=description)
     parser.add_argument('-c', '--config', type=str, default='', help='yaml config file', required=True)
     parser.add_argument('-apply', action='store_true', default=False, help='create resources')
+    parser.add_argument('-show', action='store_true', default=False, help='show resources')
     parser.add_argument('-destroy', action='store_true', default=False, help='delete resources')
     return parser
