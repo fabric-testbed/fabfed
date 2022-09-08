@@ -26,70 +26,58 @@
 from collections import namedtuple
 from typing import List
 
-from fabrictestbed_extensions.fablib.node import Node
+from fabrictestbed_extensions.fablib.node import Node as Delegate
 from fabrictestbed_extensions.fablib.slice import Slice
 
+from fabfed.model import Node
 from fabfed.util.config import Config
-from fabfed.model import AbstractNode
 
 Component = namedtuple("Component", "model  name")
 
 
-class FabricNode(AbstractNode):
-    def __init__(self, *, delegate: Node):
-        self.delegate = delegate
-        self.slice_object = delegate.get_slice()
-        self.name = delegate.get_name()
-        self.image = delegate.get_image()
-        self.site = delegate.get_site()
-        self.flavor = {'cores': delegate.get_cores(), 'ram':  delegate.get_ram(), 'disk': delegate.get_disk()}
-        self.management_ip = delegate.get_management_ip()
-        self.components: List[Component] = []
+class FabricNode(Node):
+    def __init__(self, *, delegate: Delegate):
+        flavor = {'cores': delegate.get_cores(), 'ram': delegate.get_ram(), 'disk': delegate.get_disk()}
+        super().__init__(name=delegate.get_name(), image=delegate.get_image(), site=delegate.get_site(),
+                         flavor=str(flavor))
+
+        self._delegate = delegate
+        self._slice_object = delegate.get_slice()
+        self.management_ip = str(delegate.get_management_ip())
+        self._components: List[Component] = []
 
         for component in delegate.get_components():
-            self.components.append(Component(name=component.get_name(), model=component.get_model()))
+            self._components.append(Component(name=component.get_name(), model=component.get_model()))
 
     def get_interfaces(self):
-        return self.delegate.get_interfaces()
+        return self._delegate.get_interfaces()
 
     def get_interface(self, *, network_name):
-        return self.delegate.get_interface(network_name=network_name)
+        return self._delegate.get_interface(network_name=network_name)
 
     def upload_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):
-        self.delegate.upload_file(local_file_path, remote_file_path, retry, retry_interval)
+        self._delegate.upload_file(local_file_path, remote_file_path, retry, retry_interval)
 
     def download_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):
-        self.delegate.download_file(local_file_path, remote_file_path, retry, retry_interval)
+        self._delegate.download_file(local_file_path, remote_file_path, retry, retry_interval)
 
     def upload_directory(self, local_directory_path, remote_directory_path, retry=3, retry_interval=10):
-        self.delegate.upload_directory(local_directory_path, remote_directory_path, retry, retry_interval)
+        self._delegate.upload_directory(local_directory_path, remote_directory_path, retry, retry_interval)
 
     def download_directory(self, local_directory_path, remote_directory_path, retry=3, retry_interval=10):
-        self.delegate.download_directory(local_directory_path, remote_directory_path, retry, retry_interval)
+        self._delegate.download_directory(local_directory_path, remote_directory_path, retry, retry_interval)
 
     def execute(self, command, retry=3, retry_interval=10):
-        self.delegate.execute(command, retry, retry_interval)
-
-    def get_name(self) -> str:
-        return self.name
-
-    def get_site(self) -> str:
-        return self.site
-
-    def get_flavor(self) -> dict:
-        return self.flavor
-
-    def get_image(self) -> str:
-        return self.image
+        self._delegate.execute(command, retry, retry_interval)
 
     def get_management_ip(self) -> str:
-        return self.delegate.get_management_ip()
+        return self._delegate.get_management_ip()
 
-    def get_reservation_id(self):
-        return self.delegate.get_reservation_id()
+    def get_reservation_id(self) -> str:
+        return self._delegate.get_reservation_id()
 
-    def get_reservation_state(self):
-        return self.delegate.get_reservation_state()
+    def get_reservation_state(self) -> str:
+        return self._delegate.get_reservation_state()
 
 
 class NodeBuilder:
@@ -101,12 +89,12 @@ class NodeBuilder:
 
             site = fablib.get_random_site()
 
-        image = resource.get(Config.RES_IMAGE, Node.default_image)
+        image = resource.get(Config.RES_IMAGE, Delegate.default_image)
         flavor = resource.get(Config.RES_FLAVOR, {'cores': 2, 'ram': 8, 'disk': 10})
-        cores = flavor.get(Config.RES_FLAVOR_CORES, Node.default_cores)
-        ram = flavor.get(Config.RES_FLAVOR_RAM, Node.default_ram)
-        disk = flavor.get(Config.RES_FLAVOR_DISK, Node.default_disk)
-        self.node: Node = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
+        cores = flavor.get(Config.RES_FLAVOR_CORES, Delegate.default_cores)
+        ram = flavor.get(Config.RES_FLAVOR_RAM, Delegate.default_ram)
+        disk = flavor.get(Config.RES_FLAVOR_DISK, Delegate.default_disk)
+        self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
 
     def add_component(self, model=None, name=None):
         self.node.add_component(model=model, name=name)

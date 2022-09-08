@@ -31,31 +31,27 @@ from chi.server import get_server
 
 import paramiko
 import time
+from fabfed.model import Node
 
 
-class Node:
+class ChiNode(Node):
     def __init__(self, *, name: str, image: str, site: str, flavor: str, project_name: str,
                  logger: logging.Logger, key_pair: str, network: str, slice_name: str):
-        self.name = name
-        self.image = image
-        self.site = site
-        self.flavor = flavor
+        super().__init__(name=name, image=image, site=site, flavor=flavor)
         self.project_name = project_name
         self.key_pair = key_pair
-        self.network = network
+        self.network_name = network
         self.slice_name = slice_name
-        self.lease = None
-        self.mgmt_ip = None
         self.logger = logger
         self.private_key_file = os.environ['OS_SLICE_PRIVATE_KEY_FILE']
         self.public_key_file = os.environ['OS_SLICE_PUBLIC_KEY_FILE']
         self.retry = 5
         self.default_username = "cc"
         self.state = None
-        self.leased_resource_name = f'{self.slice_name}-{self.name}'
+        self.lease_name = f'{self.slice_name}-{self.name}'
 
     def __is_lease_active(self) -> bool:
-        lease = chi.lease.get_lease(self.leased_resource_name)
+        lease = chi.lease.get_lease(self.lease_name)
         if lease is not None:
             status = lease["status"]
             if status == 'ERROR':
@@ -67,16 +63,15 @@ class Node:
         return False
 
     def __delete_lease(self):
-        self.logger.info(f"Deleting lease: {self.leased_resource_name}")
-        chi.lease.delete_lease(self.leased_resource_name)
+        chi.lease.delete_lease(self.lease_name)
 
     def __create_lease(self) -> bool:
         # Check if the lease exists
         existing_lease = None
         try:
-            existing_lease = chi.lease.get_lease(self.leased_resource_name)
+            existing_lease = chi.lease.get_lease(self.lease_name)
         except Exception as e:
-            self.logger.info(f"No lease found with name: {self.leased_resource_name}")
+            self.logger.info(f"No lease found with name: {self.lease_name}")
 
         # Lease Exists
         if existing_lease is not None:
@@ -89,18 +84,18 @@ class Node:
                 return True
 
         # Lease doesn't exist Create a Lease
-        self.logger.info(f"Creating the lease - {self.leased_resource_name}")
+        self.logger.info(f"Creating the lease - {self.lease_name}")
         reservations = []
         chameleon_node_type = "compute_cascadelake_r" # TODO This should not be hardocded
 
         chi.lease.add_node_reservation(reservations, count=1, node_type=chameleon_node_type)
-        self.logger.info(f"Creating lease {self.leased_resource_name} {reservations}")
-        chi.lease.create_lease(lease_name=self.leased_resource_name, reservations=reservations)
+        self.logger.info(f"Creating lease {self.lease_name} {reservations}")
+        chi.lease.create_lease(lease_name=self.lease_name, reservations=reservations)
 
         for i in range(self.retry):
             try:
                 self.logger.info(f"Waiting for the lease to be Active. num_tries={i+1}")
-                chi.lease.wait_for_active(self.leased_resource_name)
+                chi.lease.wait_for_active(self.lease_name)
                 return True
             except:
                 self.logger.warning(f"Error occurred while waiting for the lease to be Active. num_tries={i+1}")
@@ -110,9 +105,9 @@ class Node:
     def get_reservation_id(self):
         existing_lease = None
         try:
-            existing_lease = chi.lease.get_lease(self.leased_resource_name)
+            existing_lease = chi.lease.get_lease(self.lease_name)
         except Exception as e:
-            self.logger.info(f"No lease found with name: {self.leased_resource_name}")
+            self.logger.info(f"No lease found with name: {self.lease_name}")
             return existing_lease
         return existing_lease["reservations"][0]["id"]
 
@@ -124,19 +119,19 @@ class Node:
 
     def __server_exists(self) -> bool:
         try:
-            server_id = chi.server.get_server_id(self.leased_resource_name)
+            server_id = chi.server.get_server_id(self.lease_name)
             if server_id is not None:
                 self.logger.info(f"SERVER_ID: {server_id}")
                 server = chi.server.get_server(server_id)
                 self.logger.debug(f"Server: {server._info}")
                 self.state = server._info['OS-EXT-STS:vm_state']
-                addresses = server._info['addresses'][self.network]
+                addresses = server._info['addresses'][self.network_name]
                 for a in addresses:
                     if a['OS-EXT-IPS:type'] == 'floating':
                         self.mgmt_ip = a['addr']
                 return True
         except:
-            self.logger.warning(f"Server {self.leased_resource_name} does not exist")
+            self.logger.warning(f"Server {self.lease_name} does not exist")
         return False
 
     def __create_kvm(self):
@@ -145,20 +140,20 @@ class Node:
         chi.set('project_domain_name', 'default')
 
         if self.__server_exists():
-            self.logger.info(f"Server {self.leased_resource_name} already exists!")
+            self.logger.info(f"Server {self.lease_name} already exists!")
             return
 
         # Create the VM
-        self.logger.info(f"Creating server {self.leased_resource_name}!")
-        server = chi.server.create_server(server_name=self.leased_resource_name, image_name=self.image,
-                                          network_name=self.network, key_name=self.key_pair, flavor_name=self.flavor)
+        self.logger.info(f"Creating server {self.lease_name}!")
+        server = chi.server.create_server(server_name=self.lease_name, image_name=self.image,
+                                          network_name=self.network_name, key_name=self.key_pair, flavor_name=self.flavor)
 
         # Wait for VM to be Active
-        self.logger.info(f"Waiting for server {self.leased_resource_name} to be Active!")
+        self.logger.info(f"Waiting for server {self.lease_name} to be Active!")
         chi.server.wait_for_active(server_id=server.id)
 
         # Attach the floating IP
-        self.logger.info(f"Associating the Floating IP to {self.leased_resource_name}!")
+        self.logger.info(f"Associating the Floating IP to {self.lease_name}!")
         self.mgmt_ip = chi.server.associate_floating_ip(server_id=server.id)
 
     def __create_baremetal(self):
@@ -173,7 +168,7 @@ class Node:
             return
 
         if self.__server_exists():
-            self.logger.info(f"Server {self.leased_resource_name} already exists!")
+            self.logger.info(f"Server {self.lease_name} already exists!")
             return
 
         # Created Lease is not Active
@@ -181,28 +176,40 @@ class Node:
             self.logger.error("Stopping the provisioning as the lease could not be created")
             return
 
-        self.logger.info(f"Using the lease {self.leased_resource_name}")
+        self.logger.info(f"Using the lease {self.lease_name}")
 
         # Launch the server
-        self.logger.info(f"Creating server {self.leased_resource_name}!")
-        server = chi.server.create_server(server_name=self.leased_resource_name, image_name=self.image,
-                                          network_name=self.network, key_name=self.key_pair,
+        self.logger.info(f"Creating server {self.lease_name}!")
+        server = chi.server.create_server(server_name=self.lease_name, image_name=self.image,
+                                          network_name=self.network_name, key_name=self.key_pair,
                                           reservation_id=self.get_reservation_id())
 
         # Wait for Server to be Active
-        self.logger.info(f"Waiting for server {self.leased_resource_name} to be Active!")
+        self.logger.info(f"Waiting for server {self.lease_name} to be Active!")
         chi.server.wait_for_active(server_id=server.id)
 
         # Attach the floating IP
-        self.logger.info(f"Associating the Floating IP to {self.leased_resource_name}!")
+        self.logger.info(f"Associating the Floating IP to {self.lease_name}!")
         self.mgmt_ip = chi.server.associate_floating_ip(server_id=server.id)
 
     def delete(self):
-        server_id = chi.server.get_server_id(f"{self.leased_resource_name}")
+        chi.set('project_name', self.project_name)
+        chi.set('project_domain_name', 'default')
+
+        # Select your site
+        chi.use_site(self.site)
+
+        server_id = chi.server.get_server_id(f"{self.lease_name}")
         if server_id is not None:
             self.logger.info("Deleting server")
             chi.server.delete_server(server_id=server_id)
-            chi.lease.delete_lease(self.leased_resource_name)
+            chi.lease.delete_lease(self.lease_name)
+
+        try:
+            self.__delete_lease()
+            self.logger.info(f"Deleted lease: {self.lease_name}")
+        except Exception as e:
+            pass
 
     def __get_paramiko_key(self, private_key_file: str, private_key_passphrase: str = None):
 
@@ -244,7 +251,7 @@ class Node:
         :type retry_interval: int
         :raise Exception: if management IP is invalid
         """
-        self.logger.debug(f"upload node: {self.leased_resource_name}, local_file_path: {local_file_path}")
+        self.logger.debug(f"upload node: {self.lease_name}, local_file_path: {local_file_path}")
 
         for attempt in range(retry):
             try:
@@ -272,7 +279,7 @@ class Node:
                 if attempt+1 == retry:
                     raise e
 
-                self.logger.info(f"SCP upload fail. Node: {self.leased_resource_name}, trying again")
+                self.logger.info(f"SCP upload fail. Node: {self.lease_name}, trying again")
                 self.logger.info(f"Fail: {e}")
                 time.sleep(retry_interval)
                 pass
@@ -293,7 +300,7 @@ class Node:
         :param verbose: indicator for verbose outpu
         :type verbose: bool
         """
-        logging.debug(f"download node: {self.leased_resource_name}, remote_file_path: {remote_file_path}")
+        logging.debug(f"download node: {self.lease_name}, remote_file_path: {remote_file_path}")
 
         for attempt in range(retry):
             try:
@@ -321,7 +328,7 @@ class Node:
                 if attempt+1 == retry:
                     raise e
 
-                self.logger.info(f"SCP download fail. Node: {self.leased_resource_name}, trying again")
+                self.logger.info(f"SCP download fail. Node: {self.lease_name}, trying again")
                 self.logger.info(f"Fail: {e}")
                 time.sleep(retry_interval)
                 pass
@@ -346,7 +353,7 @@ class Node:
         import tarfile
         import os
 
-        logging.debug(f"upload node: {self.leased_resource_name}, local_directory_path: {local_directory_path}")
+        logging.debug(f"upload node: {self.lease_name}, local_directory_path: {local_directory_path}")
 
         output_filename = local_directory_path.split('/')[-1]
         root_size = len(local_directory_path) - len(output_filename)
@@ -380,7 +387,7 @@ class Node:
         """
         import tarfile
         import os
-        logging.debug(f"upload node: {self.leased_resource_name}, local_directory_path: {local_directory_path}")
+        logging.debug(f"upload node: {self.lease_name}, local_directory_path: {local_directory_path}")
 
         temp_file = "/tmp/unpackingfile.tar.gz"
         self.execute("tar -czf " + temp_file + " " + remote_directory_path, retry, retry_interval)
@@ -406,7 +413,7 @@ class Node:
         """
         import logging
 
-        logging.debug(f"execute node: {self.leased_resource_name}, management_ip: {self.mgmt_ip}, command: {command}")
+        logging.debug(f"execute node: {self.lease_name}, management_ip: {self.mgmt_ip}, command: {command}")
 
         for attempt in range(retry):
             try:
@@ -442,23 +449,8 @@ class Node:
         raise Exception("ssh failed: Should not get here")
 
     def __str__(self):
-        return f"Name: {self.leased_resource_name} Mgmt IP: {self.mgmt_ip} Site: {self.site} Image: {self.image} " \
+        return f"Name: {self.lease_name} Mgmt IP: {self.mgmt_ip} Site: {self.site} Image: {self.image} " \
                f"Slice Name: {self.slice_name} KeyPair: {self.key_pair} Project Name: {self.project_name}"
-
-    def get_name(self) -> str:
-        return self.leased_resource_name
-
-    def get_site(self) -> str:
-        return self.site
-
-    def get_flavor(self) -> str:
-        return self.flavor
-
-    def get_image(self) -> str:
-        return self.image
-
-    def get_management_ip(self) -> str:
-        return self.mgmt_ip
 
     def get_reservation_state(self) -> str:
         return self.state

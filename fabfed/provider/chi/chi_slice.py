@@ -24,26 +24,21 @@
 # Author Komal Thareja (kthare10@renci.org)
 import logging
 
-from tabulate import tabulate
-
-from fabfed.provider.chi.chi_network import Network
-from fabfed.provider.chi.chi_node import Node
+from fabfed.model import Slice
+from fabfed.model.state import SliceState
+from fabfed.provider.chi.chi_network import ChiNetwork
+from fabfed.provider.chi.chi_node import ChiNode
 from fabfed.util.config import Config
-from fabfed.model import AbstractSlice
 
 
-class Slice(AbstractSlice):
+class ChiSlice(Slice):
     DEFAULT_NETWORKS = ["sharednet1", "sharedwan1", "containernet1"]
 
     def __init__(self, *, name: str, logger: logging.Logger, key_pair: str, project_name: str):
-        self.name = name
+        super().__init__(name=name)
         self.logger = logger
         self.key_pair = key_pair
         self.project_name = project_name
-        self._nodes = list()
-        self._networks = list()
-        self._services = list()
-        self._callbacks = dict()
         self.resource_listener = None
 
     def set_resource_listener(self, resource_listener):
@@ -58,10 +53,10 @@ class Slice(AbstractSlice):
         stitch_provider = resource.get(Config.RES_NET_STITCH_PROV, None)
 
         net_name = resource.get(Config.RES_NAME_PREFIX)
-        net = Network(name=net_name, site=site, logger=self.logger,
-                      slice_name=self.name, subnet=subnet, pool_start=pool_start, pool_end=pool_end,
-                      gateway=gateway, stitch_provider=stitch_provider,
-                      project_name=self.project_name)
+        net = ChiNetwork(name=net_name, site=site, logger=self.logger,
+                         slice_name=self.name, subnet=subnet, pool_start=pool_start, pool_end=pool_end,
+                         gateway=gateway, stitch_provider=stitch_provider,
+                         project_name=self.project_name)
         self._networks.append(net)
 
         if self.resource_listener:
@@ -74,7 +69,7 @@ class Slice(AbstractSlice):
         if not isinstance(network, str):
             found = False
 
-            for net in self.networks:
+            for net in self._networks:
                 if net.name == network.resource.name:
                     net_vars = vars(net)
                     network = net_vars[network.attribute]
@@ -91,61 +86,54 @@ class Slice(AbstractSlice):
 
         for n in range(0, node_count):
             node_name = f"{node_name_prefix}{n}"
-            node = Node(name=node_name, image=image, site=site, flavor=flavor, logger=self.logger,
-                        key_pair=self.key_pair, slice_name=self.name, network=network,
-                        project_name=self.project_name)
+            node = ChiNode(name=node_name, image=image, site=site, flavor=flavor, logger=self.logger,
+                           key_pair=self.key_pair, slice_name=self.name, network=network,
+                           project_name=self.project_name)
             self._nodes.append(node)
 
             if self.resource_listener:
                 self.resource_listener.on_added(self, self.name, vars(node))
 
     def add_resource(self, *, resource: dict):
-        # Select your site
         rtype = resource.get(Config.RES_TYPE)
         if rtype == Config.RES_TYPE_NETWORK.lower():
             self.add_network(resource)
         else:
             self.add_node(resource)
 
-    def create(self, rtype: str = None):
-        if rtype in [None, Config.RES_TYPE_NETWORK]:
-            for n in self.networks:
-                n.create()
-
-                if self.resource_listener:
-                    self.resource_listener.on_created(self, self.name, vars(n))
-        if rtype in [None, Config.RES_TYPE_NODE]:
-            for n in self.nodes:
-                n.create()
-
-                if self.resource_listener:
-                    self.resource_listener.on_created(self, self.name, vars(n))
-
-    def delete(self):
-        for n in self._nodes:
-            self.logger.info(f"Deleting node: {n}")
-            n.delete()
+    def create(self):
         for n in self._networks:
-            self.logger.info(f"Deleting network: {n}")
-            n.delete()
+            n.create()
 
-    def list_nodes(self) -> list:
-        table = []
-        for node in self.nodes:
-            table.append([node.get_reservation_id(),
-                          node.get_name(),
-                          node.get_site(),
-                          node.get_flavor(),
-                          node.get_image(),
-                          node.get_management_ip(),
-                          node.get_reservation_state()
-                          ])
+            if self.resource_listener:
+                self.resource_listener.on_created(self, self.name, vars(n))
 
-        return tabulate(table, headers=["ID", "Name", "Site", "Flavor", "Image",
-                                        "Management IP", "State"])
+        for n in self._nodes:
+            n.create()
 
-    def __str__(self):
-        table = [["Slice Name", self.name],
-                 ]
+            if self.resource_listener:
+                self.resource_listener.on_created(self, self.name, vars(n))
 
-        return tabulate(table)
+    def destroy(self, *, slice_state: SliceState):
+        node_states = slice_state.node_states
+
+        for node_state in node_states:
+            self.logger.info(f"Deleting node: {node_state}")
+            site = node_state.attributes.get('site')
+
+            node = ChiNode(name=node_state.name, image=None, site=site, flavor=None, logger=self.logger,
+                           key_pair=None, slice_name=self.name, network=None,
+                           project_name=self.project_name)
+            node.delete()
+
+        network_states = slice_state.network_states
+
+        for network_state in network_states:
+            self.logger.info(f"Deleting node: {network_state}")
+            site = network_state.attributes.get('site')
+
+            net = ChiNetwork(name=network_state.name, site=site, logger=self.logger,
+                             slice_name=self.name, subnet=None, pool_start=None, pool_end=None,
+                             gateway=None, stitch_provider=None,
+                             project_name=self.project_name)
+            net.delete()

@@ -2,9 +2,11 @@ resource:
   - slice:
       - my_fabric_slice:
           - provider: '{{ fabric.my_fabric_provider }}'
+            name: test_slice
   - slice:
       - my_chi_slice:
           - provider: '{{ chi.my_chi_provider }}'
+            name: test_slice
 
   - node:
       - my_fabric_node:
@@ -20,7 +22,7 @@ resource:
             type: Baremetal
             site: CHI@UC
             image: CC-Ubuntu20.04
-            network: '{{ network.my_chi_network.name }}'
+            network: '{{ network.my_chi_network.network_name }}'
             flavor:
               name: m1.medium
 

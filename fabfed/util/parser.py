@@ -14,14 +14,22 @@ class ParseConfigException(Exception):
 class BaseConfig:
     def __init__(self, type: str, name: str, attrs: Dict):
         self.type = type.lower()
-        self.name = name.lower()
+        self._var_name = name.lower()
         self.attributes = attrs
+
+    @property
+    def var_name(self) -> str:
+        return self._var_name
+
+    @property
+    def name(self) -> str:
+        return self.attributes['name'] if 'name' in self.attributes else self._var_name
 
     def attribute(self, key: str):
         return self.attributes.get(key)
 
     def __str__(self) -> str:
-        return self.name + '@' + self.type
+        return self.var_name + '@' + self.type
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -32,7 +40,7 @@ class ProviderConfig(BaseConfig):
         super().__init__(type, name, attrs)
 
     def __eq__(self, other):
-        return self.name == other.name and self.type == other.type
+        return self.var_name == other.var_name and self.type == other.type
 
     def __hash__(self):
         return hash(str(self))
@@ -49,7 +57,7 @@ class SliceConfig(BaseConfig):
 
     @property
     def provider_name(self) -> str:
-        return self._provider.name
+        return self._provider.var_name
 
     @property
     def provider_type(self) -> str:
@@ -59,10 +67,10 @@ class SliceConfig(BaseConfig):
         return super().__str__() + '@' + self.provider.__str__()
 
     def __eq__(self, other):
-        return (self.name, self.type, self.provider.type) == (other.name, other.type, other.provider.type)
+        return (self.var_name, self.type, self.provider.type) == (other.var_name, other.type, other.provider.type)
 
     def __hash__(self):
-        return hash(self.name + self.type + self.provider.type)
+        return hash(self.var_name + self.type + self.provider.type)
 
 
 DependencyInfo = namedtuple("DependencyInfo", "resource  attribute")
@@ -108,31 +116,31 @@ class ResourceConfig(BaseConfig):
         return super().__str__() + ' using ' + self.slice.__str__()
 
     def __eq__(self, other):
-        return (self.name, self.type, self.slice) == (other.name, other.type, other.slice)
+        return (self.var_name, self.type, self.slice) == (other.var_name, other.type, other.slice)
 
     def __hash__(self):
-        return hash(self.name + self.type + str(hash(self.slice)))
+        return hash(self.var_name + self.type + str(hash(self.slice)))
 
 
 def slice_from_basic_config(basic_config) -> SliceConfig:
     attrs = basic_config.attributes.copy()
 
     if 'provider' not in attrs:
-        raise ParseConfigException(f"slice missing provider {basic_config.name}")
+        raise ParseConfigException(f"slice missing provider {basic_config.var_name}")
 
     provider = attrs.pop('provider')
 
     if not isinstance(provider, ProviderConfig):
-        raise ParseConfigException(f"malformed provider config  for {basic_config.name}")
+        raise ParseConfigException(f"malformed provider config  for {basic_config.var_name}")
 
-    return SliceConfig(basic_config.type, basic_config.name, attrs, provider)
+    return SliceConfig(basic_config.type, basic_config.var_name, attrs, provider)
 
 
 def resource_from_basic_config(basic_config, slices) -> ResourceConfig:
     attrs = basic_config.attributes.copy()
 
     if 'slice' not in attrs:
-        raise ParseConfigException(f"resource missing slice {basic_config.name}")
+        raise ParseConfigException(f"resource missing slice {basic_config.var_name}")
 
     temp = attrs.pop('slice')
     temp_provider = temp.attributes.get('provider', None)
@@ -140,12 +148,12 @@ def resource_from_basic_config(basic_config, slices) -> ResourceConfig:
     if not temp_provider:
         raise ParseConfigException(f"slice {temp} missing provider while parsing {basic_config}")
 
-    index = slices.index(SliceConfig(temp.type, temp.name, {}, temp_provider))
+    index = slices.index(SliceConfig(temp.type, temp.var_name, {}, temp_provider))
 
     if index < 0:
-        raise ParseConfigException(f"did not find slice {temp.name} for {basic_config}")
+        raise ParseConfigException(f"did not find slice {temp.var_name} for {basic_config}")
 
-    return ResourceConfig(basic_config.type, basic_config.name, attrs, slices[index])
+    return ResourceConfig(basic_config.type, basic_config.var_name, attrs, slices[index])
 
 
 class Evaluator:
@@ -163,7 +171,7 @@ class Evaluator:
             raise ParseConfigException(f"bad dependency {path}")
 
         for config_entry in config_entries:
-            if config_entry.type == parts[0] and config_entry.name == parts[1]:
+            if config_entry.type == parts[0] and config_entry.var_name == parts[1]:
                 if config_entry.type == 'node' or config_entry.type == 'network':
                     return DependencyInfo(resource=config_entry, attribute='.'.join(parts[2:]))
 
@@ -371,7 +379,7 @@ class Parser:
     def parse(*, file_name=None, content=None) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
         if file_name:
             with open(file_name, 'r') as stream:
-                obj = yaml.safe_load(stream)
+                obj = yaml.load(stream, Loader=yaml.FullLoader)
         else:
             obj = yaml.safe_load(content)
 

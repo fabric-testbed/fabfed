@@ -29,30 +29,30 @@ from fabrictestbed_extensions.fablib.network_service import NetworkService
 from fabrictestbed_extensions.fablib.slice import Slice
 
 from fabfed.util.config import Config
-from fabfed.model import AbstractNetwork
+from fabfed.model import Network
 
 
-class FabricNetwork(AbstractNetwork):
+class FabricNetwork(Network):
     def __init__(self, *, delegate: NetworkService, subnet: IPv4Network, pool_start: IPv4Address, pool_end: IPv4Address):
-        self.delegate = delegate
-        self.subnet = subnet
-        self.pool_start = pool_start
-        self.pool_end = pool_end
+        self._delegate = delegate
+        self._subnet = subnet
+        self._pool_start = pool_start
+        self._pool_end = pool_end
         self.name = delegate.get_name()
 
     def available_ips(self):
         available_ips = []
 
-        for ip_int in range(int(self.pool_start) + 1, int(self.pool_end) + 1):
+        for ip_int in range(int(self._pool_start) + 1, int(self._pool_end) + 1):
             available_ips.append(IPv4Address(ip_int))
 
         return available_ips
 
     def get_reservation_id(self):
-        self.delegate.get_reservation_id()
+        self._delegate.get_reservation_id()
 
     def get_site(self):
-        return self.delegate.get_name()
+        return self._delegate.get_name()
 
 
 class NetworkBuilder:

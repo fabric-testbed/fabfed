@@ -26,29 +26,23 @@ import logging
 import traceback
 from collections import namedtuple
 
-from fabrictestbed_extensions.fablib.fablib import fablib
-from fabrictestbed_extensions.fablib.slice import Slice
-from tabulate import tabulate
-
 from fabfed.util.config import Config
-from fabfed.model import AbstractResourceListener
-from fabfed.model import AbstractSlice
+from fabfed.model import ResourceListener
+from fabfed.model import Slice
 from .fabric_node import FabricNode, NodeBuilder
 from .fabric_network import NetworkBuilder
 
 
-class FabricSlice(AbstractSlice, AbstractResourceListener):
+class FabricSlice(Slice, ResourceListener):
     def __init__(self, *, name: str, logger: logging.Logger):
-        self.name = name
+        super().__init__(name=name)
         self.logger = logger
-        self._nodes = list()
-        self._networks = list()
-        self._services = list()
         self.pending = []
-        self.logger.info(f"init slice name = {name}")
+
+        from fabrictestbed_extensions.fablib.fablib import fablib
 
         try:
-            self.slice_object: Slice = fablib.get_slice(name=name)
+            self.slice_object = fablib.get_slice(name=name)
         except:
             self.slice_object = None
 
@@ -101,7 +95,7 @@ class FabricSlice(AbstractSlice, AbstractResourceListener):
         network_builder.handle_facility_port()
         interfaces = []   # TODO handle this internal dependency
 
-        for node in self.nodes:
+        for node in self._nodes:
             interfaces.append(node.get_interfaces()[0])
 
         assert len(interfaces) > 0
@@ -164,7 +158,7 @@ class FabricSlice(AbstractSlice, AbstractResourceListener):
             self.logger.error(traceback.format_exc())
             raise e
 
-    def create(self, rtype: str = None):
+    def create(self,):
         if self.slice_created:
             self.logger.warning(f"already provisioned. Will not bother to create any resource to {self.name}")
             return
@@ -184,36 +178,17 @@ class FabricSlice(AbstractSlice, AbstractResourceListener):
         for node in self.slice_object.get_nodes():
             self._nodes.append(FabricNode(delegate=node))
 
-        available_ips = self._networks[0].available_ips()
-        subnet = self._networks[0].subnet
-        net_name = self._networks[0].name
+        if self.networks:
+            available_ips = self._networks[0].available_ips()
+            subnet = self._networks[0]._subnet
+            net_name = self._networks[0].name
 
-        for node in self.nodes:
-            iface = node.get_interface(network_name=net_name)
-            node_addr = available_ips.pop(0)
-            iface.ip_addr_add(addr=node_addr, subnet=subnet)
+            for node in self._nodes:
+                iface = node.get_interface(network_name=net_name)
+                node_addr = available_ips.pop(0)
+                iface.ip_addr_add(addr=node_addr, subnet=subnet)
 
-    def delete(self, rtpe: str = None):
+    def destroy(self, *, slice_state):
         if self.slice_created:
             self.slice_object.delete()
-
-    def list_nodes(self) -> list:
-        table = []
-        for node in self._nodes:
-            table.append([node.get_reservation_id(),
-                          node.get_name(),
-                          node.get_site(),
-                          node.get_flavor(),
-                          node.get_image(),
-                          node.get_management_ip(),
-                          node.get_reservation_state()
-                          ])
-
-        return tabulate(table, headers=["ID", "Name", "Site", "Flavor", "Image",
-                                        "Management IP", "State"])
-
-    def __str__(self):
-        table = [["Slice Name", self.name],
-                 ]
-
-        return tabulate(table)
+            self.slice_created = False
