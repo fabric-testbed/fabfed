@@ -18,6 +18,10 @@ class BaseConfig:
         self.attributes = attrs
 
     @property
+    def label(self) -> str:
+        return self._var_name + '@' + self.type
+
+    @property
     def var_name(self) -> str:
         return self._var_name
 
@@ -34,16 +38,16 @@ class BaseConfig:
     def __repr__(self) -> str:
         return self.__str__()
 
+    def __eq__(self, other):
+        return (self.var_name, self.type) == (other.var_name, other.type)
+
+    def __hash__(self):
+        return hash(str(self))
+
 
 class ProviderConfig(BaseConfig):
     def __init__(self, type: str, name: str, attrs: Dict):
         super().__init__(type, name, attrs)
-
-    def __eq__(self, other):
-        return self.var_name == other.var_name and self.type == other.type
-
-    def __hash__(self):
-        return hash(str(self))
 
 
 class SliceConfig(BaseConfig):
@@ -54,23 +58,6 @@ class SliceConfig(BaseConfig):
     @property
     def provider(self) -> ProviderConfig:
         return self._provider
-
-    @property
-    def provider_name(self) -> str:
-        return self._provider.var_name
-
-    @property
-    def provider_type(self) -> str:
-        return self._provider.type
-
-    def __str__(self) -> str:
-        return super().__str__() + '@' + self.provider.__str__()
-
-    def __eq__(self, other):
-        return (self.var_name, self.type, self.provider.type) == (other.var_name, other.type, other.provider.type)
-
-    def __hash__(self):
-        return hash(self.var_name + self.type + self.provider.type)
 
 
 DependencyInfo = namedtuple("DependencyInfo", "resource  attribute")
@@ -111,15 +98,6 @@ class ResourceConfig(BaseConfig):
     @property
     def provider(self):
         return self.slice.provider
-
-    def __str__(self) -> str:
-        return super().__str__() + ' using ' + self.slice.__str__()
-
-    def __eq__(self, other):
-        return (self.var_name, self.type, self.slice) == (other.var_name, other.type, other.slice)
-
-    def __hash__(self):
-        return hash(self.var_name + self.type + str(hash(self.slice)))
 
 
 def slice_from_basic_config(basic_config) -> SliceConfig:

@@ -1,44 +1,66 @@
 import sys
 
 from fabfed.controller.controller import Controller
-from fabfed.model.state import *
+from fabfed.util.config import Config
+from fabfed.controller.provider_factory import default_provider_factory
 from . import utils
 
 
-# noinspection PyArgumentList
 def main(argv=None):
     argv = argv or sys.argv[1:]
     parser = utils.build_parser()
     args = parser.parse_args(argv)
-    print(args)
+    logger = utils.init_looger()
 
     if args.apply:
-        controller = Controller(config_file_location=args.config)
-        controller.create()
-        states = controller.get_states()
+        config = Config(file_name=args.config)
+        controller = Controller(config=config, logger=logger)
+        controller.init(default_provider_factory)
 
-        with open("output.yml", "w") as stream:
-            stream.write(yaml.dump(states, Dumper=get_dumper()))
+        try:
+            controller.plan()
+            controller.create()
+            states = controller.get_states()
+            utils.save_states(states, args.friendly_name)
+        except Exception as e:
+            raise e
 
         slice_objects = controller.get_slices()
 
         for slice_object in slice_objects:
             print(slice_object)
+            print(slice_object.list_networks())
             print(slice_object.list_nodes())
 
-    if args.show:
-        with open("output.yml", 'r') as stream:
-            obj = yaml.load(stream, Loader=get_loader())
+    if args.plan:
+        config = Config(file_name=args.config)
+        controller = Controller(config=config, logger=logger)
+        controller.init(default_provider_factory)
+        controller.plan()
+        states = controller.get_states()
+        utils.dump_states(states, args.json)
 
-            print(obj)
+    if args.show:
+        states = utils.load_states(args.friendly_name)
+        utils.dump_states(states, args.json)
 
     if args.destroy:
-        controller = Controller(config_file_location=args.config)
+        controller = None
 
-        with open("output.yml", 'r') as stream:
-            provider_states = yaml.load(stream, Loader=get_loader())
+        try:
+            states = utils.load_states(args.friendly_name)
 
-        controller.delete(provider_states=provider_states)
+            if states:
+                config = Config(file_name=args.config)
+                controller = Controller(config=config, logger=logger)
+                controller.init(default_provider_factory)
+                controller.delete(provider_states=states)
+        except Exception as e:
+            raise e
+
+        if controller:
+            states = controller.get_states()
+            utils.save_states(states, args.friendly_name)
 
 
 if __name__ == "__main__":

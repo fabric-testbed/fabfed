@@ -99,6 +99,31 @@ provider:
         Parser.parse(content=yaml_str)
 
 
+def test_duplicate_slices_across_providers():
+    yaml_str = '''
+resource:
+  - node:
+      - my_node:
+            - slice: '{{ slice.my_slice }}'
+  - slice:
+      - my_slice:
+          - provider: '{{ prov1.my_provider }}'
+  - slice:
+      - my_slice:
+          - provider: '{{ prov2.my_provider2 }}'
+provider:
+  - prov1:
+    - my_provider:
+       - user: user1 
+  - prov2:
+    - my_provider2:
+       - user: user1        
+    '''
+
+    with pytest.raises(ParseConfigException):
+        Parser.parse(content=yaml_str)
+
+
 def test_slice_bad_reference():
     yaml_str = '''
 resource:
@@ -172,6 +197,92 @@ provider:
 
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
+
+
+def test_duplicate_nodes_across_slices():
+    yaml_str = '''
+resource:
+  - node:
+      - my_node:
+          - slice: '{{ slice.my_slice }}'
+            count: 2
+  - node:
+      - my_node:
+          - slice: '{{ slice.my_slice2 }}'
+  - slice:
+      - my_slice:
+          - provider: '{{ prov1.my_provider }}'
+  - slice:
+      - my_slice2:
+          - provider: '{{ prov2.my_provider2 }}'
+provider:
+  - prov1:
+    - my_provider:
+       - user: user1
+  - prov2:
+    - my_provider2:
+       - user: user1
+    '''
+
+    with pytest.raises(ParseConfigException):
+        Parser.parse(content=yaml_str)
+
+
+def test_duplicate_networks_across_slices():
+    yaml_str = '''
+resource:
+  - network:
+      - my_net:
+          - slice: '{{ slice.my_slice }}'
+            count: 2
+  - network:
+      - my_net:
+          - slice: '{{ slice.my_slice2 }}'
+  - slice:
+      - my_slice:
+          - provider: '{{ prov1.my_provider }}'
+  - slice:
+      - my_slice2:
+          - provider: '{{ prov2.my_provider2 }}'
+provider:
+  - prov1:
+    - my_provider:
+       - user: user1
+  - prov2:
+    - my_provider2:
+       - user: user1
+    '''
+
+    with pytest.raises(ParseConfigException):
+        Parser.parse(content=yaml_str)
+
+
+def test_duplicate_across_types():
+    yaml_str = '''
+resource:
+  - node:
+      - my_var:
+          - slice: '{{ slice.my_var }}'
+            count: 2
+  - network:
+      - my_var:
+          - slice: '{{ slice.my_slice2 }}'
+  - slice:
+      - my_var:
+          - provider: '{{ prov1.my_provider }}'
+  - slice:
+      - my_slice2:
+          - provider: '{{ prov2.my_provider2 }}'
+provider:
+  - prov1:
+    - my_provider:
+       - user: user1
+  - prov2:
+    - my_provider2:
+       - user: user1
+    '''
+
+    Parser.parse(content=yaml_str)
 
 
 def test_different_types():

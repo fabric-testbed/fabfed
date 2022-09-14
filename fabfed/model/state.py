@@ -1,35 +1,37 @@
 import yaml
-from typing import Dict
+from typing import Dict, List
 
 
 class BaseState:
-    def __init__(self, type: str, name: str, attributes: Dict):
-        self.type = type.lower()
-        self.name = name.lower()
+    def __init__(self, type: str, label: str, attributes: Dict):
+        self.type = type
+        self.label = label
         self.attributes = attributes
 
 
-class ProviderState(BaseState):
-    def __init__(self, type, name, attributes, slice_states):
-        super().__init__(type, name, attributes)
-        self.slice_states = slice_states
-
-
-class SliceState(BaseState):
-    def __init__(self, name, attributes, network_states, node_states):
-        super().__init__("slice",  name, attributes)
-        self.network_states = network_states
-        self.node_states = node_states
-
-
 class NetworkState(BaseState):
-    def __init__(self, name, attributes):
-        super().__init__("network", name, attributes)
+    def __init__(self, *, label, attributes):
+        super().__init__("network", label, attributes)
 
 
 class NodeState(BaseState):
-    def __init__(self, name, attributes):
-        super().__init__("node", name, attributes)
+    def __init__(self, *, label, attributes):
+        super().__init__("node", label, attributes)
+
+
+class SliceState(BaseState):
+    def __init__(self, label, attributes, network_states: List[NetworkState],
+                 node_states: List[NodeState], pending):
+        super().__init__("slice", label, attributes)
+        self.network_states = network_states
+        self.node_states = node_states
+        self.pending = pending
+
+
+class ProviderState(BaseState):
+    def __init__(self, type, label, attributes, slice_states: List[SliceState]):
+        super().__init__(type, label, attributes)
+        self.slice_states = slice_states
 
 
 def provider_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ProviderState:
@@ -39,7 +41,7 @@ def provider_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) 
 def provider_representer(dumper: yaml.SafeDumper, provider_state: ProviderState) -> yaml.nodes.MappingNode:
     return dumper.represent_mapping("!ProviderState", {
         "type": provider_state.type,
-        "name": provider_state.name,
+        "label": provider_state.label,
         "attributes": provider_state.attributes,
         "slice_states": provider_state.slice_states
     })
@@ -51,10 +53,11 @@ def slice_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> 
 
 def slice_representer(dumper: yaml.SafeDumper, slice_state: SliceState) -> yaml.nodes.MappingNode:
     return dumper.represent_mapping("!SliceState", {
-        "name": slice_state.name,
+        "label": slice_state.label,
         "attributes": slice_state.attributes,
         "network_states": slice_state.network_states,
-        "node_states": slice_state.node_states
+        "node_states": slice_state.node_states,
+        "pending": slice_state.pending
     })
 
 
@@ -64,7 +67,7 @@ def network_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -
 
 def network_representer(dumper: yaml.SafeDumper, network_state: NetworkState) -> yaml.nodes.MappingNode:
     return dumper.represent_mapping("!NetworkState", {
-        "name": network_state.name,
+        "label": network_state.label,
         "attributes": network_state.attributes
     })
 
@@ -75,7 +78,7 @@ def node_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> N
 
 def node_representer(dumper: yaml.SafeDumper, node_state: NodeState) -> yaml.nodes.MappingNode:
     return dumper.represent_mapping("!NodeState", {
-        "name": node_state.name,
+        "label": node_state.label,
         "attributes": node_state.attributes
     })
 

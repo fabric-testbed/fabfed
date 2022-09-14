@@ -24,336 +24,140 @@
 # Author Komal Thareja (kthare10@renci.org)
 import logging
 import os
+import time
 
 import chi
-from chi.lease import Lease, get_lease_id, get_node_reservation
-from chi.server import get_server
+import chi.server
 
-import paramiko
-import time
 from fabfed.model import Node
+import fabfed.provider.chi.chi_util as util
 
 
 class ChiNode(Node):
-    def __init__(self, *, name: str, image: str, site: str, flavor: str, project_name: str,
+    def __init__(self, *, label, name: str, image: str, site: str, flavor: str, project_name: str,
                  logger: logging.Logger, key_pair: str, network: str, slice_name: str):
-        super().__init__(name=name, image=image, site=site, flavor=flavor)
+        super().__init__(label=label, name=name, image=image, site=site, flavor=flavor)
         self.project_name = project_name
         self.key_pair = key_pair
         self.network_name = network
         self.slice_name = slice_name
         self.logger = logger
         self.private_key_file = os.environ['OS_SLICE_PRIVATE_KEY_FILE']
-        self.public_key_file = os.environ['OS_SLICE_PUBLIC_KEY_FILE']
-        self.retry = 5
+        self._retry = 5
         self.default_username = "cc"
         self.state = None
-        self.lease_name = f'{self.slice_name}-{self.name}'
-
-    def __is_lease_active(self) -> bool:
-        lease = chi.lease.get_lease(self.lease_name)
-        if lease is not None:
-            status = lease["status"]
-            if status == 'ERROR':
-                self.logger.error("Lease is in ERROR state")
-                return False
-            elif status == 'ACTIVE':
-                self.logger.info("Lease is in ACTIVE state")
-                return True
-        return False
-
-    def __delete_lease(self):
-        chi.lease.delete_lease(self.lease_name)
-
-    def __create_lease(self) -> bool:
-        # Check if the lease exists
-        existing_lease = None
-        try:
-            existing_lease = chi.lease.get_lease(self.lease_name)
-        except Exception as e:
-            self.logger.info(f"No lease found with name: {self.lease_name}")
-
-        # Lease Exists
-        if existing_lease is not None:
-            # Lease is not ACTIVE; delete it
-            if not self.__is_lease_active():
-                self.logger.info("Deleting the existing non-Active lease")
-                self.__delete_lease()
-            # Use existing lease
-            else:
-                return True
-
-        # Lease doesn't exist Create a Lease
-        self.logger.info(f"Creating the lease - {self.lease_name}")
-        reservations = []
-        chameleon_node_type = "compute_cascadelake_r" # TODO This should not be hardocded
-
-        chi.lease.add_node_reservation(reservations, count=1, node_type=chameleon_node_type)
-        self.logger.info(f"Creating lease {self.lease_name} {reservations}")
-        chi.lease.create_lease(lease_name=self.lease_name, reservations=reservations)
-
-        for i in range(self.retry):
-            try:
-                self.logger.info(f"Waiting for the lease to be Active. num_tries={i+1}")
-                chi.lease.wait_for_active(self.lease_name)
-                return True
-            except:
-                self.logger.warning(f"Error occurred while waiting for the lease to be Active. num_tries={i+1}")
-
-        return False
+        self.node_name = f'{self.slice_name}-{self.name}'
+        self.lease_name = f'{self.slice_name}-{self.name}-lease'
+        self.addresses = []
+        self.reservations = []
+        # TODO This should not be hardocded
+        chi.lease.add_node_reservation(self.reservations, count=1, node_type="compute_cascadelake_r")
+        self._lease_helper = util.LeaseHelper(lease_name=self.lease_name, logger=self.logger)
 
     def get_reservation_id(self):
-        existing_lease = None
-        try:
-            existing_lease = chi.lease.get_lease(self.lease_name)
-        except Exception as e:
-            self.logger.info(f"No lease found with name: {self.lease_name}")
-            return existing_lease
-        return existing_lease["reservations"][0]["id"]
+        return self._lease_helper.get_reservation_id()
 
-    def create(self):
-        if self.site == "KVM@TACC":
-            self.__create_kvm()
-        else:
-            self.__create_baremetal()
+    def get_reservation_state(self) -> str:
+        return self.state
 
-    def __server_exists(self) -> bool:
-        try:
-            server_id = chi.server.get_server_id(self.lease_name)
-            if server_id is not None:
-                self.logger.info(f"SERVER_ID: {server_id}")
-                server = chi.server.get_server(server_id)
-                self.logger.debug(f"Server: {server._info}")
-                self.state = server._info['OS-EXT-STS:vm_state']
-                addresses = server._info['addresses'][self.network_name]
-                for a in addresses:
-                    if a['OS-EXT-IPS:type'] == 'floating':
-                        self.mgmt_ip = a['addr']
-                return True
-        except:
-            self.logger.warning(f"Server {self.lease_name} does not exist")
-        return False
+    def __populate_state(self, node_info):
+        self.logger.debug(f"Node Info for {self.node_name}: {node_info}")
+        self.state = node_info['OS-EXT-STS:vm_state']
+        addresses = node_info['addresses'][self.network_name]
+        self.addresses = [a['addr'] for a in addresses]
+
+        if not self.mgmt_ip:
+            for a in addresses:
+                if a['OS-EXT-IPS:type'] == 'floating':
+                    self.mgmt_ip = a['addr']
 
     def __create_kvm(self):
-        # Select your project
-        chi.set('project_name', self.project_name)
-        chi.set('project_domain_name', 'default')
-
-        if self.__server_exists():
-            self.logger.info(f"Server {self.lease_name} already exists!")
-            return
-
-        # Create the VM
-        self.logger.info(f"Creating server {self.lease_name}!")
-        server = chi.server.create_server(server_name=self.lease_name, image_name=self.image,
-                                          network_name=self.network_name, key_name=self.key_pair, flavor_name=self.flavor)
-
-        # Wait for VM to be Active
-        self.logger.info(f"Waiting for server {self.lease_name} to be Active!")
-        chi.server.wait_for_active(server_id=server.id)
-
-        # Attach the floating IP
-        self.logger.info(f"Associating the Floating IP to {self.lease_name}!")
-        self.mgmt_ip = chi.server.associate_floating_ip(server_id=server.id)
+        return chi.server.create_server(server_name=self.node_name, image_name=self.image,
+                                        network_name=self.network_name, key_name=self.key_pair,
+                                        flavor_name=self.flavor)
 
     def __create_baremetal(self):
-        # Select your project
+        return chi.server.create_server(server_name=self.node_name, image_name=self.image,
+                                        network_name=self.network_name, key_name=self.key_pair,
+                                        reservation_id=self._lease_helper.get_reservation_id())
+
+    def create(self):
         chi.set('project_name', self.project_name)
         chi.set('project_domain_name', 'default')
 
-        # Select your site
-        chi.use_site(self.site)
+        if self.site != "KVM@TACC":
+            chi.use_site(self.site)
+            self._lease_helper.create_lease_if_needed(reservations=self.reservations, retry=self._retry)
 
-        if not self.__create_lease():
-            return
-
-        if self.__server_exists():
-            self.logger.info(f"Server {self.lease_name} already exists!")
-            return
-
-        # Created Lease is not Active
-        if not self.__is_lease_active():
-            self.logger.error("Stopping the provisioning as the lease could not be created")
-            return
-
-        self.logger.info(f"Using the lease {self.lease_name}")
-
-        # Launch the server
-        self.logger.info(f"Creating server {self.lease_name}!")
-        server = chi.server.create_server(server_name=self.lease_name, image_name=self.image,
-                                          network_name=self.network_name, key_name=self.key_pair,
-                                          reservation_id=self.get_reservation_id())
-
-        # Wait for Server to be Active
-        self.logger.info(f"Waiting for server {self.lease_name} to be Active!")
-        chi.server.wait_for_active(server_id=server.id)
-
-        # Attach the floating IP
-        self.logger.info(f"Associating the Floating IP to {self.lease_name}!")
-        self.mgmt_ip = chi.server.associate_floating_ip(server_id=server.id)
+        try:
+            node_id = chi.server.get_server_id(self.node_name)
+            node = chi.server.get_server(node_id)
+            self.__populate_state(node.to_dict())
+            self.logger.info(f"Node {self.node_name} already exists ")
+        except ValueError as e:
+            self.logger.warning(f"Error occurred for {self.node_name} {e}. Will attempt to create ")
+            node = self.__create_kvm() if self.site == "KVM@TACC" else self.__create_baremetal()
+            self.logger.info(f"Waiting for node {self.node_name} to be Active!")
+            chi.server.wait_for_active(server_id=node.id)
+            self.logger.info(f"Associating the Floating IP to {self.node_name}!")
+            self.mgmt_ip = chi.server.associate_floating_ip(server_id=node.id)
+            node = chi.server.get_server(node.id)  # reload node info,,,,,
+            self.__populate_state(node.to_dict())
 
     def delete(self):
         chi.set('project_name', self.project_name)
         chi.set('project_domain_name', 'default')
 
-        # Select your site
-        chi.use_site(self.site)
-
-        server_id = chi.server.get_server_id(f"{self.lease_name}")
-        if server_id is not None:
-            self.logger.info("Deleting server")
-            chi.server.delete_server(server_id=server_id)
-            chi.lease.delete_lease(self.lease_name)
+        if self.site != "KVM@TACC":
+            chi.use_site(self.site)
 
         try:
-            self.__delete_lease()
-            self.logger.info(f"Deleted lease: {self.lease_name}")
-        except Exception as e:
-            pass
+            node_id = chi.server.get_server_id(f"{self.node_name}")
 
-    def __get_paramiko_key(self, private_key_file: str, private_key_passphrase: str = None):
+            if node_id is not None:
+                self.logger.debug(f"Deleting node {self.node_name}")
+                chi.server.delete_server(server_id=node_id)
+                self.logger.info(f"Deleted node {self.node_name}")
+        except ValueError as ve:
+            self.logger.warning(f"Error deleting node {self.node_name}: {ve}")
 
-        if private_key_passphrase:
-            try:
-                return paramiko.RSAKey.from_private_key_file(private_key_file,
-                                                             password=private_key_passphrase)
-            except:
-                pass
-
-            try:
-                return paramiko.ecdsakey.ECDSAKey.from_private_key_file(private_key_file,
-                                                                        password=private_key_passphrase)
-            except:
-                pass
-        else:
-            try:
-                return paramiko.RSAKey.from_private_key_file(private_key_file)
-            except:
-                pass
-
-            try:
-                return paramiko.ecdsakey.ECDSAKey.from_private_key_file(private_key_file)
-            except:
-                pass
-
-        raise Exception(f"ssh key invalid: CHI requires RSA or ECDSA keys")
+        self._lease_helper.delete_lease()
 
     def upload_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):
-        """
-        Upload a local file to a remote location on the node.
-        :param local_file_path: the path to the file to upload
-        :type local_file_path: str
-        :param remote_file_path: the destination path of the file on the node
-        :type remote_file_path: str
-        :param retry: how many times to retry SCP upon failure
-        :type retry: int
-        :param retry_interval: how often to retry SCP on failure
-        :type retry_interval: int
-        :raise Exception: if management IP is invalid
-        """
-        self.logger.debug(f"upload node: {self.lease_name}, local_file_path: {local_file_path}")
+        self.logger.debug(f"upload node: {self.node_name}, local_file_path: {local_file_path}")
+        key = util.get_paramiko_key(private_key_file=self.private_key_file)
+        helper = util.SshHelper(self.mgmt_ip, self.default_username, key)
 
         for attempt in range(retry):
             try:
-                key = self.__get_paramiko_key(private_key_file=self.private_key_file)
-
-                client = paramiko.SSHClient()
-                client.load_system_host_keys()
-                client.set_missing_host_key_policy(paramiko.MissingHostKeyPolicy())
-                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-                client.connect(self.mgmt_ip, username=self.default_username, pkey=key)
-
-                ftp_client=client.open_sftp()
-                file_attributes = ftp_client.put(local_file_path, remote_file_path)
-                ftp_client.close()
-
-                return file_attributes
+                helper.connect_ftp()
+                helper.ftp_client.put(local_file_path, remote_file_path)
             except Exception as e:
-                try:
-                    client.close()
-                except:
-                    logging.debug("Exception in client.close")
-                    pass
-
-                if attempt+1 == retry:
-                    raise e
-
-                self.logger.info(f"SCP upload fail. Node: {self.lease_name}, trying again")
-                self.logger.info(f"Fail: {e}")
+                self.logger.info(f"SCP upload fail {e}. Node: {self.node_name}, tried {attempt + 1}")
                 time.sleep(retry_interval)
-                pass
-
-        raise Exception("scp upload failed")
+            finally:
+                helper.close_quietly()
 
     def download_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):
-        """
-        Download a remote file from the node to a local destination.
-        :param local_file_path: the destination path for the remote file
-        :type local_file_path: str
-        :param remote_file_path: the path to the remote file to download
-        :type remote_file_path: str
-        :param retry: how many times to retry SCP upon failure
-        :type retry: int
-        :param retry_interval: how often to retry SCP upon failure
-        :type retry_interval: int
-        :param verbose: indicator for verbose outpu
-        :type verbose: bool
-        """
-        logging.debug(f"download node: {self.lease_name}, remote_file_path: {remote_file_path}")
+        self.logger.debug(f"download node: {self.node_name}, remote_file_path: {remote_file_path}")
+        key = util.get_paramiko_key(private_key_file=self.private_key_file)
+        helper = util.SshHelper(self.mgmt_ip, self.default_username, key)
 
         for attempt in range(retry):
             try:
-                key = self.__get_paramiko_key(private_key_file=self.private_key_file)
-
-                client = paramiko.SSHClient()
-                client.load_system_host_keys()
-                client.set_missing_host_key_policy(paramiko.MissingHostKeyPolicy())
-                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-                client.connect(self.mgmt_ip, username=self.default_username, pkey=key)
-
-                ftp_client = client.open_sftp()
-                ftp_client.get(remote_file_path, local_file_path)
-                ftp_client.close()
-
-                return
+                helper.connect_ftp()
+                helper.ftp_client.get(remote_file_path, local_file_path)
             except Exception as e:
-                try:
-                    client.close()
-                except:
-                    logging.debug("Exception in client.close")
-                    pass
-
-                if attempt+1 == retry:
-                    raise e
-
-                self.logger.info(f"SCP download fail. Node: {self.lease_name}, trying again")
-                self.logger.info(f"Fail: {e}")
+                self.logger.info(f"SCP download fail {e}. Node: {self.node_name}, tried {attempt + 1}")
                 time.sleep(retry_interval)
-                pass
+            finally:
+                helper.close_quietly()
 
-        raise Exception("scp download failed")
-
-    def upload_directory(self,local_directory_path, remote_directory_path, retry=3, retry_interval=10):
-        """
-        Upload a directory to remote location on the node.
-        Makes a gzipped tarball of a directory and uploades it to a node. Then
-        unzips and tars the directory at the remote_directory_path
-        :param local_directory_path: the path to the directory to upload
-        :type local_directory_path: str
-        :param remote_directory_path: the destination path of the directory on the node
-        :type remote_directory_path: str
-        :param retry: how many times to retry SCP upon failure
-        :type retry: int
-        :param retry_interval: how often to retry SCP on failure
-        :type retry_interval: int
-        :raise Exception: if management IP is invalid
-        """
+    def upload_directory(self, local_directory_path, remote_directory_path, retry=3, retry_interval=10):
         import tarfile
         import os
 
-        logging.debug(f"upload node: {self.lease_name}, local_directory_path: {local_directory_path}")
+        self.logger.debug(f"upload node: {self.node_name}, local_directory_path: {local_directory_path}")
 
         output_filename = local_directory_path.split('/')[-1]
         root_size = len(local_directory_path) - len(output_filename)
@@ -362,32 +166,17 @@ class ChiNode(Node):
         with tarfile.open(temp_file, "w:gz") as tar_handle:
             for root, dirs, files in os.walk(local_directory_path):
                 for file in files:
-                    tar_handle.add(os.path.join(root, file), arcname = os.path.join(root, file)[root_size:])
+                    tar_handle.add(os.path.join(root, file), arcname=os.path.join(root, file)[root_size:])
 
         self.upload_file(temp_file, temp_file, retry, retry_interval)
         os.remove(temp_file)
         self.execute("mkdir -p "+remote_directory_path + "; tar -xf " + temp_file + " -C " + remote_directory_path +
                      "; rm " + temp_file, retry, retry_interval)
-        return "success"
 
-    def download_directory(self,local_directory_path, remote_directory_path, retry=3, retry_interval=10):
-        """
-        Downloads a directory from remote location on the node.
-        Makes a gzipped tarball of a directory and downloads it from a node. Then
-        unzips and tars the directory at the local_directory_path
-        :param local_directory_path: the path to the directory to upload
-        :type local_directory_path: str
-        :param remote_directory_path: the destination path of the directory on the node
-        :type remote_directory_path: str
-        :param retry: how many times to retry SCP upon failure
-        :type retry: int
-        :param retry_interval: how often to retry SCP on failure
-        :type retry_interval: int
-        :raise Exception: if management IP is invalid
-        """
+    def download_directory(self, local_directory_path, remote_directory_path, retry=3, retry_interval=10):
         import tarfile
         import os
-        logging.debug(f"upload node: {self.lease_name}, local_directory_path: {local_directory_path}")
+        self.logger.debug(f"upload node: {self.node_name}, local_directory_path: {local_directory_path}")
 
         temp_file = "/tmp/unpackingfile.tar.gz"
         self.execute("tar -czf " + temp_file + " " + remote_directory_path, retry, retry_interval)
@@ -398,60 +187,24 @@ class ChiNode(Node):
 
         self.execute("rm " + temp_file, retry, retry_interval)
         os.remove(temp_file)
-        return "success"
 
     def execute(self, command, retry=3, retry_interval=10):
-        """
-        Runs a command on the node.
-        :param command: the command to run
-        :type command: str
-        :param retry: the number of times to retry SSH upon failure
-        :type retry: int
-        :param retry_interval: the number of seconds to wait before retrying SSH upon failure
-        :type retry_interval: int
-        :raise Exception: if management IP is invalid
-        """
-        import logging
-
-        logging.debug(f"execute node: {self.lease_name}, management_ip: {self.mgmt_ip}, command: {command}")
+        self.logger.debug(f"execute node: {self.node_name}, management_ip: {self.mgmt_ip}, command: {command}")
+        key = util.get_paramiko_key(private_key_file=self.private_key_file)
+        helper = util.SshHelper(self.mgmt_ip, self.default_username, key)
+        script = ' /tmp/chi_execute_script.sh'
+        chmod_cmd = f'chmod +x {script}'
+        cmd = f'echo "{command}" > {script};{chmod_cmd};{script}'
 
         for attempt in range(retry):
             try:
-                key = self.__get_paramiko_key(private_key_file=self.private_key_file)
-                client = paramiko.SSHClient()
-                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-                client.connect(self.mgmt_ip, username=self.default_username, pkey=key)
-
-                stdin, stdout, stderr = client.exec_command('echo \"' + command + '\" > /tmp/chi_execute_script.sh; chmod +x /tmp/chi_execute_script.sh; /tmp/chi_execute_script.sh')
-                rtn_stdout = str(stdout.read(), 'utf-8').replace('\\n', '\n')
-                rtn_stderr = str(stderr.read(), 'utf-8').replace('\\n', '\n')
-
-                client.close()
-
-                logging.debug(f"rtn_stdout: {rtn_stdout}")
-                logging.debug(f"rtn_stderr: {rtn_stderr}")
-
-                return rtn_stdout, rtn_stderr
+                helper.connect()
+                _, stdout, stderr = helper.client.exec_command(cmd)
+                stdout = str(stdout.read(), 'utf-8').replace('\\n', '\n')
+                stderr = str(stderr.read(), 'utf-8').replace('\\n', '\n')
+                return stdout, stderr
             except Exception as e:
-                try:
-                    client.close()
-                except:
-                    logging.debug("Exception in client.close")
-                    pass
-
-                if attempt+1 == retry:
-                    raise e
-
+                self.logger.info(f"SSH execute fail {e}. Node: {self.node_name}, tried {attempt + 1}")
                 time.sleep(retry_interval)
-                pass
-
-        raise Exception("ssh failed: Should not get here")
-
-    def __str__(self):
-        return f"Name: {self.lease_name} Mgmt IP: {self.mgmt_ip} Site: {self.site} Image: {self.image} " \
-               f"Slice Name: {self.slice_name} KeyPair: {self.key_pair} Project Name: {self.project_name}"
-
-    def get_reservation_state(self) -> str:
-        return self.state
-
+            finally:
+                helper.close_quietly()
