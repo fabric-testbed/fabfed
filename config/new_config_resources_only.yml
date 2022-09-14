@@ -45,10 +45,3 @@ resource:
             pool_end: 192.168.100.250
             vlan: '{{ network.my_chi_network.vlans}}'
             interface: '{{ node.my_fabric_node.interfaces }}'
-
-logging:
-  log-file: ./mobius.log
-  log-level: INFO
-  log-retain: 5
-  log-size: 5000000
-  logger: mobius

@@ -65,10 +65,3 @@ resource:
             pool_start: 192.168.100.200
             pool_end: 192.168.100.250
             vlan: '{{ network.my_chi_network.vlans}}'
-
-logging:
-  log-file: ./mobius.log
-  log-level: INFO
-  log-retain: 5
-  log-size: 5000000
-  logger: mobius
