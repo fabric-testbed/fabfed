@@ -10,9 +10,26 @@ The FabFed is a Python library for a cross-testbed federation framework that (1)
 
 The FabFed code took the initial form from the Mobius API, and refactored and reinvented the slice modeling, user interface, data structure and  stitching workflows. 
 
-An example FabFed slice for users would look like the below.
+The example below showcases network stitching of two slices, a fabric slice and a chameleon slice. The example while incomplete highlights how fafed-py expresses dependencies. In particular it shows how the fabric network gets its vlan from the chi network. For a complete example, refer to 
+[Fabric Chameleoon Stitiching](./config/config_template.yml)
+
 ```
-TBA
+resource:
+  - slice:
+      - fabric_slice:
+          - provider: '{{ fabric.fabric_provider }}'
+  - slice:
+      - chi_slice:
+          - provider: '{{ chi.chi_provider }}'   
+  - network:
+      - chi_network:
+          - slice:  '{{ slice.chi_slice }}'
+            site: CHI@UC     
+  - network:
+      - fabric_network:
+          - slice: '{{ slice.fabric_slice }}'
+            site: 'STAR'
+            vlan: '{{ network.chi_network.vlans}}'
 ```
 
 # <a name="code"></a>Code Structure
