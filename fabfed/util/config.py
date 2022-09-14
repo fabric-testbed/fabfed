@@ -23,7 +23,6 @@
 #
 #
 # Author: Komal Thareja (kthare10@renci.org)
-import yaml
 
 from .parser import Parser, ResourceConfig, ProviderConfig, SliceConfig
 from typing import List
@@ -59,6 +58,7 @@ class Config:
     CHI_RANDOM = "CHI.RANDOM"
     CHI_KEY_PAIR = "key_pair"
 
+    LABEL = 'label'
     RESOURCES = "resources"
     RESOURCE = "resource"
     RES_TYPE = "type"
@@ -96,15 +96,8 @@ class Config:
     RUNTIME_SLICE_PRIVATE_KEY_LOCATION = "slice-private-key-location"
     RUNTIME_SLICE_PUBLIC_KEY_LOCATION = "slice-public-key-location"
 
-    def __init__(self, *, path: str):
-        self.config_dict = None
-        if path is None:
-            raise ConfigException("No data source has been specified")
-
-        with open(path) as f:
-            self.config_dict = yaml.safe_load(f)
-
-        self.providers, self.slices, self.resources = Parser.parse(file_name=path)
+    def __init__(self, *, file_name=None, content=None):
+        self.providers, self.slices, self.resources = Parser.parse(file_name=file_name, content=content)
 
     def get_slice_config(self) -> List[SliceConfig]:
         return self.slices
@@ -114,6 +107,3 @@ class Config:
 
     def get_resource_config(self) -> List[ResourceConfig]:
         return self.resources
-
-    def get_log_config(self) -> dict:
-        return self.config_dict.get(Config.LOGGING, None)

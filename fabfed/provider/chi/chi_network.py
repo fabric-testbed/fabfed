@@ -27,15 +27,18 @@ import logging
 import time
 
 import chi
+import chi.network
+import chi.server
+
 from fabfed.model import Network
+from .chi_util import LeaseHelper
 
 
 class ChiNetwork(Network):
-    def __init__(self, *, name: str, site: str, project_name: str,
+    def __init__(self, *, label, name: str, site: str, project_name: str,
                  logger: logging.Logger, slice_name: str, subnet: str, pool_start: str,
                  pool_end: str, gateway: str, stitch_provider: str):
-        self.name = name # f'{slice_name}-{name}'
-        self.site = site
+        super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
         self.slice_name = slice_name
         self.subnet = subnet
@@ -43,52 +46,12 @@ class ChiNetwork(Network):
         self.pool_end = pool_end
         self.gateway = gateway
         self.stitch_provider = stitch_provider
-        self.retry = 30
+        self._retry = 30
         self.network_name = f'{slice_name}-{name}'
         self.lease_name = f'{slice_name}-{name}-lease'
         self.subnet_name = f'{slice_name}-{name}-subnet'
         self.router_name = f'{slice_name}-{name}-router'
-        self.vlans = list()
-        self.logger = logger
-
-    def __is_lease_active(self) -> bool:
-        lease = chi.lease.get_lease(self.lease_name)
-
-        if lease is not None:
-            status = lease["status"]
-            self.logger.debug(f"Lease {self.lease_name} is in state {status}")
-
-            if status == 'ERROR':
-                return False
-            elif status == 'ACTIVE':
-                return True
-
-        return False
-
-    def __delete_lease(self):
-        chi.lease.delete_lease(self.lease_name)
-
-    def __create_lease(self) -> bool:
-        # Check if the lease exists
-        existing_lease = None
-        try:
-            existing_lease = chi.lease.get_lease(self.lease_name)
-        except:
-            self.logger.info(f"No lease found with name: {self.lease_name}")
-
-        # Lease Exists
-        if existing_lease is not None:
-            # Lease is not ACTIVE; delete it
-            if not self.__is_lease_active():
-                self.logger.info("Deleting the existing non-Active lease")
-                self.__delete_lease()
-            # Use existing lease
-            else:
-                return True
-
-        # Lease doesn't exist Create a Lease
-        self.logger.info(f"Creating the lease - {self.lease_name}")
-        reservations = [{
+        self.reservations = [{
             "resource_type": "network",
             "network_name": self.network_name,
             "network_properties": "",
@@ -96,64 +59,44 @@ class ChiNetwork(Network):
                 ["==", "$stitch_provider", self.stitch_provider]
             ),
         }]
-        chi.lease.create_lease(lease_name=self.lease_name, reservations=reservations)
-
-        for i in range(self.retry):
-            try:
-                self.logger.info(f"Waiting for the lease to be Active try={i+1}")
-                chi.lease.wait_for_active(self.lease_name)
-                return True
-            except:
-                self.logger.warning(f"Error occurred while waiting for the lease to be Active tried  {i+1}")
-
-        return False
+        self.vlans = list()
+        self.logger = logger
+        self._lease_helper = LeaseHelper(lease_name=self.lease_name, logger=self.logger)
 
     def get_reservation_id(self):
-        existing_lease = None
-        try:
-            existing_lease = chi.lease.get_lease(self.lease_name)
-        except Exception as e:
-            self.logger.info(f"No lease found with name: {self.lease_name}")
-            return existing_lease
-        return existing_lease["reservations"][0]["id"]
+        return self._lease_helper.get_reservation_id()
 
     def get_vlans(self) -> list:
         return self.vlans
 
     def create(self):
-        # Select your project  and your site
         chi.set('project_name', self.project_name)
         chi.set('project_domain_name', 'default')
         chi.use_site(self.site)
+        self._lease_helper.create_lease_if_needed(reservations=self.reservations, retry=self._retry)
+        self.logger.info(f"Using active lease {self.lease_name}")
 
-        if not self.__create_lease():
-            self.logger.error(f"Stopping the provisioning as the lease {self.lease_name} could not be created")
-            raise Exception(f"Stopping the provisioning as the lease {self.lease_name} could not be created")
-
-        if not self.__is_lease_active():
-            self.logger.error(f"Stopping the provisioning as the lease {self.lease_name} is not active")
-            raise Exception(f"Stopping the provisioning as the lease {self.lease_name} is not active")
-
-        self.logger.info(f"Using Active lease {self.lease_name}")
-
+        self.vlans = []
         network_vlan = None
+        chameleon_network_id = None
 
         while not network_vlan:
             try:
                 chameleon_network = chi.network.get_network(self.network_name)
                 chameleon_network_id = chameleon_network['id']
                 network_vlan = chameleon_network['provider:segmentation_id']
-            except:
-                self.logger.info(f'Chameleon Network is not ready. Trying again!')
+            except Exception as e:
+                self.logger.warning(f'Network is not ready {self.network_name}. Trying again! {e}')
                 time.sleep(10)
 
-        self.logger.info(f'Chameleon: network_name: {self.network_name}, network_vlan: {network_vlan}')
+        self.logger.info(f'Got network. network_name: {self.network_name}, network_vlan: {network_vlan}')
         self.vlans.append(network_vlan)
 
         try:
             chameleon_subnet = chi.network.get_subnet(self.subnet_name)
-            self.logger.info(f'Chameleon: subnet already created:  {self.subnet_name}')
-        except Exception:
+            self.logger.info(f'Subnet already created:  {self.subnet_name}')
+        except Exception as e:
+            self.logger.warning(f'Error while creating subnet:  {self.subnet_name} {e}')
             chameleon_subnet = None
 
         if not chameleon_subnet:
@@ -162,9 +105,9 @@ class ChiNetwork(Network):
                                                          allocation_pool_start=self.pool_start,
                                                          allocation_pool_end=self.pool_end,
                                                          gateway_ip=self.gateway)
-            self.logger.info(f'Chameleon: created subnet {self.subnet_name}')
+            self.logger.info(f'Created subnet {self.subnet_name}')
 
-        self.logger.debug(f'Chameleon: subnet: {chameleon_subnet}')
+        self.logger.debug(f'Subnet: {chameleon_subnet}')
         chameleon_router = None
 
         # we do not use get as it throws an exception if not found. So we list them
@@ -174,54 +117,62 @@ class ChiNetwork(Network):
                 break
 
         if chameleon_router:
-            self.logger.info(f'Chameleon: router already created  : {self.router_name}')
-            self.logger.debug(f'Chameleon: router: {chameleon_router}')
+            self.logger.info(f'Router already created  : {self.router_name}')
+            self.logger.debug(f'Router: {chameleon_router}')
         else:
             chameleon_router = chi.network.create_router(self.router_name, gw_network_name='public')
-            self.logger.info(f'Chameleon: router created : {self.router_name}')
+            self.logger.info(f'Router created : {self.router_name}')
             chi.network.add_subnet_to_router_by_name(self.router_name, self.subnet_name)
-            self.logger.info(f'Chameleon: attached subnet {self.subnet_name} to router  {self.router_name}')
-            self.logger.debug(f'Chameleon: router: {chameleon_router}')
+            self.logger.info(f'Attached subnet {self.subnet_name} to router  {self.router_name}')
+            self.logger.debug(f'Router: {chameleon_router}')
 
     def delete(self):
         chi.set('project_name', self.project_name)
         chi.set('project_domain_name', 'default')
         chi.use_site(self.site)
 
-        try:
-            self.logger.info(f"Removing subnet {self.subnet_name} from router {self.router_name}")
-            subnet_id = chi.network.get_subnet_id(self.subnet_name)
-            router_id = chi.network.get_router_id(self.router_name)
-            chi.network.remove_subnet_from_router(router_id, subnet_id)
-            self.logger.info(f"Removed subnet {self.subnet_name} from router {self.router_name}")
-        except Exception as e:
-            pass
+        from neutronclient.common.exceptions import Conflict
+        import time
+
+        while True:
+            try:
+                self.logger.debug(f"Removing subnet {self.subnet_name} from router {self.router_name}")
+                subnet_id = chi.network.get_subnet_id(self.subnet_name)
+                router_id = chi.network.get_router_id(self.router_name)
+                chi.network.remove_subnet_from_router(router_id, subnet_id)
+                self.logger.info(f"Removed subnet {self.subnet_name} from router {self.router_name}")
+                break
+            except Conflict as ce:
+                self.logger.warning(f"Error Removing subnet .will try again ...{ce}")
+                time.sleep(10)
+            except RuntimeError as re:
+                if "No subnets found with" in str(re):
+                    break
+
+                raise re
 
         try:
             router_id = chi.network.get_router_id(self.router_name)
             chi.network.delete_router(router_id)
             self.logger.info(f"Deleted router  {self.router_name} net_id={router_id}")
-        except Exception as e:
-            # print(f"delete_router_by_name error: {str(e)}")
-            pass
+        except RuntimeError as re:
+            if "No routers found with" not in str(re):
+                raise re
 
         try:
             subnet_id = chi.network.get_subnet_id(self.subnet_name)
             chi.network.delete_subnet(subnet_id)
             self.logger.info(f"Deleted subnet  {self.subnet_name} net_id={subnet_id}")
-        except Exception as e:
-            # print(f"delete_subnet_by_name error: {str(e)}")
-            pass
+        except RuntimeError as re:
+            if "No subnets found with" not in str(re):
+                raise re
 
         try:
             net_id = chi.server.get_network_id(self.network_name)
             chi.network.delete_network(net_id)
             self.logger.info(f"Deleted network {self.network_name} net_id={net_id}")
-        except Exception as e:
-            pass
+        except RuntimeError as re:
+            if "No networks found with" not in str(re):
+                raise re
 
-        try:
-            self.__delete_lease()
-            self.logger.info(f"Deleted lease: {self.lease_name}")
-        except Exception as e:
-            pass
+        self._lease_helper.delete_lease()
