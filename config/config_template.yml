@@ -4,15 +4,15 @@ provider:
        - oc-host: orchestrator.fabric-testbed.net
          cm-host: cm.fabric-testbed.net
          bastion-host: bastion-1.fabric-testbed.net
-         project_id: 990d8a8b-7e50-4d13-a3be-0f133ffa8653
+         project_id: REPLACE_ME 
          token-location: REPLACE_ME
          bastion-user-name: REPLACE_ME
          bastion-key-location: REPLACE_ME
          slice-private-key-location: REPLACE_ME
-         slice-public-key-location:  REPLACE_MEb
+         slice-public-key-location:  REPLACE_ME
   - chi:
     - chi_provider:
-        - project_name: CH-822154
+        - project_name: REPLACE_ME 
           auth_url:
             tacc: https://chi.tacc.chameleoncloud.org:5000/v3
             uc: https://chi.uc.chameleoncloud.org:5000/v3
