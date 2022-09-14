@@ -54,20 +54,42 @@ class Provider(ABC):
         """
         return list(self.slices.values())
 
-    @abstractmethod
-    def add_resource(self, *, resource: dict, slice_name: str):
-        """
-        Build the topology
-        """
+    def on_added(self, source, slice_name, resource: dict):
+        if self.resource_listener and source != self.resource_listener:
+            self.resource_listener.on_added(self, slice_name, resource)
+
+        for slice_object in self.slices.values():
+            if source != slice_object:
+                slice_object.on_added(source, slice_name, resource)
+
+    def on_created(self, source, slice_name, resource: dict):
+        if self.resource_listener and source != self.resource_listener:
+            self.resource_listener.on_created(self, slice_name, resource)
+
+        for slice_object in self.slices.values():
+            if source != slice_object:
+                slice_object.on_created(source, slice_name, resource)
+
+    def on_deleted(self, source, slice_name, resource):
+        if self.resource_listener and source != self.resource_listener:
+            self.resource_listener.on_deleted(self, slice_name, resource)
+
+        for slice_object in self.slices.values():
+            if source != slice_object:
+                def add_resource(self, *, resource: dict, slice_name: str):
+                    """
+                    Build the topology
+                    """
+                    pass
 
     def create_resources(self, *,  slice_name: str):
         """
         This call will be called for every resource
         """
 
-        self.logger.info(f"Creating slice {slice_name}")
-        chi_slice = self.slices[slice_name]
-        chi_slice.create()
+        self.logger.debug(f"Provider {self.name} calling slice.create {slice_name}")
+        slice_object = self.slices[slice_name]
+        slice_object.create()
 
     def get_state(self) -> ProviderState:
         """
@@ -76,7 +98,10 @@ class Provider(ABC):
         slice_states = []
 
         for slice_object in self.slices.values():
-            slice_states.append(slice_object.get_state())
+            slice_state = slice_object.get_state()
+
+            if slice_state.network_states or slice_state.node_states or slice_state.pending:
+                slice_states.append(slice_state)
 
         return ProviderState(self.type, self.name, dict(), slice_states)
 
@@ -85,6 +110,8 @@ class Provider(ABC):
         Delete provisioned resources
          """
         for slice_state in provider_state.slice_states:
-            slice_object = self.slices[slice_state.name]
-            self.logger.info(f"Deleting slice {slice_state.name}")
+            name = slice_state.attributes['name']
+            slice_object = self.slices[name]
+            self.logger.debug(f"Provider {self.name} calling slice.destroy {name}")
             slice_object.destroy(slice_state=slice_state)
+            self.slices.pop(name)

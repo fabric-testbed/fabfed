@@ -36,14 +36,14 @@ Component = namedtuple("Component", "model  name")
 
 
 class FabricNode(Node):
-    def __init__(self, *, delegate: Delegate):
+    def __init__(self, *, label, delegate: Delegate):
         flavor = {'cores': delegate.get_cores(), 'ram': delegate.get_ram(), 'disk': delegate.get_disk()}
-        super().__init__(name=delegate.get_name(), image=delegate.get_image(), site=delegate.get_site(),
+        super().__init__(label=label, name=delegate.get_name(), image=delegate.get_image(), site=delegate.get_site(),
                          flavor=str(flavor))
 
         self._delegate = delegate
-        self._slice_object = delegate.get_slice()
-        self.management_ip = str(delegate.get_management_ip())
+        self.slice_name = delegate.get_slice().get_name()
+        self.mgmt_ip = str(delegate.get_management_ip())
         self._components: List[Component] = []
 
         for component in delegate.get_components():
@@ -81,7 +81,7 @@ class FabricNode(Node):
 
 
 class NodeBuilder:
-    def __init__(self, slice_object: Slice, name: str,  resource: dict):
+    def __init__(self, label, slice_object: Slice, name: str,  resource: dict):
         site = resource.get(Config.RES_SITE, Config.FABRIC_RANDOM)
 
         if site == Config.FABRIC_RANDOM:
@@ -94,10 +94,11 @@ class NodeBuilder:
         cores = flavor.get(Config.RES_FLAVOR_CORES, Delegate.default_cores)
         ram = flavor.get(Config.RES_FLAVOR_RAM, Delegate.default_ram)
         disk = flavor.get(Config.RES_FLAVOR_DISK, Delegate.default_disk)
+        self.label = label
         self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
 
     def add_component(self, model=None, name=None):
         self.node.add_component(model=model, name=name)
 
     def build(self) -> FabricNode:
-        return FabricNode(delegate=self.node)
+        return FabricNode(label=self.label, delegate=self.node)

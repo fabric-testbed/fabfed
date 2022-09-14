@@ -24,74 +24,44 @@
 # Author Komal Thareja (kthare10@renci.org)
 import logging
 import traceback
-from collections import namedtuple
 
-from fabfed.util.config import Config
-from fabfed.model import ResourceListener
 from fabfed.model import Slice
+from fabfed.util.config import Config
+from .fabric_network import NetworkBuilder, FabricNetwork
 from .fabric_node import FabricNode, NodeBuilder
-from .fabric_network import NetworkBuilder
 
 
-class FabricSlice(Slice, ResourceListener):
-    def __init__(self, *, name: str, logger: logging.Logger):
-        super().__init__(name=name)
+class FabricSlice(Slice):
+    def __init__(self, *, label, name: str, logger: logging.Logger):
+        super().__init__(label=label, name=name)
         self.logger = logger
-        self.pending = []
+        self.notified_create = False
 
         from fabrictestbed_extensions.fablib.fablib import fablib
 
+        # noinspection PyBroadException
         try:
             self.slice_object = fablib.get_slice(name=name)
-        except:
+        except Exception:
             self.slice_object = None
 
         if self.slice_object:
             self.slice_created = True
-
-            for node in self.slice_object.get_nodes():
-                self._nodes.append(FabricNode(delegate=node))
-
         else:
             self.slice_created = False
             self.slice_object = fablib.new_slice(name)
 
-        self.resource_listener = None
-
-    def set_resource_listener(self, resource_listener):
-        self.resource_listener = resource_listener
-
-    def on_added(self, source, slice_name, resource: dict):
-        pass
-
-    def on_deleted(self, source, slice_name, resource):
-        pass
-
-    def on_created(self, source, slice_name, resource):
-        for pending_resource in self.pending:
-            for dependency in pending_resource['dependencies']:
-                # TODO add temp.type to this if statement ....
-                if dependency.resource.slice.name == slice_name and dependency.resource.name == resource['name']:
-                    resolved_dependencies = pending_resource['resolved_dependencies']
-                    ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")
-                    value = resource[dependency.attribute]
-
-                    if isinstance(value, list):
-                        resolved_dependency = ResolvedDependency(attr=dependency.key, value=tuple(value))
-                    else:
-                        resolved_dependency = ResolvedDependency(attr=dependency.key, value=value)
-
-                    resolved_dependencies.add(resolved_dependency)
-
     def add_network(self, resource: dict):
         if not resource['resolved_dependencies']:
             if resource not in self.pending:
+                self.logger.info(f"Adding to pending: {resource['name_prefix']}")
                 self.pending.append(resource)
             return
 
         self.logger.info(f"I have resolved dependencies {resource['resolved_dependencies']}")
         # Double check that vlan is satisfied
-        network_builder = NetworkBuilder(self.slice_object, resource)
+        label = resource.get(Config.LABEL)
+        network_builder = NetworkBuilder(label, self.slice_object, resource)
         network_builder.handle_facility_port()
         interfaces = []   # TODO handle this internal dependency
 
@@ -113,10 +83,11 @@ class FabricSlice(Slice, ResourceListener):
         node_count = resource.get(Config.RES_COUNT, 1)
         name_prefix = resource.get(Config.RES_NAME_PREFIX)
         nic_model = resource.get(Config.RES_NIC_MODEL, 'NIC_Basic')
+        label = resource.get(Config.LABEL)
 
         for i in range(node_count):
             name = f"{name_prefix}{i}"
-            node_builder = NodeBuilder(self.slice_object, name, resource)
+            node_builder = NodeBuilder(label, self.slice_object, name, resource)
             node_builder.add_component(model=nic_model, name="nic1")
             node = node_builder.build()
             self._nodes.append(node)
@@ -125,7 +96,37 @@ class FabricSlice(Slice, ResourceListener):
                 self.resource_listener.on_added(self, self.name, vars(node))
 
     def add_resource(self, *, resource: dict):
+        # TODO we need to handle modified config after slice has been created. now exception will be thrown
         if self.slice_created:
+            rtype = resource.get(Config.RES_TYPE)
+            label = resource.get(Config.LABEL)
+
+            if rtype == Config.RES_TYPE_NODE.lower():
+                node_count = resource.get(Config.RES_COUNT, 1)
+                name_prefix = resource.get(Config.RES_NAME_PREFIX)
+
+                for i in range(node_count):
+                    name = f"{name_prefix}{i}"
+                    delegate = self.slice_object.get_node(name)
+                    fabric_node = FabricNode(label=label, delegate=delegate)
+                    self._nodes.append(fabric_node)
+
+                    if self.resource_listener:
+                        self.resource_listener.on_added(self, self.name, vars(fabric_node))
+            elif rtype == Config.RES_TYPE_NETWORK.lower():
+                delegates = self.slice_object.get_network_services()
+                # noinspection PyTypeChecker
+                fabric_network = FabricNetwork(label=label,
+                                               delegate=delegates[0],
+                                               subnet=None,
+                                               pool_start=None,
+                                               pool_end=None)
+                self._networks.append(fabric_network)
+
+                if self.resource_listener:
+                    self.resource_listener.on_added(self, self.name, vars(fabric_network))
+            else:
+                raise Exception("Unknown resource ....")
             return
 
         rtype = resource.get(Config.RES_TYPE)
@@ -160,7 +161,20 @@ class FabricSlice(Slice, ResourceListener):
 
     def create(self,):
         if self.slice_created:
-            self.logger.warning(f"already provisioned. Will not bother to create any resource to {self.name}")
+            if not self.notified_create:
+                self.logger.info(f"already provisioned. Will not bother to create any resource to {self.name}")
+            else:
+                self.logger.debug(f"already provisioned. Will not bother to create any resource to {self.name}")
+
+            if not self.notified_create and self.resource_listener:
+                for node in self.nodes:
+                    self.resource_listener.on_created(self, self.name, vars(node))
+
+                for net in self.networks:
+                    self.resource_listener.on_created(self, self.name, vars(net))
+
+                self.notified_create = True
+
             return
 
         for resource in self.pending:
@@ -173,20 +187,34 @@ class FabricSlice(Slice, ResourceListener):
         self._submit_and_wait()
         self.slice_created = True
 
-        self._nodes = []
+        # TODO WHY ARE WE RELOADING?
+        temp = []
 
-        for node in self.slice_object.get_nodes():
-            self._nodes.append(FabricNode(delegate=node))
+        for node in self.nodes:
+            delegate = self.slice_object.get_node(node.name)
+            temp.append(FabricNode(label=node.label, delegate=delegate))
+
+        self._nodes = temp
 
         if self.networks:
+            from ipaddress import IPv4Network
             available_ips = self._networks[0].available_ips()
-            subnet = self._networks[0]._subnet
+            subnet = IPv4Network(self._networks[0].subnet)
             net_name = self._networks[0].name
 
             for node in self._nodes:
                 iface = node.get_interface(network_name=net_name)
                 node_addr = available_ips.pop(0)
                 iface.ip_addr_add(addr=node_addr, subnet=subnet)
+
+        if self.resource_listener:
+            for node in self.nodes:
+                self.resource_listener.on_created(self, self.name, vars(node))
+
+            for net in self.networks:
+                self.resource_listener.on_created(self, self.name, vars(net))
+
+            self.notified_create = True
 
     def destroy(self, *, slice_state):
         if self.slice_created:

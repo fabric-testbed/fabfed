@@ -25,16 +25,15 @@
 import logging
 import os
 
+from fabfed.model.state import ProviderState
 from fabfed.provider.api.api_client import Provider
 from fabfed.util.config import Config
 
-from fabfed.model import ResourceListener
-from fabfed.model.state import ProviderState
 
-
-class ChiProvider(Provider, ResourceListener):
+class ChiProvider(Provider):
     def __init__(self, *, type, name, logger: logging.Logger, config: dict):
         super().__init__(type=type, name=name, logger=logger, config=config)
+        self.mappings = dict()
 
     def setup_environment(self, *, site: str):
         """
@@ -62,18 +61,6 @@ class ChiProvider(Provider, ResourceListener):
         os.environ['OS_SLICE_PRIVATE_KEY_FILE'] = self.config.get(Config.RUNTIME_SLICE_PRIVATE_KEY_LOCATION)
         os.environ['OS_SLICE_PUBLIC_KEY_FILE'] = self.config.get(Config.RUNTIME_SLICE_PUBLIC_KEY_LOCATION)
 
-    def on_added(self, source, slice_name, resource: dict):
-        if self.resource_listener:
-            self.resource_listener.on_added(self, slice_name, resource)
-
-    def on_created(self, source, slice_name, resource: dict):
-        if self.resource_listener:
-            self.resource_listener.on_created(self, slice_name, resource)
-
-    def on_deleted(self, source, slice_name, resource: dict):
-        if self.resource_listener:
-            self.resource_listener.on_deleted(self, slice_name, resource)
-
     @staticmethod
     def __get_site_identifier(*, site: str):
         if site == "CHI@UC":
@@ -90,15 +77,21 @@ class ChiProvider(Provider, ResourceListener):
             return "uc"
 
     def init_slice(self, *, slice_config: dict, slice_name: str):
-        pass
+        self.logger.debug(f"Initializing {slice_name}: {slice_config}")
+        label = slice_config.get(Config.LABEL)
+
+        if slice_name in self.mappings:
+            raise Exception("provider cannot have more than one slice with same name")
+
+        self.mappings[slice_name] = label
 
     def add_resource(self, *, resource: dict, slice_name: str):
-        # Network info may be amended
-        if resource.get(Config.RES_COUNT, 1) < 1:
-            return None
-
-        self.logger.info(f"Adding {resource['name_prefix']} to {slice_name}")
         self.logger.debug(f"Adding {resource} to {slice_name}")
+        count = resource.get(Config.RES_COUNT, 1)
+
+        if count < 1:
+            self.logger.debug(f"Skipping {resource} to {slice_name} {count}")
+            return None
 
         site = resource.get(Config.RES_SITE)
         self.setup_environment(site=site)
@@ -108,7 +101,9 @@ class ChiProvider(Provider, ResourceListener):
         if slice_name in self.slices:
             slice_object = self.slices[slice_name]
         else:
-            slice_object = ChiSlice(name=slice_name, logger=self.logger, key_pair=self.config.get(Config.CHI_KEY_PAIR),
+            label = self.mappings[slice_name]
+            slice_object = ChiSlice(label=label, name=slice_name, logger=self.logger,
+                                    key_pair=self.config.get(Config.CHI_KEY_PAIR),
                                     project_name=self.config.get(Config.CHI_PROJECT_NAME))
             slice_object.set_resource_listener(self)
             self.slices[slice_name] = slice_object
@@ -120,16 +115,19 @@ class ChiProvider(Provider, ResourceListener):
         """
         Delete provisioned resources
          """
-        for slice_state in provider_state.slice_states:
-            self.logger.info(f"Deleting slice {slice_state.name}")
+        self.logger.debug(f"Destroying {provider_state.label}: num_slices={len(provider_state.slice_states)}")
 
-            all = []
-            all.extend(slice_state.network_states)
-            all.extend(slice_state.node_states)
+        for slice_state in provider_state.slice_states:
+            name = slice_state.attributes['name']
+            self.logger.info(f"Deleting slice {name}")
+
+            all_states = []
+            all_states.extend(slice_state.network_states)
+            all_states.extend(slice_state.node_states)
 
             site = None
 
-            for temp in all:
+            for temp in all_states:
                 site = temp.attributes.get('site', None)
 
                 if site:
@@ -141,13 +139,14 @@ class ChiProvider(Provider, ResourceListener):
 
             from fabfed.provider.chi.chi_slice import ChiSlice
 
-            if slice_state.name in self.slices:
-                slice_object = self.slices[slice_state.name]
+            if name in self.slices:
+                slice_object = self.slices[name]
             else:
-                slice_object = ChiSlice(name=slice_state.name, logger=self.logger,
+                label = self.mappings[name]
+                slice_object = ChiSlice(label=label, name=name, logger=self.logger,
                                         key_pair=self.config.get(Config.CHI_KEY_PAIR),
                                         project_name=self.config.get(Config.CHI_PROJECT_NAME))
                 slice_object.set_resource_listener(self)
-                self.slices[slice_state.name] = slice_object
+                self.slices[name] = slice_object
 
             slice_object.destroy(slice_state=slice_state)

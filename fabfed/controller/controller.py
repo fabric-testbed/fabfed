@@ -23,13 +23,13 @@
 #
 # Author Komal Thareja (kthare10@renci.org)
 import logging
-from logging.handlers import RotatingFileHandler
 from typing import List
 
 from fabfed.model import ResourceListener
 from fabfed.model import Slice
 from fabfed.model.state import ProviderState
 from fabfed.util.config import Config
+from .provider_factory import ProviderFactory
 
 
 class ControllerResourceListener(ResourceListener):
@@ -37,10 +37,12 @@ class ControllerResourceListener(ResourceListener):
         self.providers = providers
 
     def on_added(self, source, slice_name, resource: dict):
-        pass
+        for provider in self.providers:
+            if provider != source:
+                provider.on_added(self, slice_name, resource)
 
     def on_created(self, source, slice_name, resource):
-        for provider in self.providers.values():
+        for provider in self.providers:
             if provider != source:
                 provider.on_created(self, slice_name, resource)
 
@@ -49,61 +51,43 @@ class ControllerResourceListener(ResourceListener):
 
 
 class Controller:
-    def __init__(self, *, config_file_location: str):
-        self.config = Config(path=config_file_location)
-        log_config = self.config.get_log_config()
-        self.logger = logging.getLogger(str(log_config.get(Config.PROPERTY_CONF_LOGGER, __name__)))
-        log_level = log_config.get(Config.PROPERTY_CONF_LOG_LEVEL, logging.INFO)
+    def __init__(self, *, config: Config, logger: logging.Logger):
+        self.config = config
+        self.logger = logger
+        self.provider_factory = None
 
-        self.logger.setLevel(log_level)
-        file_handler = RotatingFileHandler(log_config.get(Config.PROPERTY_CONF_LOG_FILE),
-                                           backupCount=int(log_config.get(Config.PROPERTY_CONF_LOG_RETAIN)),
-                                           maxBytes=int(log_config.get(Config.PROPERTY_CONF_LOG_SIZE)))
-        logging.basicConfig(level=log_level,
-                            format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
-                            handlers=[logging.StreamHandler(), file_handler], force=True)
+    def init(self, provider_factory: ProviderFactory):
+        for provider_config in self.config.get_provider_config():
+            provider_factory.init_provider(type=provider_config.type,
+                                           label=provider_config.label,
+                                           attributes=provider_config.attributes,
+                                           logger=self.logger)
 
-        provider_configs = self.config.get_provider_config()
-        self.providers = {}
+        for slice_config in self.config.get_slice_config():
+            client = provider_factory.get_provider(label=slice_config.provider.label)
+            slice_config.attributes[Config.LABEL] = slice_config.label
+            client.init_slice(slice_name=slice_config.name, slice_config=slice_config.attributes)
 
-        for provider_config in provider_configs:
-            if provider_config.type == 'fabric':
-                from fabfed.provider.fabric.fabric_provider import FabricProvider
+        self.provider_factory = provider_factory
 
-                provider = FabricProvider(type=provider_config.type, name=provider_config.name, logger=self.logger,
-                                          config=provider_config.attributes)
-                provider.setup_environment()
-                self.providers[provider_config.name] = provider
-            elif provider_config.type == 'chi':
-                from fabfed.provider.chi.chi_provider import ChiProvider
-
-                provider = ChiProvider(type=provider_config.type, name=provider_config.name, logger=self.logger,
-                                       config=provider_config.attributes)
-                self.providers[provider_config.name] = provider
-            else:
-                raise Exception(f"no provider for {provider_config.name}")
-
-    def create(self):
+    def plan(self):
         resources = self.config.get_resource_config()
-        resource_listener = ControllerResourceListener(self.providers)
+        providers = self.provider_factory.providers
+        resource_listener = ControllerResourceListener(providers)
 
-        for provider in self.providers.values():
+        for provider in providers:
             provider.set_resource_listener(resource_listener)
 
-        # TODO This nneds tp be uncommented ....
-        # for slice_config in self.config.get_slice_config():
-        #     client = self.providers[slice_config.provider_name]
-        #     client.init_slice(slice_name=slice_config.name, resource=slice_config.attributes)
-
         try:
-            self.logger.debug("Starting adding")
+            self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
             for resource in resources:
                 slice_config = resource.slice
-                client = self.providers[slice_config.provider_name]
+                provider = self.provider_factory.get_provider(label=slice_config.provider.label)
                 slice_name = slice_config.name
                 resource_dict = resource.attributes
                 resource_dict[Config.RES_TYPE] = resource.type
                 resource_dict[Config.RES_NAME_PREFIX] = resource.name
+                resource_dict[Config.LABEL] = resource.label
 
                 if resource.has_dependencies():
                     resource_dict['has_dependencies'] = True
@@ -112,38 +96,33 @@ class Controller:
                 else:
                     resource_dict['has_dependencies'] = False
 
-                if resource.is_node:
-                    client.add_resource(resource=resource_dict, slice_name=slice_name)
-                elif resource.is_network:
-                    client.add_resource(resource=resource_dict, slice_name=slice_name)
+                provider.add_resource(resource=resource_dict, slice_name=slice_name)
         except Exception as e:
             self.logger.error(f"Exception occurred while adding resources: {e}")
             raise e
 
-        try:
-            self.logger.debug("Starting create ....")
-            for resource in resources:
-                client = self.providers[resource.slice.provider_name]
-                slice_name = resource.slice.name
+    def create(self):
+        resources = self.config.get_resource_config()
 
-                client.create_resources(slice_name=slice_name)
+        try:
+            self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
+            for resource in resources:
+                provider = self.provider_factory.get_provider(label=resource.slice.provider.label)
+                slice_name = resource.slice.name
+                provider.create_resources(slice_name=slice_name)
         except Exception as e:
             self.logger.error(f"Exception occurred while creating resources: {e}")
             raise e
 
     def delete(self, *, provider_states: List[ProviderState]):
-        for slice_config in self.config.get_slice_config():
-            client = self.providers[slice_config.provider_name]
-            client.init_slice(slice_name=slice_config.name, slice_config=slice_config.attributes)
-
         for provider_state in provider_states:
-            client = self.providers[provider_state.name]
-            client.destroy_resources(provider_state=provider_state)
+            provider = self.provider_factory.get_provider(label=provider_state.label)
+            provider.destroy_resources(provider_state=provider_state)
 
     def get_slices(self) -> List[Slice]:
         resources = []
 
-        for provider in self.providers.values():
+        for provider in self.provider_factory.providers:
             slices = provider.get_slices()
 
             if slices:
@@ -154,8 +133,10 @@ class Controller:
     def get_states(self) -> List[ProviderState]:
         provider_states = []
 
-        for provider in self.providers.values():
+        for provider in self.provider_factory.providers:
             provider_state = provider.get_state()
-            provider_states.append(provider_state)
+
+            if provider_state.slice_states:
+                provider_states.append(provider_state)
 
         return provider_states
