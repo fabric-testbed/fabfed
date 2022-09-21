@@ -90,19 +90,21 @@ class ChiNode(Node):
             self._lease_helper.create_lease_if_needed(reservations=self.reservations, retry=self._retry)
 
         try:
+            self.logger.info(f"Checking if Node {self.node_name} exists")
             node_id = chi.server.get_server_id(self.node_name)
-            node = chi.server.get_server(node_id)
-            self.__populate_state(node.to_dict())
-            self.logger.info(f"Node {self.node_name} already exists ")
         except ValueError as e:
             self.logger.warning(f"Error occurred for {self.node_name} {e}. Will attempt to create ")
             node = self.__create_kvm() if self.site == "KVM@TACC" else self.__create_baremetal()
-            self.logger.info(f"Waiting for node {self.node_name} to be Active!")
-            chi.server.wait_for_active(server_id=node.id)
+            node_id = node.id
+
+        self.logger.info(f"Waiting for node {self.node_name} to be Active!")
+        chi.server.wait_for_active(server_id=node_id)
+        node = chi.server.get_server(node_id)
+        self.__populate_state(node.to_dict())
+
+        if not self.mgmt_ip:
             self.logger.info(f"Associating the Floating IP to {self.node_name}!")
             self.mgmt_ip = chi.server.associate_floating_ip(server_id=node.id)
-            node = chi.server.get_server(node.id)  # reload node info,,,,,
-            self.__populate_state(node.to_dict())
 
     def delete(self):
         chi.set('project_name', self.project_name)

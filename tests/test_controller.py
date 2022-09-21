@@ -57,7 +57,7 @@ resource:
 """
 
 
-class TestNode(Node):
+class SimpleNode(Node):
     def __init__(self, *, label, name: str, image: str, site: str, flavor: str,):
         super().__init__(label=label, name=name, image=image, site=site, flavor=flavor)
 
@@ -68,7 +68,7 @@ class TestNode(Node):
         return "NO_SATE"
 
 
-class TestSlice(Slice):
+class SimpleSlice(Slice):
     def __init__(self, *, label, name: str, logger: logging.Logger):
         super().__init__(label=label, name=name)
         self.logger = logger
@@ -98,7 +98,7 @@ class TestSlice(Slice):
 
             for i in range(node_count):
                 name = f"{name_prefix}{i}"
-                node = TestNode(label=label, name=name, image=image, site=site, flavor=flavor)
+                node = SimpleNode(label=label, name=name, image=image, site=site, flavor=flavor)
                 self._nodes.append(node)
         else:
             raise Exception("Unknown resource ....")
@@ -114,7 +114,7 @@ class TestSlice(Slice):
         pass
 
 
-class TestProvider(Provider):
+class SimpleProvider(Provider):
     def __init__(self, *, type, name, logger: logging.Logger, config: dict):
         super().__init__(type=type, name=name, logger=logger, config=config)
 
@@ -128,7 +128,7 @@ class TestProvider(Provider):
             raise Exception("provider cannot have more than one slice with same name")
 
         label = slice_config.get(Config.LABEL)
-        fabric_slice = TestSlice(label=label, name=slice_name, logger=self.logger)
+        fabric_slice = SimpleSlice(label=label, name=slice_name, logger=self.logger)
         self.slices[slice_name] = fabric_slice
         fabric_slice.set_resource_listener(self)
 
@@ -144,16 +144,16 @@ class TestProvider(Provider):
         fabric_slice.add_resource(resource=resource)
 
 
-class TestProviderFactory(ProviderFactory):
+class SimpleProviderFactory(ProviderFactory):
     def __init__(self):
         super().__init__()
 
     def init_provider(self, *, type: str, label: str, attributes, logger):
         if type == 'fabric':
-            provider = TestProvider(type=type, name=label, logger=logger, config=attributes)
+            provider = SimpleProvider(type=type, name=label, logger=logger, config=attributes)
             self._providers[label] = provider
         elif type == 'chi':
-            provider = TestProvider(type=type, name=label, logger=logger, config=attributes)
+            provider = SimpleProvider(type=type, name=label, logger=logger, config=attributes)
             self._providers[label] = provider
         else:
             raise Exception(f"no provider for type {type}")
@@ -163,7 +163,7 @@ def test_controller():
     config = Config(content=config_str)
     logger = logging.getLogger(__name__)
     controller = Controller(config=config, logger=logger)
-    provider_factory = TestProviderFactory()
+    provider_factory = SimpleProviderFactory()
     controller.init(provider_factory=provider_factory)
     assert len(provider_factory.providers) == 2
     controller.plan()

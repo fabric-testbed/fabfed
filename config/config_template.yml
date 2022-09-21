@@ -1,3 +1,8 @@
+variable:
+  # These variables are for the slice and node resource 
+  - slice_name:
+    - default: REPLACE_ME
+
 provider:
   - fabric:
     - fabric_provider:
@@ -13,21 +18,6 @@ provider:
   - chi:
     - chi_provider:
         - project_name: REPLACE_ME 
-          auth_url:
-            tacc: https://chi.tacc.chameleoncloud.org:5000/v3
-            uc: https://chi.uc.chameleoncloud.org:5000/v3
-            kvm: https://kvm.tacc.chameleoncloud.org:5000/v3
-            edge: https://chi.edge.chameleoncloud.org:5000/v3
-          client_id:
-            tacc: keystone-tacc-prod
-            uc: keystone-uc-prod
-            kvm: keystone-kvm-prod
-            edge: keystone-edge-prod
-          project_id:
-            tacc: a400724e818d40cbba1a5c6b5e714462
-            uc: ae76673270164b048b59d3bd30676721
-            kvm: a400724e818d40cbba1a5c6b5e714462
-            edge:
           user: REPLACE_ME
           password: REPLACE_ME 
           key_pair: REPLACE_ME
@@ -38,11 +28,11 @@ resource:
   - slice:
       - fabric_slice:
           - provider: '{{ fabric.fabric_provider }}'
-            name: my_slice
+            name: '{{ var.slice_name }}'
   - slice:
       - chi_slice:
           - provider: '{{ chi.chi_provider }}'
-            name: my_slice
+            name: '{{ var.slice_name }}'
 
   - node:
       - fabric_node:
@@ -61,8 +51,7 @@ resource:
             image: CC-Ubuntu20.04
             network: '{{ network.chi_network.network_name }}'
             count: 1 
-            flavor:
-              name: m1.medium
+            flavor: m1.medium
 
   - network:
       - chi_network:

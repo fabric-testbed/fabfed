@@ -76,11 +76,7 @@ class Provider(ABC):
 
         for slice_object in self.slices.values():
             if source != slice_object:
-                def add_resource(self, *, resource: dict, slice_name: str):
-                    """
-                    Build the topology
-                    """
-                    pass
+                slice_object.on_deleted(source, slice_name, resource)
 
     def create_resources(self, *,  slice_name: str):
         """

@@ -28,6 +28,7 @@ import os
 from fabfed.model.state import ProviderState
 from fabfed.provider.api.api_client import Provider
 from fabfed.util.config import Config
+from .chi_constants import DEFAULT_AUTH_URLS, DEFAULT_CLIENT_IDS, DEFAULT_DISCOVERY_URL, DEFAULT_PROJECT_IDS
 
 
 class ChiProvider(Provider):
@@ -43,18 +44,17 @@ class ChiProvider(Provider):
         @param site: site name
         """
         site_id = self.__get_site_identifier(site=site)
-        os.environ['OS_AUTH_URL'] = self.config.get(Config.CHI_AUTH_URL)[site_id]
+        os.environ['OS_AUTH_URL'] = self.config.get(Config.CHI_AUTH_URL, DEFAULT_AUTH_URLS)[site_id]
         os.environ['OS_IDENTITY_API_VERSION'] = "3"
         os.environ['OS_INTERFACE'] = "public"
-        os.environ['OS_PROJECT_ID'] = self.config.get(Config.CHI_PROJECT_ID)[site_id]
+        os.environ['OS_PROJECT_ID'] = self.config.get(Config.CHI_PROJECT_ID, DEFAULT_PROJECT_IDS)[site_id]
         os.environ['OS_USERNAME'] = self.config.get(Config.CHI_USER)
         os.environ['OS_PROTOCOL'] = "openid"
         os.environ['OS_AUTH_TYPE'] = "v3oidcpassword"
         os.environ['OS_PASSWORD'] = self.config.get(Config.CHI_PASSWORD)
         os.environ['OS_IDENTITY_PROVIDER'] = "chameleon"
-        os.environ['OS_DISCOVERY_ENDPOINT'] = \
-            "https://auth.chameleoncloud.org/auth/realms/chameleon/.well-known/openid-configuration"
-        os.environ['OS_CLIENT_ID'] = self.config.get(Config.CHI_CLIENT_ID)[site_id]
+        os.environ['OS_DISCOVERY_ENDPOINT'] = DEFAULT_DISCOVERY_URL
+        os.environ['OS_CLIENT_ID'] = self.config.get(Config.CHI_CLIENT_ID, DEFAULT_CLIENT_IDS)[site_id]
         os.environ['OS_ACCESS_TOKEN_TYPE'] = "access_token"
         os.environ['OS_CLIENT_SECRET'] = "none"
         os.environ['OS_REGION_NAME'] = site
