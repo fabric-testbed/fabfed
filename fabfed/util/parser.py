@@ -1,7 +1,7 @@
 import json
 from collections import namedtuple
 from types import SimpleNamespace
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Any
 
 import yaml
 
@@ -9,6 +9,32 @@ import yaml
 class ParseConfigException(Exception):
     """Base class for other exceptions"""
     pass
+
+
+class Variable:
+    def __init__(self, name: str, value: Any):
+        self._name = name.lower()
+        self._value = value
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def value(self) -> str:
+        return self._value
+
+    def __str__(self) -> str:
+        return 'Variable[' + self.name + '=' + str(self.value) + ']'
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return hash(self.name)
 
 
 class BaseConfig:
@@ -132,6 +158,69 @@ def resource_from_basic_config(basic_config, slices) -> ResourceConfig:
         raise ParseConfigException(f"did not find slice {temp.var_name} for {basic_config}")
 
     return ResourceConfig(basic_config.type, basic_config.var_name, attrs, slices[index])
+
+
+class VariableEvaluator:
+    def __init__(self, variables: List[Variable], providers: List[ProviderConfig], resources: List[BaseConfig]):
+        self.variables = variables
+        self.providers = providers
+        self.resources = resources
+
+    def find_variable(self, path: str) -> BaseConfig or Dependency:
+        parts = path.split('.')
+        assert parts[0] == 'var'
+
+        if len(parts) != 2:
+            raise ParseConfigException(f"bad variable dependency {path}")
+
+        for variable in self.variables:
+            if variable.name == parts[1]:
+                return variable.value
+
+        raise ParseConfigException(f'variable not found at {path}')
+
+    def handle_substitution(self, value):
+        if isinstance(value, str):
+            value = value.strip()
+
+            if value.startswith('{{') and value.endswith('}}'):
+                path = value[2:-2].strip()
+
+                if path.startswith('var'):
+                    return self.find_variable(path)
+
+            return value
+        elif isinstance(value, list):
+            temp = []
+            for val in value:
+                temp.append(self.handle_substitution(val))
+            return temp
+        elif isinstance(value, dict):
+            temp = {}
+
+            for k, val in value.items():
+                temp[k] = self.handle_substitution(val)
+
+            return temp
+        elif isinstance(value, SimpleNamespace):
+            return self.handle_substitution(vars(value))
+        else:
+            return value
+
+    def evaluate(self) -> Tuple[List[ProviderConfig], List[BaseConfig]]:
+        config_entries: List[BaseConfig] = []
+        config_entries.extend(self.providers)
+        config_entries.extend(self.resources)
+
+        for config_resource_entry in config_entries:
+            attrs = {}
+
+            for key, value in config_resource_entry.attributes.items():
+                attrs[key] = self.handle_substitution(value)
+
+            config_resource_entry.attributes = attrs
+
+        return self.providers, self.resources
 
 
 class Evaluator:
@@ -270,6 +359,31 @@ def normalize(objs):  # TODO looks like we need this  for chameleon provider
         obj.attributes = attrs
 
 
+def parse_pair(obj: SimpleNamespace) -> Tuple[str, Dict]:
+    def extract_label(lst):
+        return next(label for label in lst if not label.startswith("__"))
+
+    if not isinstance(obj, SimpleNamespace):
+        raise ParseConfigException(f"expecting a pair {obj}")
+
+    try:
+        name = extract_label(dir(obj))
+
+        if not obj.__getattribute__(name):
+            return name, {}
+
+        attrs = obj.__getattribute__(name)[0].__dict__
+
+        if len(obj.__getattribute__(name)) > 1:
+            raise ParseConfigException(f"did not expect a block after{attrs} under {name}")
+
+        return name, attrs
+    except ParseConfigException as e:
+        raise e
+    except Exception as e:
+        raise ParseConfigException(f" exception occurred while parsing pair {obj}") from e
+
+
 def parse_triplet(obj: SimpleNamespace) -> Tuple[str, str, Dict]:
     def extract_label(lst):
         return next(label for label in lst if not label.startswith("__"))
@@ -302,6 +416,11 @@ class Parser:
         pass
 
     @staticmethod
+    def _parse_variable(obj: SimpleNamespace) -> Variable:
+        name, attributes = parse_pair(obj)
+        return Variable(name, attributes.get('default', None))
+
+    @staticmethod
     def _parse_resource(obj: SimpleNamespace) -> BaseConfig:
         type, name, attributes = parse_triplet(obj)
         return BaseConfig(type, name, attributes)
@@ -330,6 +449,15 @@ class Parser:
         return resources
 
     @staticmethod
+    def _validate_variables(variables: List[Variable]):
+        if len(variables) != len(set(variables)):
+            raise ParseConfigException(f'detected duplicate variables')
+
+        for variable in variables:
+            if not variable.value:
+                raise ParseConfigException(f'variable {variable .name} is not bound')
+
+    @staticmethod
     def _validate_providers(providers: List[ProviderConfig]):
         if len(providers) == 0:
             raise ParseConfigException("no providers found ...")
@@ -354,7 +482,9 @@ class Parser:
             raise ParseConfigException(f'detected duplicate  resources')
 
     @staticmethod
-    def parse(*, file_name=None, content=None) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
+    def parse(*, file_name=None,
+              content=None,
+              var_dict=None) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
         if file_name:
             with open(file_name, 'r') as stream:
                 obj = yaml.load(stream, Loader=yaml.FullLoader)
@@ -362,6 +492,15 @@ class Parser:
             obj = yaml.safe_load(content)
 
         obj = json.loads(json.dumps(obj), object_hook=lambda dct: SimpleNamespace(**dct))
+        variables = []
+
+        if hasattr(obj, 'variable') and obj.variable:
+            variables = [Parser._parse_variable(variable) for variable in obj.variable]
+
+            if var_dict:
+                variables = [Variable(v.name, var_dict.get(v.name, v.value)) for v in variables]
+
+            Parser._validate_variables(variables)
 
         if not hasattr(obj, 'provider') or obj.provider is None:
             raise ParseConfigException("no providers found")
@@ -374,6 +513,8 @@ class Parser:
             raise ParseConfigException("no resources found ...")
 
         resource_base_configs = [Parser._parse_resource(resource) for resource in obj.resource]
+        variable_evaluator = VariableEvaluator(variables, providers, resource_base_configs)
+        providers, resource_configs = variable_evaluator.evaluate()
         evaluator = Evaluator(providers, resource_base_configs)
         providers, resource_configs = evaluator.evaluate()
 
