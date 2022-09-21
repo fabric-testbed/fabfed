@@ -96,8 +96,10 @@ class Config:
     RUNTIME_SLICE_PRIVATE_KEY_LOCATION = "slice-private-key-location"
     RUNTIME_SLICE_PUBLIC_KEY_LOCATION = "slice-public-key-location"
 
-    def __init__(self, *, file_name=None, content=None):
-        self.providers, self.slices, self.resources = Parser.parse(file_name=file_name, content=content)
+    def __init__(self, *, file_name=None, content=None, var_dict=None):
+        self.providers, self.slices, self.resources = Parser.parse(file_name=file_name,
+                                                                   content=content,
+                                                                   var_dict=var_dict)
 
     def get_slice_config(self) -> List[SliceConfig]:
         return self.slices

@@ -26,6 +26,7 @@ def build_parser():
 
     parser = create_parser(description=description)
     parser.add_argument('-c', '--config', type=str, default='', help='yaml config file', required=True)
+    parser.add_argument('-vf', '--var-file', type=str, default='', help='yaml variable file', required=False)
     parser.add_argument('-fn', '--friendly-name', type=str, default='', help='friendly-name', required=True)
     parser.add_argument('-apply', action='store_true', default=False, help='create resources')
     parser.add_argument('-plan', action='store_true', default=False, help='shows plan')
@@ -57,6 +58,13 @@ def init_looger(log_level=logging.INFO):
                         format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
                         handlers=[logging.StreamHandler(), file_handler], force=True)
     return logger
+
+
+def load_vars(var_file):
+    import yaml
+
+    with open(var_file, 'r') as stream:
+        return yaml.load(stream, Loader=yaml.FullLoader)
 
 
 def get_base_dir():

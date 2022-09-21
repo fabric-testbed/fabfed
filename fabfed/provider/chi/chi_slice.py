@@ -29,11 +29,10 @@ from fabfed.model.state import SliceState
 from fabfed.provider.chi.chi_network import ChiNetwork
 from fabfed.provider.chi.chi_node import ChiNode
 from fabfed.util.config import Config
+from .chi_constants import DEFAULT_NETWORK, DEFAULT_FLAVOR
 
 
 class ChiSlice(Slice):
-    DEFAULT_NETWORKS = ["sharednet1", "sharedwan1", "containernet1"]
-
     def __init__(self, *, label, name: str, logger: logging.Logger, key_pair: str, project_name: str):
         super().__init__(label=label, name=name)
         self.logger = logger
@@ -63,7 +62,7 @@ class ChiSlice(Slice):
 
     def add_node(self, resource: dict):
         site = resource.get(Config.RES_SITE)
-        network = resource.get(Config.RES_NETWORK, ChiSlice.DEFAULT_NETWORKS[0])
+        network = resource.get(Config.RES_NETWORK, DEFAULT_NETWORK)
 
         if not isinstance(network, str):
             found = False
@@ -81,7 +80,7 @@ class ChiSlice(Slice):
         node_count = resource.get(Config.RES_COUNT, 1)
         image = resource.get(Config.RES_IMAGE)
         node_name_prefix = resource.get(Config.RES_NAME_PREFIX)
-        flavor = resource.get(Config.RES_FLAVOR)[Config.RES_FLAVOR_NAME]
+        flavor = resource.get(Config.RES_FLAVOR, DEFAULT_FLAVOR)
         label = resource.get(Config.LABEL)
 
         for n in range(0, node_count):

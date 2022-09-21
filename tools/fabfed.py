@@ -11,9 +11,10 @@ def main(argv=None):
     parser = utils.build_parser()
     args = parser.parse_args(argv)
     logger = utils.init_looger()
+    var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
     if args.apply:
-        config = Config(file_name=args.config)
+        config = Config(file_name=args.config, var_dict=var_dict)
         controller = Controller(config=config, logger=logger)
         controller.init(default_provider_factory)
 
@@ -33,7 +34,7 @@ def main(argv=None):
             print(slice_object.list_nodes())
 
     if args.plan:
-        config = Config(file_name=args.config)
+        config = Config(file_name=args.config, var_dict=var_dict)
         controller = Controller(config=config, logger=logger)
         controller.init(default_provider_factory)
         controller.plan()
@@ -51,7 +52,7 @@ def main(argv=None):
             states = utils.load_states(args.friendly_name)
 
             if states:
-                config = Config(file_name=args.config)
+                config = Config(file_name=args.config, var_dict=var_dict)
                 controller = Controller(config=config, logger=logger)
                 controller.init(default_provider_factory)
                 controller.delete(provider_states=states)

@@ -311,6 +311,91 @@ provider:
     assert len(resources[0].dependencies) == 0
 
 
+def test_missing_variable():
+    yaml_str = '''
+provider:
+  - prov1:
+    - my_provider:
+       - user: '{{ var.user_name }}'
+resource:
+  - node:
+      - my_node:
+          - slice:  '{{ slice.my_slice }}'
+  - slice:
+      - my_slice:
+          - provider: '{{ prov1.my_provider }}'
+    '''
+    with pytest.raises(ParseConfigException):
+        Parser.parse(content=yaml_str)
+
+
+def test_duplicate_variables():
+    yaml_str = '''
+variable:
+  - slice_name:
+      - default: "test_slice"
+  - slice_name:
+      - default: "user10"
+provider:
+  - prov1:
+    - my_provider:
+       - user: "some_user"
+resource:
+  - node:
+      - my_node:
+          - slice:  '{{ slice.my_slice }}'
+  - slice:
+      - my_slice:
+          - provider: '{{ prov1.my_provider }}'
+    '''
+    with pytest.raises(ParseConfigException):
+        Parser.parse(content=yaml_str)
+
+
+def test_variables():
+    yaml_str = '''
+variable:
+  - slice_name:
+      - default: "test_slice"
+  - user_name:
+      - default: "user10"
+  - open_ports: 
+      - default: [22, 443]
+  - groups:
+      - default:
+  - vlan: 
+      
+provider:
+  - prov1:
+    - my_provider:
+       - user: '{{ var.user_name }}'
+       
+resource:
+  - node:
+      - my_node:
+          - slice:  '{{ slice.my_slice }}'
+            ports:  '{{ var.open_ports }}'
+            vlan:   '{{ var.vlan }}'
+            groups: '{{ var.groups }}'
+  - slice:
+      - my_slice:
+          - provider: '{{ prov1.my_provider }}'
+            name:     '{{ var.slice_name }}'
+    '''
+    with pytest.raises(ParseConfigException):
+        Parser.parse(content=yaml_str)
+
+    # now let's inject some values for groups and vlan
+    var_dict = dict(groups=['g1'], vlan=5)
+
+    providers, slices, resources = Parser.parse(content=yaml_str, var_dict=var_dict)
+    assert slices[0].name == 'test_slice'
+    assert providers[0].attributes['user'] == 'user10'
+    assert resources[0].attributes['ports'] == [22, 443]
+    assert resources[0].attributes['vlan'] == 5
+    assert resources[0].attributes['groups'] == ['g1']
+
+
 def test_dependencies():
     yaml_str = '''
 resource:
@@ -333,7 +418,6 @@ provider:
   - prov1:
     - my_provider:
        - user: user1
-
     '''
     providers, slices, resources = Parser.parse(content=yaml_str)
     assert len(providers) == 1
