@@ -1,29 +1,12 @@
-variable:
-  # These variables are for the slice and node resource 
-  - slice_name:
-    - default: REPLACE_ME
-
 provider:
   - fabric:
     - fabric_provider:
-       - oc-host: orchestrator.fabric-testbed.net
-         cm-host: cm.fabric-testbed.net
-         bastion-host: bastion-1.fabric-testbed.net
-         project_id: REPLACE_ME 
-         token-location: REPLACE_ME
-         bastion-user-name: REPLACE_ME
-         bastion-key-location: REPLACE_ME
-         slice-private-key-location: REPLACE_ME
-         slice-public-key-location:  REPLACE_ME
+       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: fabric
   - chi:
     - chi_provider:
-        - project_name: REPLACE_ME 
-          user: REPLACE_ME
-          password: REPLACE_ME 
-          key_pair: REPLACE_ME
-          slice-private-key-location: REPLACE_ME 
-          slice-public-key-location: REPLACE_ME
-
+        - credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: chi
 resource:
   - slice:
       - fabric_slice:

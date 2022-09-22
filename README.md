@@ -10,26 +10,28 @@ The FabFed is a Python library for a cross-testbed federation framework that (1)
 
 The FabFed code took the initial form from the Mobius API, and refactored and reinvented the slice modeling, user interface, data structure and  stitching workflows. 
 
-The example below showcases network stitching of two slices, a fabric slice and a chameleon slice. The example while incomplete highlights how fafed-py expresses dependencies. In particular it shows how the fabric network gets its vlan from the chi network. For a complete example, refer to 
-[Fabric Chameleoon Stitiching](./config/config_template.yml)
+The example below showcases network stitching of two slices, a [chi](https://www.chameleoncloud.org/) slice and a [fabric](https://portal.fabric-testbed.net/) slice. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 16 states that the network labelled fabric_network gets its vlan from the chi_network. 
+
+- For more details, refer to fabfed's [workflow design](./docs/workflow_design.md)
+- For a complete example, refer to  [Fabric Chameleon Stitching](./config/stitch_template.yml)
 
 ```
-resource:
-  - slice:
-      - fabric_slice:
-          - provider: '{{ fabric.fabric_provider }}'
-  - slice:
-      - chi_slice:
-          - provider: '{{ chi.chi_provider }}'   
-  - network:
-      - chi_network:
-          - slice:  '{{ slice.chi_slice }}'
-            site: CHI@UC     
-  - network:
-      - fabric_network:
-          - slice: '{{ slice.fabric_slice }}'
-            site: 'STAR'
-            vlan: '{{ network.chi_network.vlans}}'
+  1 resource:
+  2   - slice:
+  3       - fabric_slice:
+  4           - provider: '{{ fabric.fabric_provider }}'
+  5   - slice:
+  6       - chi_slice:
+  7           - provider: '{{ chi.chi_provider }}'
+  8   - network:
+  9       - chi_network:
+ 10           - slice:  '{{ slice.chi_slice }}'
+ 11             site: CHI@UC
+ 12   - network:
+ 13       - fabric_network:
+ 14           - slice: '{{ slice.fabric_slice }}'
+ 15             site: 'STAR'
+ 16             vlan: '{{ network.chi_network.vlans}}'
 ```
 
 # <a name="code"></a>Code Structure
@@ -37,8 +39,25 @@ resource:
 # <a name="install"></a>Installation
 You can install using the following command
 ```
-pip install fabfed-py
+pip install -e .
+pytests -s tests/
+fabfed --help
+fabfed workflow --help
+fabfed sessions --help
+fabfed -h
 ```
 
 # <a name="operate"></a>Operation Instructions
+
+```
+fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -validate
+
+fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -apply
+
+fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -show
+
+fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -destroy
+
+fabfed sessions -show
+```
 

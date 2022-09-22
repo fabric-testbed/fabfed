@@ -26,7 +26,7 @@ import logging
 import traceback
 
 from fabfed.model import Slice
-from fabfed.util.config import Config
+from ...util.constants import Constants
 from .fabric_network import NetworkBuilder, FabricNetwork
 from .fabric_node import FabricNode, NodeBuilder
 
@@ -60,7 +60,7 @@ class FabricSlice(Slice):
 
         self.logger.info(f"I have resolved dependencies {resource['resolved_dependencies']}")
         # Double check that vlan is satisfied
-        label = resource.get(Config.LABEL)
+        label = resource.get(Constants.LABEL)
         network_builder = NetworkBuilder(label, self.slice_object, resource)
         network_builder.handle_facility_port()
         interfaces = []   # TODO handle this internal dependency
@@ -80,10 +80,10 @@ class FabricSlice(Slice):
             self.resource_listener.on_added(self, self.name, vars(net))
 
     def add_node(self, resource: dict):
-        node_count = resource.get(Config.RES_COUNT, 1)
-        name_prefix = resource.get(Config.RES_NAME_PREFIX)
-        nic_model = resource.get(Config.RES_NIC_MODEL, 'NIC_Basic')
-        label = resource.get(Config.LABEL)
+        node_count = resource.get(Constants.RES_COUNT, 1)
+        name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+        nic_model = resource.get(Constants.RES_NIC_MODEL, 'NIC_Basic')
+        label = resource.get(Constants.LABEL)
 
         for i in range(node_count):
             name = f"{name_prefix}{i}"
@@ -98,12 +98,12 @@ class FabricSlice(Slice):
     def add_resource(self, *, resource: dict):
         # TODO we need to handle modified config after slice has been created. now exception will be thrown
         if self.slice_created:
-            rtype = resource.get(Config.RES_TYPE)
-            label = resource.get(Config.LABEL)
+            rtype = resource.get(Constants.RES_TYPE)
+            label = resource.get(Constants.LABEL)
 
-            if rtype == Config.RES_TYPE_NODE.lower():
-                node_count = resource.get(Config.RES_COUNT, 1)
-                name_prefix = resource.get(Config.RES_NAME_PREFIX)
+            if rtype == Constants.RES_TYPE_NODE.lower():
+                node_count = resource.get(Constants.RES_COUNT, 1)
+                name_prefix = resource.get(Constants.RES_NAME_PREFIX)
 
                 for i in range(node_count):
                     name = f"{name_prefix}{i}"
@@ -113,7 +113,7 @@ class FabricSlice(Slice):
 
                     if self.resource_listener:
                         self.resource_listener.on_added(self, self.name, vars(fabric_node))
-            elif rtype == Config.RES_TYPE_NETWORK.lower():
+            elif rtype == Constants.RES_TYPE_NETWORK.lower():
                 delegates = self.slice_object.get_network_services()
                 # noinspection PyTypeChecker
                 fabric_network = FabricNetwork(label=label,
@@ -129,10 +129,10 @@ class FabricSlice(Slice):
                 raise Exception("Unknown resource ....")
             return
 
-        rtype = resource.get(Config.RES_TYPE)
-        if rtype == Config.RES_TYPE_NETWORK.lower():
+        rtype = resource.get(Constants.RES_TYPE)
+        if rtype == Constants.RES_TYPE_NETWORK.lower():
             self.add_network(resource)
-        elif rtype == Config.RES_TYPE_NODE.lower():
+        elif rtype == Constants.RES_TYPE_NODE.lower():
             self.add_node(resource)
         else:
             raise Exception("Unknown resource ....")

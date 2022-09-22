@@ -499,6 +499,13 @@ class Parser:
 
             if var_dict:
                 variables = [Variable(v.name, var_dict.get(v.name, v.value)) for v in variables]
+                variable_map = {v.name: v for v in variables}
+
+                for key, value in var_dict.items():
+                    if not variable_map.get(key, None):
+                        variable_map[key] = Variable(key, value)
+
+                variables = list(variable_map.values())
 
             Parser._validate_variables(variables)
 

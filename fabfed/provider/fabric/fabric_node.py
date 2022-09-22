@@ -30,7 +30,7 @@ from fabrictestbed_extensions.fablib.node import Node as Delegate
 from fabrictestbed_extensions.fablib.slice import Slice
 
 from fabfed.model import Node
-from fabfed.util.config import Config
+from fabfed.util.constants import Constants
 
 Component = namedtuple("Component", "model  name")
 
@@ -82,18 +82,19 @@ class FabricNode(Node):
 
 class NodeBuilder:
     def __init__(self, label, slice_object: Slice, name: str,  resource: dict):
-        site = resource.get(Config.RES_SITE, Config.FABRIC_RANDOM)
+        from .fabric_constants import FABRIC_RANDOM
+        site = resource.get(Constants.RES_SITE, FABRIC_RANDOM)
 
-        if site == Config.FABRIC_RANDOM:
+        if site == FABRIC_RANDOM:
             from fabrictestbed_extensions.fablib.fablib import fablib
 
             site = fablib.get_random_site()
 
-        image = resource.get(Config.RES_IMAGE, Delegate.default_image)
-        flavor = resource.get(Config.RES_FLAVOR, {'cores': 2, 'ram': 8, 'disk': 10})
-        cores = flavor.get(Config.RES_FLAVOR_CORES, Delegate.default_cores)
-        ram = flavor.get(Config.RES_FLAVOR_RAM, Delegate.default_ram)
-        disk = flavor.get(Config.RES_FLAVOR_DISK, Delegate.default_disk)
+        image = resource.get(Constants.RES_IMAGE, Delegate.default_image)
+        flavor = resource.get(Constants.RES_FLAVOR, {'cores': 2, 'ram': 8, 'disk': 10})
+        cores = flavor.get(Constants.RES_FLAVOR_CORES, Delegate.default_cores)
+        ram = flavor.get(Constants.RES_FLAVOR_RAM, Delegate.default_ram)
+        disk = flavor.get(Constants.RES_FLAVOR_DISK, Delegate.default_disk)
         self.label = label
         self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
 

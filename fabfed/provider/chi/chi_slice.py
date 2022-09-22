@@ -28,7 +28,7 @@ from fabfed.model import Slice
 from fabfed.model.state import SliceState
 from fabfed.provider.chi.chi_network import ChiNetwork
 from fabfed.provider.chi.chi_node import ChiNode
-from fabfed.util.config import Config
+from fabfed.util.constants import Constants
 from .chi_constants import DEFAULT_NETWORK, DEFAULT_FLAVOR
 
 
@@ -42,15 +42,15 @@ class ChiSlice(Slice):
         self.slice_created = False
 
     def add_network(self, resource: dict):
-        site = resource.get(Config.RES_SITE)
-        label = resource.get(Config.LABEL)
-        subnet = resource.get(Config.RES_SUBNET)
-        pool_start = resource.get(Config.RES_NET_POOL_START, None)
-        pool_end = resource.get(Config.RES_NET_POOL_END, None)
-        gateway = resource.get(Config.RES_NET_GATEWAY, None)
-        stitch_provider = resource.get(Config.RES_NET_STITCH_PROV, None)
+        site = resource.get(Constants.RES_SITE)
+        label = resource.get(Constants.LABEL)
+        subnet = resource.get(Constants.RES_SUBNET)
+        pool_start = resource.get(Constants.RES_NET_POOL_START, None)
+        pool_end = resource.get(Constants.RES_NET_POOL_END, None)
+        gateway = resource.get(Constants.RES_NET_GATEWAY, None)
+        stitch_provider = resource.get(Constants.RES_NET_STITCH_PROV, None)
 
-        net_name = resource.get(Config.RES_NAME_PREFIX)
+        net_name = resource.get(Constants.RES_NAME_PREFIX)
         net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
                          slice_name=self.name, subnet=subnet, pool_start=pool_start, pool_end=pool_end,
                          gateway=gateway, stitch_provider=stitch_provider,
@@ -61,8 +61,8 @@ class ChiSlice(Slice):
             self.resource_listener.on_added(self, self.name, vars(net))
 
     def add_node(self, resource: dict):
-        site = resource.get(Config.RES_SITE)
-        network = resource.get(Config.RES_NETWORK, DEFAULT_NETWORK)
+        site = resource.get(Constants.RES_SITE)
+        network = resource.get(Constants.RES_NETWORK, DEFAULT_NETWORK)
 
         if not isinstance(network, str):
             found = False
@@ -77,11 +77,11 @@ class ChiSlice(Slice):
             if not found:
                 raise Exception(f"could not resolve internal network dependency {network}")
 
-        node_count = resource.get(Config.RES_COUNT, 1)
-        image = resource.get(Config.RES_IMAGE)
-        node_name_prefix = resource.get(Config.RES_NAME_PREFIX)
-        flavor = resource.get(Config.RES_FLAVOR, DEFAULT_FLAVOR)
-        label = resource.get(Config.LABEL)
+        node_count = resource.get(Constants.RES_COUNT, 1)
+        image = resource.get(Constants.RES_IMAGE)
+        node_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+        flavor = resource.get(Constants.RES_FLAVOR, DEFAULT_FLAVOR)
+        label = resource.get(Constants.LABEL)
 
         for n in range(0, node_count):
             node_name = f"{node_name_prefix}{n}"
@@ -94,8 +94,8 @@ class ChiSlice(Slice):
                 self.resource_listener.on_added(self, self.name, vars(node))
 
     def add_resource(self, *, resource: dict):
-        rtype = resource.get(Config.RES_TYPE)
-        if rtype == Config.RES_TYPE_NETWORK.lower():
+        rtype = resource.get(Constants.RES_TYPE)
+        if rtype == Constants.RES_TYPE_NETWORK.lower():
             self.add_network(resource)
         else:
             self.add_node(resource)
@@ -125,7 +125,7 @@ class ChiSlice(Slice):
 
         for node_state in node_states:
             name = node_state.attributes['name']
-            site = node_state.attributes[Config.RES_SITE]
+            site = node_state.attributes[Constants.RES_SITE]
             self.logger.debug(f"Deleting node: {name} at site {site}")
             node = ChiNode(label=node_state.label, name=name, image=None, site=site, flavor=None, logger=self.logger,
                            key_pair=None, slice_name=self.name, network=None,
@@ -136,7 +136,7 @@ class ChiSlice(Slice):
 
         for network_state in network_states:
             name = network_state.attributes['name']
-            site = network_state.attributes[Config.RES_SITE]
+            site = network_state.attributes[Constants.RES_SITE]
             self.logger.debug(f"Deleting network: {name} at site {site}")
             net = ChiNetwork(label=network_state.label, name=name, site=site, logger=self.logger,
                              slice_name=self.name, subnet=None, pool_start=None, pool_end=None,

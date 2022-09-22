@@ -29,6 +29,7 @@ from fabfed.model import ResourceListener
 from fabfed.model import Slice
 from fabfed.model.state import ProviderState
 from fabfed.util.config import Config
+from ..util.constants import Constants
 from .provider_factory import ProviderFactory
 
 
@@ -65,7 +66,7 @@ class Controller:
 
         for slice_config in self.config.get_slice_config():
             client = provider_factory.get_provider(label=slice_config.provider.label)
-            slice_config.attributes[Config.LABEL] = slice_config.label
+            slice_config.attributes[Constants.LABEL] = slice_config.label
             client.init_slice(slice_name=slice_config.name, slice_config=slice_config.attributes)
 
         self.provider_factory = provider_factory
@@ -85,9 +86,9 @@ class Controller:
                 provider = self.provider_factory.get_provider(label=slice_config.provider.label)
                 slice_name = slice_config.name
                 resource_dict = resource.attributes
-                resource_dict[Config.RES_TYPE] = resource.type
-                resource_dict[Config.RES_NAME_PREFIX] = resource.name
-                resource_dict[Config.LABEL] = resource.label
+                resource_dict[Constants.RES_TYPE] = resource.type
+                resource_dict[Constants.RES_NAME_PREFIX] = resource.name
+                resource_dict[Constants.LABEL] = resource.label
 
                 if resource.has_dependencies():
                     resource_dict['has_dependencies'] = True
