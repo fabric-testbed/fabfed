@@ -29,7 +29,7 @@ from fabrictestbed_extensions.fablib.network_service import NetworkService
 from fabrictestbed_extensions.fablib.slice import Slice
 
 from fabfed.model import Network
-from fabfed.util.config import Config
+from fabfed.util.constants import Constants
 
 
 class FabricNetwork(Network):
@@ -75,14 +75,14 @@ class NetworkBuilder:
         assert self.facility_port_vlan, "missing vlan"
 
         self.facility_port = 'Chameleon-StarLight'
-        self.facility_port_site = resource.get(Config.RES_SITE)
+        self.facility_port_site = resource.get(Constants.RES_SITE)
         self.interfaces = []
         self.net_name = f'net_facility_port'
         from ipaddress import IPv4Address, IPv4Network
 
-        self.subnet = IPv4Network(resource.get(Config.RES_SUBNET))
-        self.pool_start = IPv4Address(resource.get(Config.RES_NET_POOL_START))
-        self.pool_end = IPv4Address(resource.get(Config.RES_NET_POOL_END))
+        self.subnet = IPv4Network(resource.get(Constants.RES_SUBNET))
+        self.pool_start = IPv4Address(resource.get(Constants.RES_NET_POOL_START))
+        self.pool_end = IPv4Address(resource.get(Constants.RES_NET_POOL_END))
         self.label = label
         self.net = None
 

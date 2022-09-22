@@ -1,3 +1,18 @@
+CHI_USER = "user"
+CHI_PASSWORD = "password"
+CHI_AUTH_URL = "auth_url"
+CHI_TACC = "tacc"
+CHI_UC = "uc"
+CHI_KVM = "kvm"
+CHI_EDGE = "edge"
+CHI_CLIENT_ID = "client_id"
+CHI_PROJECT_NAME = "project_name"
+CHI_PROJECT_ID = "project_id"
+CHI_RANDOM = "CHI.RANDOM"
+CHI_KEY_PAIR = "key_pair"
+CHI_SLICE_PRIVATE_KEY_LOCATION = "slice-private-key-location"
+CHI_SLICE_PUBLIC_KEY_LOCATION = "slice-public-key-location"
+
 DEFAULT_NETWORK = "sharednet1"
 DEFAULT_NETWORKS = [DEFAULT_NETWORK, "sharedwan1", "containernet1"]
 DEFAULT_FLAVOR = "m1.medium"

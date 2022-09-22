@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import List
 
-from fabfed.util.config import Config
+from fabfed.util.constants import Constants
 
 
 class Node(ABC):
@@ -106,7 +106,7 @@ class Slice(ABC):
 
         for pending_resource in self.pending:
             for dependency in pending_resource['dependencies']:
-                if dependency.resource.label == resource[Config.LABEL]:
+                if dependency.resource.label == resource[Constants.LABEL]:
                     resolved_dependencies = pending_resource['resolved_dependencies']
                     ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")
                     value = resource[dependency.attribute]
