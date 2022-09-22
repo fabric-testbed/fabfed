@@ -3,6 +3,7 @@ from fabfed.controller.provider_factory import ProviderFactory
 import logging
 from fabfed.controller.controller import Controller
 from fabfed.util.config import Config
+from fabfed.util.constants import Constants
 from fabfed.model import Slice
 from fabfed.model import Node
 
@@ -85,16 +86,16 @@ class SimpleSlice(Slice):
                     self.pending_resources += 1
 
         self.resources.append(resource)
-        rtype = resource.get(Config.RES_TYPE)
-        if rtype == Config.RES_TYPE_NETWORK.lower():
+        rtype = resource.get(Constants.RES_TYPE)
+        if rtype == Constants.RES_TYPE_NETWORK.lower():
             pass
-        elif rtype == Config.RES_TYPE_NODE.lower():
-            node_count = resource.get(Config.RES_COUNT, 1)
-            name_prefix = resource.get(Config.RES_NAME_PREFIX)
-            flavor = str(resource.get(Config.RES_FLAVOR))
-            label = resource.get(Config.LABEL)
-            image = resource.get(Config.RES_IMAGE)
-            site = resource.get(Config.RES_SITE)
+        elif rtype == Constants.RES_TYPE_NODE.lower():
+            node_count = resource.get(Constants.RES_COUNT, 1)
+            name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+            flavor = str(resource.get(Constants.RES_FLAVOR))
+            label = resource.get(Constants.LABEL)
+            image = resource.get(Constants.RES_IMAGE)
+            site = resource.get(Constants.RES_SITE)
 
             for i in range(node_count):
                 name = f"{name_prefix}{i}"
@@ -105,7 +106,7 @@ class SimpleSlice(Slice):
 
     def create(self,):
         for resource in self.resources:
-            if resource[Config.RES_NAME_PREFIX] == 'super_net':
+            if resource[Constants.RES_NAME_PREFIX] == 'super_net':
                 resource['vlans'] = [2]
 
             self.resource_listener.on_created(self, self.name, resource)
@@ -127,7 +128,7 @@ class SimpleProvider(Provider):
         if slice_name in self.slices:
             raise Exception("provider cannot have more than one slice with same name")
 
-        label = slice_config.get(Config.LABEL)
+        label = slice_config.get(Constants.LABEL)
         fabric_slice = SimpleSlice(label=label, name=slice_name, logger=self.logger)
         self.slices[slice_name] = fabric_slice
         fabric_slice.set_resource_listener(self)
@@ -136,7 +137,7 @@ class SimpleProvider(Provider):
         self.logger.info(f"Adding {resource['name_prefix']} to {slice_name}")
         self.logger.debug(f"Adding {resource} to {slice_name}")
 
-        if resource.get(Config.RES_COUNT, 1) < 1:
+        if resource.get(Constants.RES_COUNT, 1) < 1:
             self.logger.debug(f"will not add {resource['name_prefix']} to {slice_name}: Count is zero")
             return
 
