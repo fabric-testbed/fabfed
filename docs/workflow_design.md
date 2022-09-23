@@ -126,11 +126,12 @@ A resource can depend on another resource before it can be created. The example 
    - network:
       - chi_network:
           - slice:  '{{ slice.chi_slice }}'
-            name: aes_super_stitch_net
+            name: stitch_net
+            vlans: []
 
   - network:
       - fabric_network:
           - slice: '{{ slice.fabric_slice }}'
-            vlan: '{{ network.chi_network.vlan }}'
+            vlan: '{{ network.chi_network.vlans }}'
 ```
 

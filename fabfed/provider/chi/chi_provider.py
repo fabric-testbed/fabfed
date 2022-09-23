@@ -26,7 +26,7 @@ import logging
 import os
 
 from fabfed.model.state import ProviderState
-from fabfed.provider.api.api_client import Provider
+from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from .chi_constants import *
 

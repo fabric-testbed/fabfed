@@ -50,7 +50,7 @@ class ChiSlice(Slice):
         gateway = resource.get(Constants.RES_NET_GATEWAY, None)
         stitch_provider = resource.get(Constants.RES_NET_STITCH_PROV, None)
 
-        net_name = resource.get(Constants.RES_NAME_PREFIX)
+        net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
         net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
                          slice_name=self.name, subnet=subnet, pool_start=pool_start, pool_end=pool_end,
                          gateway=gateway, stitch_provider=stitch_provider,
@@ -113,6 +113,9 @@ class ChiSlice(Slice):
 
         for n in self._nodes:
             n.create()
+
+        for n in self._nodes:
+            n.wait_for_active()
 
             if self.resource_listener:
                 self.resource_listener.on_created(self, self.name, vars(n))

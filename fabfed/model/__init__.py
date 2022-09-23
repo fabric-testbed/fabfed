@@ -111,12 +111,13 @@ class Slice(ABC):
                     ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")
                     value = resource[dependency.attribute]
 
-                    if isinstance(value, list):
-                        resolved_dependency = ResolvedDependency(attr=dependency.key, value=tuple(value))
-                    else:
-                        resolved_dependency = ResolvedDependency(attr=dependency.key, value=value)
+                    if value:
+                        if isinstance(value, list):
+                            resolved_dependency = ResolvedDependency(attr=dependency.key, value=tuple(value))
+                        else:
+                            resolved_dependency = ResolvedDependency(attr=dependency.key, value=value)
 
-                    resolved_dependencies.add(resolved_dependency)
+                        resolved_dependencies.add(resolved_dependency)
 
     @abstractmethod
     def create(self):
