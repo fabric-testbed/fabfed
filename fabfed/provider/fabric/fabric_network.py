@@ -64,7 +64,7 @@ class FabricNetwork(Network):
 
 
 class NetworkBuilder:
-    def __init__(self, label, slice_object: Slice, resource: dict):
+    def __init__(self, label, slice_object: Slice, name, resource: dict):
         self.slice_object = slice_object
         self.facility_port_vlan = None
 
@@ -77,7 +77,7 @@ class NetworkBuilder:
         self.facility_port = 'Chameleon-StarLight'
         self.facility_port_site = resource.get(Constants.RES_SITE)
         self.interfaces = []
-        self.net_name = f'net_facility_port'
+        self.net_name = name  # f'net_facility_port'
         from ipaddress import IPv4Address, IPv4Network
 
         self.subnet = IPv4Network(resource.get(Constants.RES_SUBNET))

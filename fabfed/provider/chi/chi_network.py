@@ -46,14 +46,13 @@ class ChiNetwork(Network):
         self.pool_end = pool_end
         self.gateway = gateway
         self.stitch_provider = stitch_provider
-        self._retry = 30
-        self.network_name = f'{slice_name}-{name}'
-        self.lease_name = f'{slice_name}-{name}-lease'
-        self.subnet_name = f'{slice_name}-{name}-subnet'
-        self.router_name = f'{slice_name}-{name}-router'
+        self._retry = 10
+        self.lease_name = f'{name}-lease'
+        self.subnet_name = f'{name}-subnet'
+        self.router_name = f'{name}-router'
         self.reservations = [{
             "resource_type": "network",
-            "network_name": self.network_name,
+            "network_name": self.name,
             "network_properties": "",
             "resource_properties": json.dumps(
                 ["==", "$stitch_provider", self.stitch_provider]
@@ -82,14 +81,14 @@ class ChiNetwork(Network):
 
         while not network_vlan:
             try:
-                chameleon_network = chi.network.get_network(self.network_name)
+                chameleon_network = chi.network.get_network(self.name)
                 chameleon_network_id = chameleon_network['id']
                 network_vlan = chameleon_network['provider:segmentation_id']
             except Exception as e:
-                self.logger.warning(f'Network is not ready {self.network_name}. Trying again! {e}')
+                self.logger.warning(f'Network is not ready {self.name}. Trying again! {e}')
                 time.sleep(10)
 
-        self.logger.info(f'Got network. network_name: {self.network_name}, network_vlan: {network_vlan}')
+        self.logger.info(f'Got network. network_name: {self.name}, network_vlan: {network_vlan}')
         self.vlans.append(network_vlan)
 
         try:
@@ -168,9 +167,9 @@ class ChiNetwork(Network):
                 raise re
 
         try:
-            net_id = chi.server.get_network_id(self.network_name)
+            net_id = chi.server.get_network_id(self.name)
             chi.network.delete_network(net_id)
-            self.logger.info(f"Deleted network {self.network_name} net_id={net_id}")
+            self.logger.info(f"Deleted network {self.name} net_id={net_id}")
         except RuntimeError as re:
             if "No networks found with" not in str(re):
                 raise re

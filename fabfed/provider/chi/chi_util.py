@@ -17,7 +17,7 @@ class LeaseHelper:
     def delete_lease(self):
         try:
             chi.lease.delete_lease(self.lease_name)
-            self.logger.info(f"Deleted lease: {self.lease_name}")
+            self.logger.info(f"Deleted lease {self.lease_name}")
         except ValueError as ve:
             if "No leases found for name" not in str(ve):
                 raise ve
@@ -26,38 +26,46 @@ class LeaseHelper:
 
     def create_lease_if_needed(self, *, reservations, retry):
         self.lease = None
+
         try:
             self.lease = chi.lease.get_lease(self.lease_name)
         except ValueError as ve:
             if "No leases found for name" not in str(ve):
                 raise ve
         except Exception as e:
-            self.logger.error(f"Error checking for lease : {self.lease_name} {e}")
+            self.logger.error(f"Error checking for lease {self.lease_name} {e}")
             raise e
 
+        if self.lease:
+            self.logger.info(f"Found lease {self.lease_name}: {self.lease['status']}")
+
         if self.lease and self.lease["status"] == 'ACTIVE':
-            self.logger.info(f"lease is Active : {self.lease_name}")
             return True
 
-        if self.lease and self.lease["status"] != 'ACTIVE':
+        if self.lease and self.lease["status"] == 'ERROR':
             try:
                 self.delete_lease()
+                assert not self.lease
             except Exception as e:
-                self.logger.error(f"error deleting the existing non-Active lease: {e}")
+                self.logger.error(f"Error deleting lease {self.lease_name} with status=ERROR: {e}")
                 raise e
 
-        self.logger.info(f"Creating the lease - {self.lease_name} {reservations}")
-        chi.lease.create_lease(lease_name=self.lease_name, reservations=reservations)
+        if not self.lease:
+            self.logger.info(f"Creating lease {self.lease_name}:{reservations}")
+            chi.lease.create_lease(lease_name=self.lease_name, reservations=reservations)
+
         assert retry > 0
 
         for i in range(retry):
             try:
+                # TODO I keep seeing this keystoneauth1.exceptions.connection.ConnectFailure
                 chi.lease.wait_for_active(self.lease_name)
                 self.lease = chi.lease.get_lease(self.lease_name)
-                self.logger.debug(f"lease - status={self.lease['status']}:{self.lease}")
+                self.logger.debug(f"lease {self.lease}: status={self.lease['status']}")
                 assert self.lease["status"] == 'ACTIVE'
+                return
             except TimeoutError as te:
-                self.logger.warning(f"Error while waiting for {self.lease_name}, tried={i + 1} {te}")
+                self.logger.warning(f"Error while waiting for {self.lease_name}: tried={i + 1} {te}")
 
         raise Exception(f'Was not able to create an active lease {self.lease_name}')
 

@@ -1,4 +1,4 @@
-from fabfed.provider.api.api_client import Provider
+from fabfed.provider.api.provider import Provider
 from fabfed.controller.provider_factory import ProviderFactory
 import logging
 from fabfed.controller.controller import Controller

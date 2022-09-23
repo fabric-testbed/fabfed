@@ -25,7 +25,7 @@ def manage_workflow(args):
             controller.plan()
             controller.create()
             states = controller.get_states()
-            utils.save_states(states, args.session_name)
+            utils.save_states(states, args.session)
         except Exception as e:
             raise e
 
@@ -47,7 +47,7 @@ def manage_workflow(args):
         return
 
     if args.show:
-        states = utils.load_states(args.session_name)
+        states = utils.load_states(args.session)
         utils.dump_states(states, args.json)
         return
 
@@ -55,7 +55,7 @@ def manage_workflow(args):
         controller = None
 
         try:
-            states = utils.load_states(args.session_name)
+            states = utils.load_states(args.session)
 
             if states:
                 config = Config(file_name=args.config, var_dict=var_dict)
@@ -67,7 +67,7 @@ def manage_workflow(args):
 
         if controller:
             states = controller.get_states()
-            utils.save_states(states, args.session_name)
+            utils.save_states(states, args.session)
         return
 
 

@@ -146,3 +146,6 @@ config.yml
 docker/config/application.properties
 *.log
 __pycache__
+.eggs
+fabfed_py.egg-info
+.egg-info

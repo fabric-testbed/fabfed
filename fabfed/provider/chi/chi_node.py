@@ -97,7 +97,17 @@ class ChiNode(Node):
             node = self.__create_kvm() if self.site == "KVM@TACC" else self.__create_baremetal()
             node_id = node.id
 
+        self.logger.info(f"Got node {self.node_name} with {node_id}")
+
+    def wait_for_active(self):
+        chi.set('project_name', self.project_name)
+        chi.set('project_domain_name', 'default')
+
+        if self.site != "KVM@TACC":
+            chi.use_site(self.site)
+
         self.logger.info(f"Waiting for node {self.node_name} to be Active!")
+        node_id = chi.server.get_server_id(self.node_name)
         chi.server.wait_for_active(server_id=node_id)
         node = chi.server.get_server(node_id)
         self.__populate_state(node.to_dict())

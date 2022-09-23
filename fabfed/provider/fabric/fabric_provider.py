@@ -24,7 +24,7 @@
 # Author Komal Thareja (kthare10@renci.org)
 import logging
 
-from fabfed.provider.api.api_client import Provider
+from fabfed.provider.api.provider import Provider
 from ...util.constants import Constants
 from .fabric_constants import *
 

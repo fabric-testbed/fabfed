@@ -1,4 +1,4 @@
-from fabfed.provider.api.api_client import Provider
+from fabfed.provider.api.provider import Provider
 from typing import List, Dict
 
 

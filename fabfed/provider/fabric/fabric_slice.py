@@ -61,9 +61,10 @@ class FabricSlice(Slice):
         self.logger.info(f"I have resolved dependencies {resource['resolved_dependencies']}")
         # Double check that vlan is satisfied
         label = resource.get(Constants.LABEL)
-        network_builder = NetworkBuilder(label, self.slice_object, resource)
+        name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+        network_builder = NetworkBuilder(label, self.slice_object, name_prefix, resource)
         network_builder.handle_facility_port()
-        interfaces = []   # TODO handle this internal dependency
+        interfaces = []   # TODO handle this internal dependency properly
 
         for node in self._nodes:
             interfaces.append(node.get_interfaces()[0])
