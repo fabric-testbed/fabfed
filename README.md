@@ -10,7 +10,7 @@ The FabFed is a Python library for a cross-testbed federation framework that (1)
 
 The FabFed code took the initial form from the Mobius API, and refactored and reinvented the slice modeling, user interface, data structure and  stitching workflows. 
 
-The example below showcases network stitching of two slices, a [chi](https://www.chameleoncloud.org/) slice and a [fabric](https://portal.fabric-testbed.net/) slice. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 16 states that the network labelled fabric_network gets its vlan from the chi_network. 
+The example below showcases network stitching of two slices, a [chi](https://www.chameleoncloud.org/) slice and a [fabric](https://portal.fabric-testbed.net/) slice. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 17 states that the network labelled fabric_network gets its vlan from the chi_network. 
 
 - For more details, refer to fabfed's [workflow design](./docs/workflow_design.md)
 - For a complete example, refer to  [Fabric Chameleon Stitching](./config/stitch_template.yml)
@@ -27,11 +27,12 @@ The example below showcases network stitching of two slices, a [chi](https://www
   9       - chi_network:
  10           - slice:  '{{ slice.chi_slice }}'
  11             site: CHI@UC
- 12   - network:
- 13       - fabric_network:
- 14           - slice: '{{ slice.fabric_slice }}'
- 15             site: 'STAR'
- 16             vlan: '{{ network.chi_network.vlans}}'
+ 12.            vlans: []
+ 13   - network:
+ 14       - fabric_network:
+ 15           - slice: '{{ slice.fabric_slice }}'
+ 16             site: 'STAR'
+ 17             vlan: '{{ network.chi_network.vlans}}'
 ```
 
 # <a name="code"></a>Code Structure

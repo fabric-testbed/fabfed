@@ -20,7 +20,6 @@ resource:
   - node:
       - fabric_node:
           - slice:  '{{ slice.fabric_slice }}'
-            type: VM
             site: 'STAR'
             count: 1
             image: default_rocky_8
@@ -29,23 +28,23 @@ resource:
   - node:
       - chi_node:
           - slice:  '{{ slice.chi_slice }}'
-            type: Baremetal
             site: CHI@UC
             image: CC-Ubuntu20.04
-            network: '{{ network.chi_network.network_name }}'
-            count: 1 
+            network: '{{ network.chi_network.name }}'
+            count: 2 
             flavor: m1.medium
 
   - network:
       - chi_network:
           - slice:  '{{ slice.chi_slice }}'
-            name: aes_super_stitch_net
             site: CHI@UC
+            name: stitch_net
             subnet: "192.168.100.0/24"
             pool_start: 192.168.100.100
             pool_end: 192.168.100.150
             gateway: 192.168.100.1
             stitch_provider: fabric
+            vlans:
 
   - network:
       - fabric_network:

@@ -25,30 +25,12 @@
 import logging
 from typing import List
 
-from fabfed.model import ResourceListener
 from fabfed.model import Slice
 from fabfed.model.state import ProviderState
 from fabfed.util.config import Config
+from .helper import ControllerResourceListener
 from ..util.constants import Constants
 from .provider_factory import ProviderFactory
-
-
-class ControllerResourceListener(ResourceListener):
-    def __init__(self,  providers):
-        self.providers = providers
-
-    def on_added(self, source, slice_name, resource: dict):
-        for provider in self.providers:
-            if provider != source:
-                provider.on_added(self, slice_name, resource)
-
-    def on_created(self, source, slice_name, resource):
-        for provider in self.providers:
-            if provider != source:
-                provider.on_created(self, slice_name, resource)
-
-    def on_deleted(self, source, slice_name, resource):
-        pass
 
 
 class Controller:
