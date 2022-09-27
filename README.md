@@ -40,8 +40,8 @@ The example below showcases network stitching of two slices, a [chi](https://www
 # <a name="install"></a>Installation
 You can install using the following command
 ```
+pip install -r requirements.txt 
 pip install -e .
-pytests -s tests/
 fabfed --help
 fabfed workflow --help
 fabfed sessions --help
