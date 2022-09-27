@@ -1,4 +1,5 @@
 class Constants:
+    FAB_EXTENSION = '.fab'
     CREDENTIAL_FILE = 'credential_file'
     PROFILE = 'profile'
 

@@ -3,8 +3,8 @@ from typing import List
 
 
 class Config:
-    def __init__(self, *, file_name=None, content=None, var_dict=None):
-        self.providers, self.slices, self.resources = Parser.parse(file_name=file_name,
+    def __init__(self, *, dir_path=None, content=None, var_dict=None):
+        self.providers, self.slices, self.resources = Parser.parse(dir_path=dir_path,
                                                                    content=content,
                                                                    var_dict=var_dict)
 

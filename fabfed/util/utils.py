@@ -20,17 +20,19 @@ def build_parser(*, manage_workflow, manage_sessions):
         '\n'
         'Examples:'
         '\n'
-        "      fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -validate"
+        "      fabfed workflow --var-file vars.yml --session test-chi -validate"
         '\n'
-        "      fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -validate"
+        "      fabfed workflow --config-dir . --session test-chi -validate"
         '\n'
     )
 
     parser = create_parser(description=description)
     subparsers = parser.add_subparsers()
     workflow_parser = subparsers.add_parser('workflow', help='Manage fabfed workflows')
-    workflow_parser.add_argument('-c', '--config', type=str, default='', help='yaml config file', required=True)
-    workflow_parser.add_argument('-v', '--var-file', type=str, default='', help='yaml variable file', required=False)
+    workflow_parser.add_argument('-c', '--config-dir', type=str, default='.', help='directory with fab config files',
+                                 required=False)
+    workflow_parser.add_argument('-v', '--var-file', type=str, default='',
+                                 help='yaml file with key/value pairs to override variables', required=False)
     workflow_parser.add_argument('-s', '--session', type=str, default='', help='friendly session name', required=True)
     workflow_parser.add_argument('-validate', action='store_true', default=False, help='validates config file ')
     workflow_parser.add_argument('-apply', action='store_true', default=False, help='create resources')
@@ -69,6 +71,35 @@ def init_looger(log_level=logging.INFO):
                         format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
                         handlers=[logging.StreamHandler(), file_handler], force=True)
     return logger
+
+
+def load_as_ns_from_yaml(*, dir_path=None, content=None):
+    import yaml
+    import json
+    from types import SimpleNamespace
+
+    objs = []
+
+    if dir_path:
+        from pathlib import Path
+        import os
+
+        dir_path = Path(dir_path).expanduser().absolute()
+        configs = [conf for conf in os.listdir(dir_path) if conf.endswith(Constants.FAB_EXTENSION)]
+
+        for config in configs:
+            file_name = os.path.join(dir_path, config)
+
+            with open(file_name, 'r') as stream:
+                obj = yaml.load(stream, Loader=yaml.FullLoader)
+                obj = json.loads(json.dumps(obj), object_hook=lambda dct: SimpleNamespace(**dct))
+                objs.append(obj)
+    else:
+        obj = yaml.safe_load(content)
+        obj = json.loads(json.dumps(obj), object_hook=lambda dct: SimpleNamespace(**dct))
+        objs.append(obj)
+
+    return objs
 
 
 def load_yaml_from_file(file_name):
