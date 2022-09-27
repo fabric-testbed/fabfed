@@ -12,12 +12,12 @@ def manage_workflow(args):
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
     if args.validate:
-        Config(file_name=args.config, var_dict=var_dict)
+        Config(dir_path=args.config_dir, var_dict=var_dict)
         logger.info("config looks ok")
         return
 
     if args.apply:
-        config = Config(file_name=args.config, var_dict=var_dict)
+        config = Config(dir_path=args.config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger)
         controller.init(default_provider_factory)
 
@@ -38,7 +38,7 @@ def manage_workflow(args):
         return
 
     if args.plan:
-        config = Config(file_name=args.config, var_dict=var_dict)
+        config = Config(dir_path=args.config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger)
         controller.init(default_provider_factory)
         controller.plan()
@@ -58,7 +58,7 @@ def manage_workflow(args):
             states = utils.load_states(args.session)
 
             if states:
-                config = Config(file_name=args.config, var_dict=var_dict)
+                config = Config(dir_path=args.config_dir, var_dict=var_dict)
                 controller = Controller(config=config, logger=logger)
                 controller.init(default_provider_factory)
                 controller.delete(provider_states=states)

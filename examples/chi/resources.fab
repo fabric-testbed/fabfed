@@ -1,0 +1,7 @@
+resource:
+  - node:
+      - chi_node:
+          - slice:  '{{ slice.chi_slice }}'
+            site: '{{ var.chi_site }}'
+            image: CC-Ubuntu20.04
+            network: sharednet1  

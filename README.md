@@ -13,7 +13,7 @@ The FabFed code took the initial form from the Mobius API, and refactored and re
 The example below showcases network stitching of two slices, a [chi](https://www.chameleoncloud.org/) slice and a [fabric](https://portal.fabric-testbed.net/) slice. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 17 states that the network labelled fabric_network gets its vlan from the chi_network. 
 
 - For more details, refer to fabfed's [workflow design](./docs/workflow_design.md)
-- For a complete example, refer to  [Fabric Chameleon Stitching](./config/stitch_template.yml)
+- For a complete example, refer to  [Fabric Chameleon Stitching](./examples/stitch)
 
 ```
   1 resource:
@@ -50,14 +50,21 @@ fabfed -h
 
 # <a name="operate"></a>Operation Instructions
 
+- [ ] Fabfed will pickup any file ending with the <b>.fab</b> extension in the directory specified by
+the <i>--config-dir</i>.  If this option is not present it is assumed to be a the current
+directory.
+- [ ] The --var-file option is used to override any unbound variables. It is optional.
+- [ ] The --session is a friendly name used to track a given workflow.  
+- [ ] Use the --help option if in doubt. 
+
 ```
-fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -validate
+fabfed workflow --config-dir some_dir --var-file vars.yml --session test-chi -validate
 
-fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -apply
+fabfed workflow --config-dir some_dir --var-file vars.yml --session test-chi -apply
 
-fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -show
+fabfed workflow --config-dir some_dir --var-file vars.yml --session test-chi -show
 
-fabfed workflow --config chi_config.yml --var-file vars.yml --session test-chi -destroy
+fabfed workflow --config-dir some_dir --var-file vars.yml --session test-chi -destroy
 
 fabfed sessions -show
 ```

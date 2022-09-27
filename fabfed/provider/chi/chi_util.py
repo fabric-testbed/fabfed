@@ -39,22 +39,24 @@ class LeaseHelper:
         if self.lease:
             self.logger.info(f"Found lease {self.lease_name}: {self.lease['status']}")
 
-        if self.lease and self.lease["status"] == 'ACTIVE':
-            return True
+            if self.lease["status"] == 'ACTIVE':
+                return
 
-        if self.lease and self.lease["status"] == 'ERROR':
-            try:
-                self.delete_lease()
-                assert not self.lease
-            except Exception as e:
-                self.logger.error(f"Error deleting lease {self.lease_name} with status=ERROR: {e}")
-                raise e
+            if self.lease["status"] == 'ERROR':
+                try:
+                    self.delete_lease()
+                    assert not self.lease
+                except Exception as e:
+                    self.logger.error(f"Error deleting lease {self.lease_name} with status=ERROR: {e}")
+                    raise e
 
         if not self.lease:
             self.logger.info(f"Creating lease {self.lease_name}:{reservations}")
             chi.lease.create_lease(lease_name=self.lease_name, reservations=reservations)
 
         assert retry > 0
+
+        from keystoneauth1.exceptions.connection import ConnectFailure
 
         for i in range(retry):
             try:
@@ -64,10 +66,12 @@ class LeaseHelper:
                 self.logger.debug(f"lease {self.lease}: status={self.lease['status']}")
                 assert self.lease["status"] == 'ACTIVE'
                 return
+            except ConnectFailure as cf:
+                self.logger.warning(f"Error while waiting for {self.lease_name}: tried={i + 1} {cf}")
             except TimeoutError as te:
                 self.logger.warning(f"Error while waiting for {self.lease_name}: tried={i + 1} {te}")
 
-        raise Exception(f'Was not able to create an active lease {self.lease_name}')
+        raise Exception(f'Was not able to create an active lease {self.lease_name}. Try again !!!!')
 
 
 # noinspection PyBroadException

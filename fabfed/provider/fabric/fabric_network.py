@@ -97,7 +97,16 @@ class NetworkBuilder:
         assert len(self.interfaces) == 1
 
         self.interfaces.extend(interfaces)
+        # self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
         self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
+
+    def handle_l3network(self, interfaces):
+        assert len(interfaces) > 0
+        assert len(self.interfaces) == 1
+
+        self.interfaces.extend(interfaces)
+        # self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
+        self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name, interfaces=self.interfaces)
 
     def build(self) -> FabricNetwork:
         assert self.net
