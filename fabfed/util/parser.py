@@ -1,9 +1,6 @@
-import json
 from collections import namedtuple
 from types import SimpleNamespace
 from typing import List, Tuple, Dict, Set, Any
-
-import yaml
 
 
 class ParseConfigException(Exception):
@@ -416,17 +413,17 @@ class Parser:
         pass
 
     @staticmethod
-    def _parse_variable(obj: SimpleNamespace) -> Variable:
+    def _parse_variable(obj) -> Variable:
         name, attributes = parse_pair(obj)
         return Variable(name, attributes.get('default', None))
 
     @staticmethod
-    def _parse_resource(obj: SimpleNamespace) -> BaseConfig:
+    def _parse_resource(obj) -> BaseConfig:
         type, name, attributes = parse_triplet(obj)
         return BaseConfig(type, name, attributes)
 
     @staticmethod
-    def _parse_provider(obj: SimpleNamespace) -> ProviderConfig:
+    def _parse_provider(obj) -> ProviderConfig:
         type, name, attributes = parse_triplet(obj)
         return ProviderConfig(type, name, attributes)
 
@@ -482,44 +479,61 @@ class Parser:
             raise ParseConfigException(f'detected duplicate  resources')
 
     @staticmethod
-    def parse(*, file_name=None,
-              content=None,
-              var_dict=None) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
-        if file_name:
-            with open(file_name, 'r') as stream:
-                obj = yaml.load(stream, Loader=yaml.FullLoader)
-        else:
-            obj = yaml.safe_load(content)
-
-        obj = json.loads(json.dumps(obj), object_hook=lambda dct: SimpleNamespace(**dct))
+    def parse_variables(ns_list: list, var_dict: dict) -> List[Variable]:
         variables = []
 
-        if hasattr(obj, 'variable') and obj.variable:
-            variables = [Parser._parse_variable(variable) for variable in obj.variable]
+        for ns in ns_list:
+            if hasattr(ns, 'variable') and ns.variable:
+                temp_variables = [Parser._parse_variable(variable) for variable in ns.variable]
+                variables.extend(temp_variables)
 
         if var_dict:
-            # variables = [Variable(v.name, var_dict.get(v.name, v.value)) for v in variables]
             variable_map = {v.name: v for v in variables}
 
             for key, value in var_dict.items():
-                # if not variable_map.get(key, None):
                 variable_map[key] = Variable(key, value)
 
             variables = list(variable_map.values())
 
         Parser._validate_variables(variables)
+        return variables
 
-        if not hasattr(obj, 'provider') or obj.provider is None:
-            raise ParseConfigException("no providers found")
+    @staticmethod
+    def parse_providers(ns_list: list) -> List[ProviderConfig]:
+        providers = []
 
-        providers = [Parser._parse_provider(provider) for provider in obj.provider]
+        for ns in ns_list:
+            if hasattr(ns, 'provider') and ns.provider:
+                temp_providers = [Parser._parse_provider(provider) for provider in ns.provider]
+                providers.extend(temp_providers)
+
         Parser._validate_providers(providers)
         normalize(providers)
+        return providers
 
-        if not hasattr(obj, 'resource') or obj.resource is None:
-            raise ParseConfigException("no resources found ...")
+    @staticmethod
+    def parse_resource_base_configs(ns_list: List[SimpleNamespace]) -> List[BaseConfig]:
+        resource_base_configs = []
 
-        resource_base_configs = [Parser._parse_resource(resource) for resource in obj.resource]
+        for ns in ns_list:
+            if hasattr(ns, 'resource') and ns.resource:
+                temp_resource_base_configs = [Parser._parse_resource(resource) for resource in ns.resource]
+                resource_base_configs.extend(temp_resource_base_configs)
+
+        return resource_base_configs
+
+    @staticmethod
+    def parse(*, dir_path=None,
+              content=None,
+              var_dict=None) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
+
+        from .utils import load_as_ns_from_yaml
+
+        ns_list = load_as_ns_from_yaml(dir_path=dir_path, content=content)
+        variables = Parser.parse_variables(ns_list, var_dict)
+        providers = Parser.parse_providers(ns_list)
+        resource_base_configs = Parser.parse_resource_base_configs(ns_list)
+
         variable_evaluator = VariableEvaluator(variables, providers, resource_base_configs)
         providers, resource_configs = variable_evaluator.evaluate()
         evaluator = Evaluator(providers, resource_base_configs)

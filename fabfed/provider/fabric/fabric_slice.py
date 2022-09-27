@@ -70,7 +70,8 @@ class FabricSlice(Slice):
             interfaces.append(node.get_interfaces()[0])
 
         assert len(interfaces) > 0
-        network_builder.handle_l2network(interfaces)
+        # network_builder.handle_l2network(interfaces)  # This throws an exception in network_service.py
+        network_builder.handle_l3network(interfaces)
         net = network_builder.build()
         self._networks.append(net)
 
