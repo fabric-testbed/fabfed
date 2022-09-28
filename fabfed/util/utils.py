@@ -29,16 +29,21 @@ def build_parser(*, manage_workflow, manage_sessions):
     parser = create_parser(description=description)
     subparsers = parser.add_subparsers()
     workflow_parser = subparsers.add_parser('workflow', help='Manage fabfed workflows')
-    workflow_parser.add_argument('-c', '--config-dir', type=str, default='.', help='directory with fab config files',
+    workflow_parser.add_argument('-c', '--config-dir', type=str, default='.',
+                                 help='config directory with .fab files. Defaults to current directory.',
                                  required=False)
     workflow_parser.add_argument('-v', '--var-file', type=str, default='',
-                                 help='yaml file with key/value pairs to override variables', required=False)
-    workflow_parser.add_argument('-s', '--session', type=str, default='', help='friendly session name', required=True)
-    workflow_parser.add_argument('-validate', action='store_true', default=False, help='validates config file ')
+                                 help="Yaml file with key-value pairs to override the variables' default values",
+                                 required=False)
+    workflow_parser.add_argument('-s', '--session', type=str, default='',
+                                 help='friendly session name to help track a workflow', required=True)
+    workflow_parser.add_argument('-validate', action='store_true', default=False,
+                                 help='assembles and validates all .fab files  in the config directory')
     workflow_parser.add_argument('-apply', action='store_true', default=False, help='create resources')
     workflow_parser.add_argument('-plan', action='store_true', default=False, help='shows plan')
     workflow_parser.add_argument('-show', action='store_true', default=False, help='display resources')
-    workflow_parser.add_argument('-json', action='store_true', default=False, help='use json for show and plan')
+    workflow_parser.add_argument('-json', action='store_true', default=False,
+                                 help='use json output. relevant when used with -show or -plan')
     workflow_parser.add_argument('-destroy', action='store_true', default=False, help='delete resources')
     workflow_parser.set_defaults(dispatch_func=manage_workflow)
 
@@ -85,7 +90,14 @@ def load_as_ns_from_yaml(*, dir_path=None, content=None):
         import os
 
         dir_path = Path(dir_path).expanduser().absolute()
+
+        if not os.path.isdir(dir_path):
+            raise Exception(f'Expected a directory {dir_path}')
+
         configs = [conf for conf in os.listdir(dir_path) if conf.endswith(Constants.FAB_EXTENSION)]
+
+        if not configs:
+            raise Exception(f'No {Constants.FAB_EXTENSION} config files found in  {dir_path}')
 
         for config in configs:
             file_name = os.path.join(dir_path, config)
@@ -114,6 +126,10 @@ def load_yaml_from_file(file_name):
 
 def load_vars(var_file):
     import yaml
+    import os
+
+    if not os.path.isfile(var_file):
+        raise Exception(f'The supplied var-file {var_file} is invalid')
 
     with open(var_file, 'r') as stream:
         return yaml.load(stream, Loader=yaml.FullLoader)

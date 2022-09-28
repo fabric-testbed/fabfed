@@ -32,7 +32,7 @@ def manage_workflow(args):
         slice_objects = controller.get_slices()
 
         for slice_object in slice_objects:
-            print(slice_object)
+            # print(slice_object)
             print(slice_object.list_networks())
             print(slice_object.list_nodes())
         return

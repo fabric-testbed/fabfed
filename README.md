@@ -1,7 +1,6 @@
 # Table of contents
 
  - [Description](#descr)
- - [Code Structure](#code)
  - [Installation](#install)
  - [Operation Instructions](#operate)
 
@@ -10,7 +9,7 @@ The FabFed is a Python library for a cross-testbed federation framework that (1)
 
 The FabFed code took the initial form from the Mobius API, and refactored and reinvented the slice modeling, user interface, data structure and  stitching workflows. 
 
-The example below showcases network stitching of two slices, a [chi](https://www.chameleoncloud.org/) slice and a [fabric](https://portal.fabric-testbed.net/) slice. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 17 states that the network labelled fabric_network gets its vlan from the chi_network. 
+The example below showcases network stitching of two slices, a [chi](https://www.chameleoncloud.org/) slice and a [fabric](https://portal.fabric-testbed.net/) slice. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 17 states that the network labeled fabric_network gets its vlan from the chi_network. 
 
 - For more details, refer to fabfed's [workflow design](./docs/workflow_design.md)
 - For a complete example, refer to  [Fabric Chameleon Stitching](./examples/stitch)
@@ -35,8 +34,6 @@ The example below showcases network stitching of two slices, a [chi](https://www
  17             vlan: '{{ network.chi_network.vlans}}'
 ```
 
-# <a name="code"></a>Code Structure
-
 # <a name="install"></a>Installation
 You can install using the following command
 ```
@@ -45,26 +42,24 @@ pip install -e .
 fabfed --help
 fabfed workflow --help
 fabfed sessions --help
-fabfed -h
 ```
 
 # <a name="operate"></a>Operation Instructions
-
+- [ ] Fabfed worflow configuration is specified across one or more <i>.fab<i> files. Fabfed does not care how these files  are named. Fabfed simply loads all the .fab configuration files, assembles them and parses the assembled configuration.  
 - [ ] Fabfed will pickup any file ending with the <b>.fab</b> extension in the directory specified by
-the <i>--config-dir</i>.  If this option is not present it is assumed to be a the current
-directory.
-- [ ] The --var-file option is used to override any unbound variables. It is optional.
+the <i>--config-dir</i>.  If this option is not present, the current directory is used. 
+- [ ] The --var-file option can be used to override the default value of any variable. It consists of a set of key-value pairs with each pair written as ```key: value```. At runtime, all variables found in an assembled configuration must have a value other than ```None```. The parser will halt and throw an exeption otherwise. 
 - [ ] The --session is a friendly name used to track a given workflow.  
-- [ ] Use the --help option if in doubt. 
+- [ ] Use the --help options shown above if in doubt. 
 
 ```
-fabfed workflow --config-dir some_dir --var-file vars.yml --session test-chi -validate
+fabfed workflow --config-dir some_dir --var-file some_var_file.yml --session some_session -validate
 
-fabfed workflow --config-dir some_dir --var-file vars.yml --session test-chi -apply
+fabfed workflow --config-dir some_dir --var-file some_var_file.yml --session some_session  -apply
 
-fabfed workflow --config-dir some_dir --var-file vars.yml --session test-chi -show
+fabfed workflow --config-dir some_dir --var-file some_var_file.yml --session some_session -show
 
-fabfed workflow --config-dir some_dir --var-file vars.yml --session test-chi -destroy
+fabfed workflow --config-dir some_dir --var-file some_var_file.yml --session some_session -destroy
 
 fabfed sessions -show
 ```

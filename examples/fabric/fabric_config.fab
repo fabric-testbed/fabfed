@@ -1,6 +1,8 @@
 variable:
   - fabric_site:
       - default: STAR
+  - slice_name:
+      - default:
 
 provider:
   - fabric:
