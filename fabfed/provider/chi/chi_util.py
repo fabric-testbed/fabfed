@@ -42,7 +42,7 @@ class LeaseHelper:
             if self.lease["status"] == 'ACTIVE':
                 return
 
-            if self.lease["status"] == 'ERROR':
+            if self.lease["status"] == 'ERROR' or self.lease["status"] == 'TERMINATED':
                 try:
                     self.delete_lease()
                     assert not self.lease

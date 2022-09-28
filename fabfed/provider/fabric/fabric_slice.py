@@ -163,10 +163,12 @@ class FabricSlice(Slice):
 
     def create(self,):
         if self.slice_created:
+            state = self.slice_object.get_state()
+
             if not self.notified_create:
-                self.logger.info(f"already provisioned. Will not bother to create any resource to {self.name}")
+                self.logger.info(f"already provisioned. {self.name}: state={state}")
             else:
-                self.logger.debug(f"already provisioned. Will not bother to create any resource to {self.name}")
+                self.logger.debug(f"already provisioned. {self.name}: state={state}")
 
             if not self.notified_create and self.resource_listener:
                 for node in self.nodes:
