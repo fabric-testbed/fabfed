@@ -8,6 +8,7 @@
  - [Nodes](#nodes)
  - [Networks](#networks)
  - [Dependencies](#dependencies)
+ - [Breaking The Configuration](#breaking)
 
 # <a name="descr"></a>Description
 This readme file describes fabfed-py workflow model. The model consist of three high level classes:
@@ -33,30 +34,31 @@ The workflow model allows us to tie a slice to a provider, a node or a network t
 
 # <a name="variables"></a>Variables
 Variables have their own class named <i>variable</i>. A variable consists of a name and a value. Its declaration 
-uses the <i>default</i> attribute signifying that it can be overriden by supplying a value in an external variable file. The variable <i>fabric_site<i> declated below can be referred to by the expression '{{ var.fabric_site }}'. 
+uses the <i>default</i> attribute signifying that it can be overriden at runtime using an external file. More on this later. The variable <i>fabric_site<i> declared below can be referred to by the expression ```'{{ var.fabric_site }}'``` and similarly ```'{{ var.node_name }}'``` would refer to the variable node_name.
  
 
 ```
 variable: # Class 
   - fabric_site:  # Name
       - default: STAR. # Default value
+  - node_name:     # Default for this variable is None
  
 ```
 
- A variable need not be declared at all as long as it is injected by supplying an external file.  This sample variable file would override the value of the <i>fabric_site<i> declared above and would inject the variable <i>slice_name<i>.
- So any reference to '{{ var.slice_name }}' would be replaced by the value <i>test_slice</i>. 
+A variable need not be declared at all as long as it is injected by supplying an external var-file. This var-file consists of a set of key-value pairs and can be specified by using the --var-file option when using the fabfed tool. Each key-value pair is written as ```key: value```. The sample var-file below would override the value ```STAR``` of the <i>fabric_site<i> declared above, would set the value of node_name to ```my_node```, and finally it would inject the variable <i>slice_name<i>. And so any reference to ```'{{ var.slice_name }}'``` would be replaced by the value ```test_slice```. 
  
- The parsing process would halt if a variable is not bound to a value. 
+ The parsing process would halt if a variable is not bound to a value other than ```None```.
  
  ```
  slice_name: test_slice
  fabric_site: TACC
+ node_name: my_node
  ```
  
 # <a name="providers"></a>Providers
 A provider has its own class named <i>provider<i>. It consists of a <i>type</i>, a <i>label</i> and a dictionary specifying its attributes. The snippet below declares a <i>fabric</i> provider. As of now we support two types: <i>chi</i> and <i>fabric</i>. The credential_file and the profile are attributes that are used to configure the provider's environment.
 
-A <i>slice</i> would refer to this provider using its type and its label like so: '{{ fabric.fabric_provider }}'
+A <i>slice</i> would refer to this provider using its type and its label like so: ```'{{ fabric.fabric_provider }}'```
 
 ```
 provider: # Class 
@@ -70,7 +72,7 @@ provider: # Class
  The credential file contains information specific to a user and to a provider. This [template credential file](../config/fabfed_credentials_template.yml) specifies the attributes must supply for two profiles.
  
 # <a name="resources"></a>Resources
-A resource consists of a <i>type</i>, a <i>label</i> and a dictionary specifying its attributes. The parsing process guarantees that the combination of the type and the label is unique. Resources can refer to each other using the expression '{{ type.label }}'. They can also refer to a resource's attribute using '{{ type.label.attribute_name }}'. We will see examples of this in subsequent sections.
+A resource consists of a <i>type</i>, a <i>label</i> and a dictionary specifying its attributes. The parsing process guarantees that the combination of the type and the label is unique. Resources can refer to each other using the expression ```'{{ type.label }}'```. They can also refer to a resource's attribute using ```'{{ type.label.attribute_name }}'```. We will see examples of this in subsequent sections.
 
 
 As of now we support three types: <i>slice</i>, <i>node</i>, and <i>network</i>. The <i>label</i> can be any string and is used as the name of the resource if the <i>name</i> attribute is not present. Resources are declaed under their own class named <i>resource<i>. 
@@ -80,7 +82,7 @@ As of now we support three types: <i>slice</i>, <i>node</i>, and <i>network</i>.
 The snippet below declares a fabric slice. A slice <b>must</b> refer to a provider. Here it refers to the provider
 declared above. The <i>name</i> of the slice is set the variable <i>slice_name</i> that must be declared in the config file or injected.  If this <i>name</i> attribute were not present, the label would be used to name this slice instead. 
 
-A <i>node</i> or a <i>network</i> would refer to this slice using its type and its label like so: '{{ slice.fabric_slice }}'
+A <i>node</i> or a <i>network</i> would refer to this slice using its type and its label like so: ```'{{ slice.fabric_slice }}'```
 
 ```
 resource: # Class
@@ -92,7 +94,7 @@ resource: # Class
 # <a name="nodes"></a>Nodes
 A <i>node<i> <b>must</b> refer to a slice. Here it refers to the slice declared above. 
  
-A <i>node</i> or a <i>network</i> would refer to this node using its type and label like so: '{{ node.fabric_node }}'
+A <i>node</i> or a <i>network</i> would refer to this node using its type and label like so: ```'{{ node.fabric_node }}'```
  
 ```
 resource: # Class
@@ -106,7 +108,7 @@ resource: # Class
 # <a name="networks"></a>Networks
 A <i>network<i> <b>must</b> refer to a slice. Here it refers to the slice declared above. 
  
-A <i>node</i> or a <i>network</i> would refer to this network using its type and label like so: '{{ network.fabric_network }}'
+A <i>node</i> or a <i>network</i> would refer to this network using its type and label like so: ```'{{ network.fabric_network }}'```
  
 ```
 resource: # Class
@@ -118,7 +120,7 @@ resource: # Class
 ```
  
 # <a name="dependencies"></a>Dependencies
-A resource can depend on another resource before it can be created. The example below shows how the chi_network which belongs to the chi_slice depends on the vlan from the fabric_network which is in a different slice. The vlan of the chi network is known after its creation. Using this dependency fabfed makes sure chi_netwok is created first and then extracts the vlan attribute and then proceeds to create the fabric_network. The name of the attribute need not be the same. Finally, if a resource's dependencies are not satisfied, it would not get created. it would be flagged as pending.
+A resource can depend on another resource before it can be created. In the example below, the fabric_network which belongs to the fabric_slice depends on the vlans from the _network which is in a different slice. The ```vlans``` of the chi network are known after its creation. Using this dependency, fabfed makes sure chi_netwok is created first before the fabric_network. If a resource's dependencies are not satisfied, it would not get created. It would be flagged as pending.
  
 
 ```
@@ -134,4 +136,9 @@ A resource can depend on another resource before it can be created. The example 
           - slice: '{{ slice.fabric_slice }}'
             vlan: '{{ network.chi_network.vlans }}'
 ```
+ # <a name="breaking"></a>Breaking The Configuration
+ 
+ A configuration can be broken into many configuration files endining with ```.fab``` extensions. Fabfed does not care about how the files are named. It loads all the files residing in a given directory that match the pattern ```*.fab```. It does so in no particular order and then proceeds to parse the assembled result. see [Fabric Chameleon Stitch](../examples/stitch)
+ 
+ 
 
