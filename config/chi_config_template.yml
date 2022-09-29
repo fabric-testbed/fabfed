@@ -1,0 +1,19 @@
+variable:
+  - chi_site:
+      - default: CHI@TACC
+provider:
+  - chi:
+    - chi_provider:
+        - credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: chi 
+resource:
+  - slice:
+      - chi_slice:
+          - provider: '{{ chi.chi_provider }}'
+            name: '{{ var.slice_name }}'
+  - node:
+      - chi_node:
+          - slice:  '{{ slice.chi_slice }}'
+            site: '{{ var.chi_site }}'
+            image: CC-Ubuntu20.04
+            network: sharednet1  

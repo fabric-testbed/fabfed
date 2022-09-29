@@ -1,0 +1,17 @@
+resource:
+  - node:
+      - fabric_node:
+          - slice:  '{{ slice.fabric_slice }}'
+            site: 'STAR'
+            count: 1
+            image: default_rocky_8
+            nic_model: NIC_ConnectX_5
+
+  - node:
+      - chi_node:
+          - slice:  '{{ slice.chi_slice }}'
+            site: CHI@UC
+            image: CC-Ubuntu20.04
+            network: '{{ network.chi_network.name }}'
+            count: 2 
+            flavor: m1.medium

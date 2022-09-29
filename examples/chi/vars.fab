@@ -1,0 +1,6 @@
+variable:
+  - chi_site:
+      - default: CHI@UC
+  - slice_name:  
+      - default:
+      

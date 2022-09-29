@@ -1,4 +1,4 @@
-include mobius/config/*.yml
+include fabfed/config/*.yml
 include requirements.txt
 include Readme.md
 include LICENSE
