@@ -81,3 +81,7 @@ class FabricProvider(Provider):
 
         fabric_slice = self.slices[slice_name]
         fabric_slice.add_resource(resource=resource)
+
+    def delete_resource(self, *, resource: dict, slice_name: str):
+        fabric_slice = self.slices[slice_name]
+        fabric_slice.delete_resource(resource=resource)

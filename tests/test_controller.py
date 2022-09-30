@@ -111,7 +111,7 @@ class SimpleSlice(Slice):
 
             self.resource_listener.on_created(self, self.name, resource)
 
-    def destroy(self, *, slice_state):
+    def delete_resource(self, *, resource: dict):
         pass
 
 
@@ -143,6 +143,9 @@ class SimpleProvider(Provider):
 
         fabric_slice = self.slices[slice_name]
         fabric_slice.add_resource(resource=resource)
+
+    def delete_resource(self, *, resource: dict, slice_name: str):
+        pass
 
 
 class SimpleProviderFactory(ProviderFactory):

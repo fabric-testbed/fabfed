@@ -117,14 +117,14 @@ class Slice(ABC):
                         else:
                             resolved_dependency = ResolvedDependency(attr=dependency.key, value=value)
 
-                        resolved_dependencies.add(resolved_dependency)
+                        resolved_dependencies.append(resolved_dependency)
 
     @abstractmethod
     def create(self):
         pass
 
     @abstractmethod
-    def destroy(self, *, slice_state):
+    def delete_resource(self, *, resource: dict):
         pass
 
     @abstractmethod

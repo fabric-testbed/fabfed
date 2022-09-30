@@ -44,15 +44,17 @@ class ChiNode(Node):
         self.logger = logger
         self.private_key_file = os.environ['OS_SLICE_PRIVATE_KEY_FILE']
         self._retry = 5
-        self.default_username = "cc"
+        self.username = "cc"
         self.state = None
         self.node_name = f'{self.slice_name}-{self.name}'
         self.lease_name = f'{self.slice_name}-{self.name}-lease'
         self.addresses = []
         self.reservations = []
         # TODO This should not be hardocded
+        # chi.lease.add_node_reservation(self.reservations, count=1, node_type=self.flavor)
         chi.lease.add_node_reservation(self.reservations, count=1, node_type="compute_cascadelake_r")
         self._lease_helper = util.LeaseHelper(lease_name=self.lease_name, logger=self.logger)
+        self.id = ''
 
     def get_reservation_id(self):
         return self._lease_helper.get_reservation_id()
@@ -70,6 +72,8 @@ class ChiNode(Node):
             for a in addresses:
                 if a['OS-EXT-IPS:type'] == 'floating':
                     self.mgmt_ip = a['addr']
+
+        self.id = self.get_reservation_id()
 
     def __create_kvm(self):
         return chi.server.create_server(server_name=self.node_name, image_name=self.image,
@@ -90,7 +94,7 @@ class ChiNode(Node):
             self._lease_helper.create_lease_if_needed(reservations=self.reservations, retry=self._retry)
 
         try:
-            self.logger.info(f"Checking if Node {self.node_name} exists")
+            self.logger.info(f"Checking if node {self.node_name} exists")
             node_id = chi.server.get_server_id(self.node_name)
         except ValueError as e:
             self.logger.warning(f"Error occurred for {self.node_name} {e}. Will attempt to create ")
@@ -138,7 +142,7 @@ class ChiNode(Node):
     def upload_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):
         self.logger.debug(f"upload node: {self.node_name}, local_file_path: {local_file_path}")
         key = util.get_paramiko_key(private_key_file=self.private_key_file)
-        helper = util.SshHelper(self.mgmt_ip, self.default_username, key)
+        helper = util.SshHelper(self.mgmt_ip, self.username, key)
 
         for attempt in range(retry):
             try:
@@ -153,7 +157,7 @@ class ChiNode(Node):
     def download_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):
         self.logger.debug(f"download node: {self.node_name}, remote_file_path: {remote_file_path}")
         key = util.get_paramiko_key(private_key_file=self.private_key_file)
-        helper = util.SshHelper(self.mgmt_ip, self.default_username, key)
+        helper = util.SshHelper(self.mgmt_ip, self.username, key)
 
         for attempt in range(retry):
             try:
@@ -203,7 +207,7 @@ class ChiNode(Node):
     def execute(self, command, retry=3, retry_interval=10):
         self.logger.debug(f"execute node: {self.node_name}, management_ip: {self.mgmt_ip}, command: {command}")
         key = util.get_paramiko_key(private_key_file=self.private_key_file)
-        helper = util.SshHelper(self.mgmt_ip, self.default_username, key)
+        helper = util.SshHelper(self.mgmt_ip, self.username, key)
         script = ' /tmp/chi_execute_script.sh'
         chmod_cmd = f'chmod +x {script}'
         cmd = f'echo "{command}" > {script};{chmod_cmd};{script}'
