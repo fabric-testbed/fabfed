@@ -24,17 +24,23 @@ def manage_workflow(args):
         try:
             controller.plan()
             controller.create()
-            states = controller.get_states()
-            utils.save_states(states, args.session)
         except Exception as e:
-            raise e
+            logger.error(f"We have exceptions .... {e}")
 
-        slice_objects = controller.get_slices()
+        states = controller.get_states()
+        utils.save_states(states, args.session)
 
-        for slice_object in slice_objects:
-            # print(slice_object)
-            print(slice_object.list_networks())
-            print(slice_object.list_nodes())
+        pending = 0
+        nodes = 0
+        networks = 0
+
+        for state in states:
+            for slice_state in state.slice_states:
+                pending += len(slice_state.pending)
+                nodes += len(slice_state.node_states)
+                networks += len(slice_state.network_states)
+
+        logger.info(f"nodes={nodes}, networks={networks}, pending={pending}")
         return
 
     if args.plan:
@@ -51,23 +57,40 @@ def manage_workflow(args):
         utils.dump_states(states, args.json)
         return
 
+    if args.summary:
+        states = utils.load_states(args.session)
+        temp = []
+
+        for provider_state in states:
+            for slice_state in provider_state.slice_states:
+                for node_state in slice_state.node_states:
+                    attributes = dict()
+                    props = ['mgmt_ip', 'username', 'site', 'state', 'id']
+
+                    for prop in props:
+                        attributes[prop] = node_state.attributes[prop]
+                    node_state.attributes = attributes
+                    temp.append(node_state)
+
+        utils.dump_states(temp, args.json)
+        return
+
     if args.destroy:
-        controller = None
+        states = utils.load_states(args.session)
 
         try:
-            states = utils.load_states(args.session)
-
             if states:
                 config = Config(dir_path=args.config_dir, var_dict=var_dict)
                 controller = Controller(config=config, logger=logger)
                 controller.init(default_provider_factory)
                 controller.delete(provider_states=states)
         except Exception as e:
-            raise e
+            logger.error(f"We have exceptions .... {type(e)} {e}")
+            import traceback
 
-        if controller:
-            states = controller.get_states()
-            utils.save_states(states, args.session)
+            logger.error(traceback.format_exc())
+
+        utils.save_states(states, args.session)
         return
 
 

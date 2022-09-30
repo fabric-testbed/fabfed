@@ -2,10 +2,7 @@ from collections import namedtuple
 from types import SimpleNamespace
 from typing import List, Tuple, Dict, Set, Any
 
-
-class ParseConfigException(Exception):
-    """Base class for other exceptions"""
-    pass
+from fabfed.exceptions import ParseConfigException
 
 
 class Variable:

@@ -66,14 +66,18 @@ class FabricNetwork(Network):
 class NetworkBuilder:
     def __init__(self, label, slice_object: Slice, name, resource: dict):
         self.slice_object = slice_object
-        self.facility_port_vlan = None
+        self.vlan = resource.get('vlan')  # facility port vlan
 
-        for resolved_dependency in resource['resolved_dependencies']:
-            self.facility_port_vlan = str(resolved_dependency.value[0])
-            break
+        from fabfed.util.parser import DependencyInfo
 
-        assert self.facility_port_vlan, "missing vlan"
+        if isinstance(self.vlan, DependencyInfo) and 'resolved_dependencies' in resource:
+            resolved_dependencies = [rd for rd in resource['resolved_dependencies'] if rd.attr == 'vlan']
+            assert len(resolved_dependencies) == 1
 
+            if resolved_dependencies:
+                self.vlan = resolved_dependencies[0].value[0]
+
+        assert isinstance(self.vlan, int), f"missing or bad vlan {self.vlan}"
         self.facility_port = 'Chameleon-StarLight'
         self.facility_port_site = resource.get(Constants.RES_SITE)
         self.interfaces = []
@@ -88,7 +92,7 @@ class NetworkBuilder:
 
     def handle_facility_port(self):
         facility_port = self.slice_object.add_facility_port(name=self.facility_port, site=self.facility_port_site,
-                                                            vlan=self.facility_port_vlan)
+                                                            vlan=str(self.vlan))
         facility_port_interface = facility_port.get_interfaces()[0]
         self.interfaces.append(facility_port_interface)
 
@@ -97,7 +101,6 @@ class NetworkBuilder:
         assert len(self.interfaces) == 1
 
         self.interfaces.extend(interfaces)
-        # self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
         self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
 
     def handle_l3network(self, interfaces):
@@ -105,7 +108,6 @@ class NetworkBuilder:
         assert len(self.interfaces) == 1
 
         self.interfaces.extend(interfaces)
-        # self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
         self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name, interfaces=self.interfaces)
 
     def build(self) -> FabricNetwork:

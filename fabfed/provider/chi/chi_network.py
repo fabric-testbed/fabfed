@@ -45,6 +45,7 @@ class ChiNetwork(Network):
         self.pool_start = pool_start
         self.pool_end = pool_end
         self.gateway = gateway
+        # TODO assert stitch_provider, "expecting a stitch provider"
         self.stitch_provider = stitch_provider
         self._retry = 10
         self.lease_name = f'{name}-lease'
@@ -130,7 +131,8 @@ class ChiNetwork(Network):
         chi.set('project_domain_name', 'default')
         chi.use_site(self.site)
 
-        from neutronclient.common.exceptions import Conflict
+        from neutronclient.common.exceptions import Conflict, NotFound
+        from keystoneauth1.exceptions.connection import ConnectFailure
         import time
 
         while True:
@@ -141,9 +143,12 @@ class ChiNetwork(Network):
                 chi.network.remove_subnet_from_router(router_id, subnet_id)
                 self.logger.info(f"Removed subnet {self.subnet_name} from router {self.router_name}")
                 break
-            except Conflict as ce:
+            except (Conflict, ConnectFailure ) as ce:
                 self.logger.warning(f"Error Removing subnet .will try again ...{ce}")
                 time.sleep(10)
+            except NotFound as nf:
+                self.logger.warning(f"Error Removing subnet ...{nf}")
+                break
             except RuntimeError as re:
                 if "No subnets found with" in str(re):
                     break

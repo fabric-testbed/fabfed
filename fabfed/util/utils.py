@@ -42,6 +42,7 @@ def build_parser(*, manage_workflow, manage_sessions):
     workflow_parser.add_argument('-apply', action='store_true', default=False, help='create resources')
     workflow_parser.add_argument('-plan', action='store_true', default=False, help='shows plan')
     workflow_parser.add_argument('-show', action='store_true', default=False, help='display resources')
+    workflow_parser.add_argument('-summary', action='store_true', default=False, help='display resources')
     workflow_parser.add_argument('-json', action='store_true', default=False,
                                  help='use json output. relevant when used with -show or -plan')
     workflow_parser.add_argument('-destroy', action='store_true', default=False, help='delete resources')
@@ -163,7 +164,7 @@ def dump_sessions(to_json: bool):
     return sessions
 
 
-def dump_states(states: List[ProviderState], to_json: bool):
+def dump_states(states, to_json: bool):
     import sys
     from fabfed.model.state import get_dumper
 
@@ -184,8 +185,11 @@ def load_states(friendly_name) -> List[ProviderState]:
 
     file_path = os.path.join(get_base_dir(), friendly_name + '.yml')
 
-    with open(file_path, 'r') as stream:
-        return yaml.load(stream, Loader=get_loader())
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as stream:
+            return yaml.load(stream, Loader=get_loader())
+
+    return []
 
 
 def save_states(states: List[ProviderState], friendly_name):

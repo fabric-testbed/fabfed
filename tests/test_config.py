@@ -1,4 +1,5 @@
-from fabfed.util.parser import Parser, ParseConfigException, DependencyInfo
+from fabfed.util.parser import Parser, DependencyInfo
+from fabfed.exceptions import ParseConfigException
 import pytest
 
 
