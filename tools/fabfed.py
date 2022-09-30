@@ -12,9 +12,12 @@ def manage_workflow(args):
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
     if args.validate:
-        Config(dir_path=args.config_dir, var_dict=var_dict)
-        logger.info("config looks ok")
-        return
+        try:
+            Config(dir_path=args.config_dir, var_dict=var_dict)
+            logger.info("config looks ok")
+        except Exception as e:
+            logger.error(f"Validation failed .... {type(e)} {e}")
+            sys.exit(1)
 
     if args.apply:
         config = Config(dir_path=args.config_dir, var_dict=var_dict)
@@ -25,7 +28,7 @@ def manage_workflow(args):
             controller.plan()
             controller.create()
         except Exception as e:
-            logger.error(f"We have exceptions .... {e}")
+            logger.error(f"We have exceptions while validating  .... {e}")
 
         states = controller.get_states()
         utils.save_states(states, args.session)
