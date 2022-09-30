@@ -1,27 +1,3 @@
-#!/usr/bin/env python3
-# MIT License
-#
-# Copyright (c) 2020 RENCI NRIG
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
-# Author Komal Thareja (kthare10@renci.org)
 import json
 import logging
 import time
@@ -94,9 +70,9 @@ class ChiNetwork(Network):
 
         try:
             chameleon_subnet = chi.network.get_subnet(self.subnet_name)
-            self.logger.info(f'Subnet already created:  {self.subnet_name}')
+            self.logger.info(f'Subnet already created: {self.subnet_name}')
         except Exception as e:
-            self.logger.warning(f'Error while creating subnet:  {self.subnet_name} {e}')
+            self.logger.warning(f'Error while creating subnet: {self.subnet_name} {e}')
             chameleon_subnet = None
 
         if not chameleon_subnet:
@@ -117,11 +93,11 @@ class ChiNetwork(Network):
                 break
 
         if chameleon_router:
-            self.logger.info(f'Router already created  : {self.router_name}')
+            self.logger.info(f'Router already created: {self.router_name}')
             self.logger.debug(f'Router: {chameleon_router}')
         else:
             chameleon_router = chi.network.create_router(self.router_name, gw_network_name='public')
-            self.logger.info(f'Router created : {self.router_name}')
+            self.logger.info(f'Router created: {self.router_name}')
             chi.network.add_subnet_to_router_by_name(self.router_name, self.subnet_name)
             self.logger.info(f'Attached subnet {self.subnet_name} to router  {self.router_name}')
             self.logger.debug(f'Router: {chameleon_router}')
@@ -143,7 +119,7 @@ class ChiNetwork(Network):
                 chi.network.remove_subnet_from_router(router_id, subnet_id)
                 self.logger.info(f"Removed subnet {self.subnet_name} from router {self.router_name}")
                 break
-            except (Conflict, ConnectFailure ) as ce:
+            except (Conflict, ConnectFailure) as ce:
                 self.logger.warning(f"Error Removing subnet .will try again ...{ce}")
                 time.sleep(10)
             except NotFound as nf:
