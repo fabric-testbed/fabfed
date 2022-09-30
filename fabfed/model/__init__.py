@@ -78,6 +78,9 @@ class ResourceListener(ABC):
         pass
 
 
+ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")
+
+
 class Slice(ABC):
     def __init__(self, *, label, name):
         self.label = label
@@ -108,7 +111,6 @@ class Slice(ABC):
             for dependency in pending_resource['dependencies']:
                 if dependency.resource.label == resource[Constants.LABEL]:
                     resolved_dependencies = pending_resource['resolved_dependencies']
-                    ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")
                     value = resource[dependency.attribute]
 
                     if value:
@@ -211,7 +213,7 @@ class Slice(ABC):
             copy = {}
 
             for key, value in resource.items():
-                if key == 'dependencies':  # TODO Add Yaml dumper/loader to parser.Dependency
+                if key == 'dependencies' or key == 'resolved_dependencies':  # TODO Add to Yaml dumper/loader
                     continue
 
                 if isinstance(value, DependencyInfo):  # TODO Add Yaml dumper/loader to parser.DependencyInfo
