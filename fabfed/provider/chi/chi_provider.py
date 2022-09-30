@@ -25,7 +25,6 @@
 import logging
 import os
 
-from fabfed.model.state import ProviderState
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from .chi_constants import *
@@ -96,6 +95,7 @@ class ChiProvider(Provider):
         self.mappings[slice_name] = label
 
     def add_resource(self, *, resource: dict, slice_name: str):
+        self.logger.info(f"Adding {resource['name_prefix']} to {slice_name}")
         self.logger.debug(f"Adding {resource} to {slice_name}")
         count = resource.get(Constants.RES_COUNT, 1)
 
@@ -121,42 +121,23 @@ class ChiProvider(Provider):
         slice_object.add_resource(resource=resource)
         return slice_object
 
-    def destroy_resources(self, *, provider_state: ProviderState):
+    def delete_resource(self, *, resource: dict, slice_name: str):
         """
-        Delete provisioned resources
-         """
-        self.logger.debug(f"Destroying {provider_state.label}: num_slices={len(provider_state.slice_states)}")
+            Delete provisioned resource
+        """
+        site = resource.get(Constants.RES_SITE)
+        self.setup_environment(site=site)
 
-        for slice_state in provider_state.slice_states:
-            name = slice_state.attributes['name']
-            self.logger.info(f"Deleting slice {name}")
+        # Should be done only after setting up the environment
+        from fabfed.provider.chi.chi_slice import ChiSlice
+        if slice_name in self.slices:
+            slice_object = self.slices[slice_name]
+        else:
+            label = self.mappings[slice_name]
+            slice_object = ChiSlice(label=label, name=slice_name, logger=self.logger,
+                                    key_pair=self.config.get(CHI_KEY_PAIR),
+                                    project_name=self.config.get(CHI_PROJECT_NAME))
+            slice_object.set_resource_listener(self)
+            self.slices[slice_name] = slice_object
 
-            all_states = []
-            all_states.extend(slice_state.network_states)
-            all_states.extend(slice_state.node_states)
-
-            site = None
-
-            for temp in all_states:
-                site = temp.attributes.get('site', None)
-
-                if site:
-                    break
-
-            assert site, "no site ...."
-
-            self.setup_environment(site=site)
-
-            from fabfed.provider.chi.chi_slice import ChiSlice
-
-            if name in self.slices:
-                slice_object = self.slices[name]
-            else:
-                label = self.mappings[name]
-                slice_object = ChiSlice(label=label, name=name, logger=self.logger,
-                                        key_pair=self.config.get(CHI_KEY_PAIR),
-                                        project_name=self.config.get(CHI_PROJECT_NAME))
-                slice_object.set_resource_listener(self)
-                self.slices[name] = slice_object
-
-            slice_object.destroy(slice_state=slice_state)
+        slice_object.delete_resource(resource=resource)

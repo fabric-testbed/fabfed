@@ -23,7 +23,6 @@
 #
 # Author Komal Thareja (kthare10@renci.org)
 import logging
-import traceback
 
 from fabfed.model import Slice
 from ...util.constants import Constants
@@ -52,13 +51,22 @@ class FabricSlice(Slice):
             self.slice_object = fablib.new_slice(name)
 
     def add_network(self, resource: dict):
-        if not resource['resolved_dependencies']:
-            if resource not in self.pending:
-                self.logger.info(f"Adding to pending: {resource['name_prefix']}")
-                self.pending.append(resource)
-            return
+        if resource['has_dependencies']:
+            external_dependencies_count = 0
 
-        self.logger.info(f"I have resolved dependencies {resource['resolved_dependencies']}")
+            for dependency in resource['dependencies']:
+                if dependency.resource.slice.label != self.label:
+                    external_dependencies_count += 1
+
+            if external_dependencies_count > len(resource['resolved_dependencies']):
+                if resource not in self.pending:
+                    self.logger.info(f"Adding to pending: {resource['name_prefix']}")
+                    self.pending.append(resource)
+                return
+
+            if resource['resolved_dependencies']:
+                self.logger.info(f"I have resolved all external dependencies {resource['resolved_dependencies']}")
+
         # Double check that vlan is satisfied
         label = resource.get(Constants.LABEL)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
@@ -70,8 +78,8 @@ class FabricSlice(Slice):
             interfaces.append(node.get_interfaces()[0])
 
         assert len(interfaces) > 0
-        # network_builder.handle_l2network(interfaces)  # This throws an exception in network_service.py
-        network_builder.handle_l3network(interfaces)
+        network_builder.handle_l2network(interfaces)  # This throws an exception in network_service.py
+        # network_builder.handle_l3network(interfaces)
         net = network_builder.build()
         self._networks.append(net)
 
@@ -118,11 +126,17 @@ class FabricSlice(Slice):
             elif rtype == Constants.RES_TYPE_NETWORK.lower():
                 delegates = self.slice_object.get_network_services()
                 # noinspection PyTypeChecker
+                from ipaddress import IPv4Address, IPv4Network
+
+                subnet = IPv4Network(resource.get(Constants.RES_SUBNET))
+                pool_start = IPv4Address(resource.get(Constants.RES_NET_POOL_START))
+                pool_end = IPv4Address(resource.get(Constants.RES_NET_POOL_END))
+
                 fabric_network = FabricNetwork(label=label,
                                                delegate=delegates[0],
-                                               subnet=None,
-                                               pool_start=None,
-                                               pool_end=None)
+                                               subnet=subnet,
+                                               pool_start=pool_start,
+                                               pool_end=pool_end)
                 self._networks.append(fabric_network)
 
                 if self.resource_listener:
@@ -142,10 +156,9 @@ class FabricSlice(Slice):
     def _submit_and_wait(self) -> str or None:
         try:
             # TODO Check if the slice has more than one site then add a layer2 network
-            # Submit Slice Request
-            self.logger.info("Submit slice request")
+            self.logger.info(f"Submitting request for slice {self.name}")
             slice_id = self.slice_object.submit(wait=False)
-            self.logger.info("Waiting for the slice to Stable")
+            self.logger.info(f"Waiting for slice {self.name} to be stable")
             self.slice_object.wait(progress=True)
 
             try:
@@ -158,7 +171,6 @@ class FabricSlice(Slice):
             return slice_id
         except Exception as e:
             self.logger.error(f"Exception occurred: {e}")
-            self.logger.error(traceback.format_exc())
             raise e
 
     def create(self,):
@@ -191,7 +203,6 @@ class FabricSlice(Slice):
         self._submit_and_wait()
         self.slice_created = True
 
-        # TODO WHY ARE WE RELOADING?
         temp = []
 
         for node in self.nodes:
@@ -199,6 +210,21 @@ class FabricSlice(Slice):
             temp.append(FabricNode(label=node.label, delegate=delegate))
 
         self._nodes = temp
+
+        temp = []
+
+        for net in self._networks:
+            delegate = self.slice_object.get_network(net.name)
+            from ipaddress import IPv4Address, IPv4Network
+
+            fabric_network = FabricNetwork(label=net.label,
+                                           delegate=delegate,
+                                           subnet=IPv4Network(net.subnet),
+                                           pool_start=IPv4Address(net.pool_start),
+                                           pool_end=IPv4Address(net.pool_end))
+            temp.append(fabric_network)
+
+        self._networks = temp
 
         if self.networks:
             from ipaddress import IPv4Network
@@ -220,7 +246,8 @@ class FabricSlice(Slice):
 
             self.notified_create = True
 
-    def destroy(self, *, slice_state):
+    def delete_resource(self, *, resource: dict):
         if self.slice_created:
             self.slice_object.delete()
             self.slice_created = False
+            self.logger.info(f"Destroyed slice  {self.name}")

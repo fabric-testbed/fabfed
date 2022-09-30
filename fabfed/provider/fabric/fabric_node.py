@@ -23,16 +23,13 @@
 #
 # Author Komal Thareja (kthare10@renci.org)
 
-from collections import namedtuple
-from typing import List
+from typing import List, Dict
 
 from fabrictestbed_extensions.fablib.node import Node as Delegate
 from fabrictestbed_extensions.fablib.slice import Slice
 
 from fabfed.model import Node
 from fabfed.util.constants import Constants
-
-Component = namedtuple("Component", "model  name")
 
 
 class FabricNode(Node):
@@ -44,10 +41,27 @@ class FabricNode(Node):
         self._delegate = delegate
         self.slice_name = delegate.get_slice().get_name()
         self.mgmt_ip = str(delegate.get_management_ip())
-        self._components: List[Component] = []
+        self.username = delegate.get_username()
+        self.state = delegate.get_reservation_state()
+
+        if self.state:
+            self.state = self.state.lower()
+
+        self.id = delegate.get_reservation_id()
+
+        self.addr_list = []
+
+        if delegate.get_management_ip():
+            for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
+                ifname = ip_addr['ifname']
+
+                for addr_info in ip_addr['addr_info']:
+                    self.addr_list.append(dict(ifname=ifname, addr_info=addr_info['local']))
+
+        self.components: List[Dict[str, str]] = []
 
         for component in delegate.get_components():
-            self._components.append(Component(name=component.get_name(), model=component.get_model()))
+            self.components.append(dict(name=component.get_name(), model=component.get_model()))
 
     def get_interfaces(self):
         return self._delegate.get_interfaces()
