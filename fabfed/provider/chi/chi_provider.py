@@ -94,32 +94,22 @@ class ChiProvider(Provider):
 
         self.mappings[slice_name] = label
 
+        label = self.mappings[slice_name]
+        from fabfed.provider.chi.chi_slice import ChiSlice
+
+        slice_object = ChiSlice(label=label, name=slice_name, logger=self.logger,
+                                key_pair=self.config.get(CHI_KEY_PAIR),
+                                project_name=self.config.get(CHI_PROJECT_NAME))
+        slice_object.set_resource_listener(self)
+        self.slices[slice_name] = slice_object
+
     def add_resource(self, *, resource: dict, slice_name: str):
-        self.logger.info(f"Adding {resource['name_prefix']} to {slice_name}")
-        self.logger.debug(f"Adding {resource} to {slice_name}")
-        count = resource.get(Constants.RES_COUNT, 1)
-
-        if count < 1:
-            self.logger.debug(f"Skipping {resource} to {slice_name} {count}")
-            return None
-
         site = resource.get(Constants.RES_SITE)
         self.setup_environment(site=site)
-
-        # Should be done only after setting up the environment
-        from fabfed.provider.chi.chi_slice import ChiSlice
-        if slice_name in self.slices:
-            slice_object = self.slices[slice_name]
-        else:
-            label = self.mappings[slice_name]
-            slice_object = ChiSlice(label=label, name=slice_name, logger=self.logger,
-                                    key_pair=self.config.get(CHI_KEY_PAIR),
-                                    project_name=self.config.get(CHI_PROJECT_NAME))
-            slice_object.set_resource_listener(self)
-            self.slices[slice_name] = slice_object
-
-        slice_object.add_resource(resource=resource)
-        return slice_object
+        slice_object = self.slices[slice_name]
+        slice_object.use_key_pair(self.config[CHI_KEY_PAIR])
+        slice_object.use_project_name(self.config[CHI_PROJECT_NAME])
+        super().add_resource(resource=resource, slice_name=slice_name)
 
     def delete_resource(self, *, resource: dict, slice_name: str):
         """
@@ -127,17 +117,7 @@ class ChiProvider(Provider):
         """
         site = resource.get(Constants.RES_SITE)
         self.setup_environment(site=site)
-
-        # Should be done only after setting up the environment
-        from fabfed.provider.chi.chi_slice import ChiSlice
-        if slice_name in self.slices:
-            slice_object = self.slices[slice_name]
-        else:
-            label = self.mappings[slice_name]
-            slice_object = ChiSlice(label=label, name=slice_name, logger=self.logger,
-                                    key_pair=self.config.get(CHI_KEY_PAIR),
-                                    project_name=self.config.get(CHI_PROJECT_NAME))
-            slice_object.set_resource_listener(self)
-            self.slices[slice_name] = slice_object
-
-        slice_object.delete_resource(resource=resource)
+        slice_object = self.slices[slice_name]
+        slice_object.use_key_pair(self.config[CHI_KEY_PAIR])
+        slice_object.use_project_name(self.config[CHI_PROJECT_NAME])
+        super().delete_resource(resource=resource, slice_name=slice_name)
