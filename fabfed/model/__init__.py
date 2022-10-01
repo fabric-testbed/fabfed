@@ -122,15 +122,15 @@ class Slice(ABC):
                         resolved_dependencies.append(resolved_dependency)
 
     @abstractmethod
-    def create(self):
+    def add_resource(self, *, resource: dict):
+        pass
+
+    @abstractmethod
+    def create_resource(self, *, resource: dict):
         pass
 
     @abstractmethod
     def delete_resource(self, *, resource: dict):
-        pass
-
-    @abstractmethod
-    def add_resource(self, resource: dict):
         pass
 
     @property
