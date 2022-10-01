@@ -1,27 +1,3 @@
-#!/usr/bin/env python3
-# MIT License
-#
-# Copyright (c) 2020 RENCI NRIG
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
-# Author Komal Thareja (kthare10@renci.org)
 import logging
 
 from fabfed.provider.api.provider import Provider
@@ -42,7 +18,7 @@ class FabricProvider(Provider):
 
             profile = config.get(Constants.PROFILE)
             config = utils.load_yaml_from_file(credential_file)
-            config = config[profile]
+            self.config = config = config[profile]
 
         import os
 
@@ -70,18 +46,3 @@ class FabricProvider(Provider):
         fabric_slice = FabricSlice(label=label, name=slice_name, logger=self.logger)
         self.slices[slice_name] = fabric_slice
         fabric_slice.set_resource_listener(self)
-
-    def add_resource(self, *, resource: dict, slice_name: str):
-        self.logger.info(f"Adding {resource['name_prefix']} to {slice_name}")
-        self.logger.debug(f"Adding {resource} to {slice_name}")
-
-        if resource.get(Constants.RES_COUNT, 1) < 1:
-            self.logger.debug(f"will not add {resource['name_prefix']} to {slice_name}: Count is zero")
-            return
-
-        fabric_slice = self.slices[slice_name]
-        fabric_slice.add_resource(resource=resource)
-
-    def delete_resource(self, *, resource: dict, slice_name: str):
-        fabric_slice = self.slices[slice_name]
-        fabric_slice.delete_resource(resource=resource)

@@ -21,14 +21,28 @@ def manage_workflow(args):
 
     if args.apply:
         config = Config(dir_path=args.config_dir, var_dict=var_dict)
-        controller = Controller(config=config, logger=logger)
-        controller.init(default_provider_factory)
+
+        try:
+            controller = Controller(config=config, logger=logger)
+        except Exception as e:
+            logger.error(f"Exceptions while initializing controller .... {e}")
+            sys.exit(1)
+
+        try:
+            controller.init(default_provider_factory)
+        except Exception as e:
+            logger.error(f"Exceptions while initializing providers  .... {e}")
+            sys.exit(1)
 
         try:
             controller.plan()
+        except Exception as e:
+            logger.error(f"Exceptions while adding resources .... {e}")
+
+        try:
             controller.create()
         except Exception as e:
-            logger.error(f"We have exceptions while validating  .... {e}")
+            logger.error(f"Exceptions while creating resources .... {e}")
 
         states = controller.get_states()
         utils.save_states(states, args.session)

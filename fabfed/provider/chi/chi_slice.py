@@ -1,8 +1,8 @@
 import logging
 
 from fabfed.model import Slice
-from fabfed.provider.chi.chi_network import ChiNetwork
-from fabfed.provider.chi.chi_node import ChiNode
+# from fabfed.provider.chi.chi_network import ChiNetwork
+# from fabfed.provider.chi.chi_node import ChiNode
 from fabfed.util.constants import Constants
 from .chi_constants import DEFAULT_NETWORK, DEFAULT_FLAVOR
 
@@ -16,6 +16,12 @@ class ChiSlice(Slice):
         self.resource_listener = None
         self.slice_created = False
 
+    def use_key_pair(self, key_pair: str):
+        self.key_pair = key_pair
+
+    def use_project_name(self, project_name: str):
+        self.project_name = project_name
+
     def add_network(self, resource: dict):
         site = resource.get(Constants.RES_SITE)
         label = resource.get(Constants.LABEL)
@@ -27,6 +33,8 @@ class ChiSlice(Slice):
         assert stitch_providers
 
         net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+        from fabfed.provider.chi.chi_network import ChiNetwork
+
         net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
                          slice_name=self.name, subnet=subnet, pool_start=pool_start, pool_end=pool_end,
                          gateway=gateway, stitch_provider=stitch_providers[0],
@@ -61,6 +69,9 @@ class ChiSlice(Slice):
 
         for n in range(0, node_count):
             node_name = f"{node_name_prefix}{n}"
+
+            from fabfed.provider.chi.chi_node import ChiNode
+
             node = ChiNode(label=label, name=node_name, image=image, site=site, flavor=flavor, logger=self.logger,
                            key_pair=self.key_pair, slice_name=self.name, network=network,
                            project_name=self.project_name)
@@ -70,13 +81,16 @@ class ChiSlice(Slice):
                 self.resource_listener.on_added(self, self.name, vars(node))
 
     def add_resource(self, *, resource: dict):
+        # if True:
+        #     raise Exception("AHA: Add")
+
         rtype = resource.get(Constants.RES_TYPE)
         if rtype == Constants.RES_TYPE_NETWORK.lower():
             self.add_network(resource)
         else:
             self.add_node(resource)
 
-    def create(self):
+    def create_resource(self, *, resource: dict):
         if self.slice_created:
             self.logger.debug(f"already provisioned. Will not bother to create any resource to {self.name}")
             return
@@ -108,6 +122,8 @@ class ChiSlice(Slice):
         if rtype == Constants.RES_TYPE_NETWORK.lower():
             net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
             self.logger.debug(f"Deleting network: {net_name} at site {site}")
+            from fabfed.provider.chi.chi_network import ChiNetwork
+
             net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
                              slice_name=self.name, subnet=None, pool_start=None, pool_end=None,
                              gateway=None, stitch_provider=None,
@@ -121,6 +137,8 @@ class ChiSlice(Slice):
                 node_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
                 node_name = f"{node_name_prefix}{n}"
                 self.logger.debug(f"Deleting node: {node_name} at site {site}")
+
+                from fabfed.provider.chi.chi_node import ChiNode
 
                 node = ChiNode(label=label, name=node_name, image=None, site=site, flavor=None, logger=self.logger,
                                key_pair=None, slice_name=self.name, network=None,

@@ -75,6 +75,7 @@ class Controller:
                 self.logger.warning(
                     f"Exception occurred while adding resource: {e} using {label}/{resource.slice.name}")
                 exceptions.append(e)
+                # self.logger.warning(e, exc_info=True)
 
         if exceptions:
             raise exceptions[0]
@@ -90,11 +91,12 @@ class Controller:
             provider = self.provider_factory.get_provider(label=label)
 
             try:
-                provider.create_resources(slice_name=resource.slice.name)
+                provider.create_resource(resource=resource.attributes, slice_name=resource.slice.name)
             except Exception as e:
                 self.logger.warning(
                     f"Exception occurred while creating resource: {e} using {label}/{resource.slice.name}")
                 exceptions.append(e)
+                # self.logger.warning(e, exc_info=True)
 
         if exceptions:
             raise exceptions[0]
