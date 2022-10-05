@@ -30,18 +30,15 @@ resource:
   - node:
       - test_fabric_node:
           - slice:  '{{ slice.test_fabric_slice }}'
-            type: VM
             site: 'STAR'
             image: default_rocky_8
             nic_model: NIC_ConnectX_5
   - node:
       - test_chi_node:
           - slice:  '{{ slice.test_chi_slice }}'
-            type: Baremetal
             site: CHI@UC
             image: CC-Ubuntu20.04
-            flavor:
-              name: m1.medium
+            flavor: m1.medium
 
   - network:
       - test_chi_network:
@@ -70,6 +67,19 @@ class SimpleNode(Node):
 
 
 class SimpleSlice(Slice):
+    def do_delete_resource(self, *, resource: dict):
+        pass
+
+    def do_create_resource(self, *, resource: dict):
+        for resource in self.resources:
+            if resource[Constants.RES_NAME_PREFIX] == 'super_net':
+                resource['vlans'] = [2]
+
+            self.resource_listener.on_created(self, self.name, resource)
+
+    def do_add_resource(self, *, resource: dict):
+        pass
+
     def __init__(self, *, label, name: str, logger: logging.Logger):
         super().__init__(label=label, name=name)
         self.logger = logger
@@ -79,7 +89,7 @@ class SimpleSlice(Slice):
 
     def add_resource(self, *, resource: dict):
         if resource['has_dependencies']:
-            if not resource['resolved_dependencies']:
+            if not resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]:
                 if resource not in self.pending:
                     self.logger.info(f"Adding to pending: {resource['name_prefix']}")
                     self.pending.append(resource)
@@ -181,7 +191,7 @@ def test_controller():
         for slice_object in provider.slices.values():
             assert len(slice_object.resources) == 2
             for resource in slice_object.resources:
-                if 'resolved_dependencies' in resource and resource['resolved_dependencies']:
+                if resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]:
                     resources_with_resolved_dependencies.append(resource)
 
             pending_reources.extend(slice_object.pending)
@@ -228,13 +238,13 @@ def test_controller():
     for provider in provider_factory.providers:
         for slice_object in provider.slices.values():
             for resource in slice_object.resources:
-                if 'resolved_dependencies' in resource and resource['resolved_dependencies']:
+                if resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]:
                     resources_with_resolved_dependencies.append(resource)
 
             pending_reources.extend(slice_object.pending)
 
     assert len(pending_reources) == 1
-    assert len(resources_with_resolved_dependencies) == 1
+    # assert len(resources_with_resolved_dependencies) == 1
     states = controller.get_states()
 
     for state in states:

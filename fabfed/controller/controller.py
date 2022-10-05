@@ -28,40 +28,40 @@ class Controller:
             client.init_slice(slice_name=slice_config.name, slice_config=slice_config.attributes)
 
         self.provider_factory = provider_factory
-
-    def plan(self):
-        resources = self.config.get_resource_config()
         providers = self.provider_factory.providers
         resource_listener = ControllerResourceListener(providers)
 
         for provider in providers:
             provider.set_resource_listener(resource_listener)
 
+        resources = self.config.get_resource_config()
+
         for resource in resources:
             resource_dict = resource.attributes
             resource_dict[Constants.RES_TYPE] = resource.type
             resource_dict[Constants.RES_NAME_PREFIX] = resource.name
             resource_dict[Constants.LABEL] = resource.label
-            resource_dict['has_dependencies'] = resource.has_dependencies()
-            resource_dict['dependencies'] = resource.dependencies
-            resource_dict['resolved_dependencies'] = list()
+            resource_dict['has_dependencies'] = resource.has_dependencies()  # TODO: Fix Controller test and remove this
+            external_dependencies = resource_dict[Constants.EXTERNAL_DEPENDENCIES] = list()
+            resource_dict[Constants.RESOLVED_EXTERNAL_DEPENDENCIES] = list()
 
-        networks = [resource for resource in resources if resource.is_network]
+            for dependency in resource.dependencies:
+                if dependency.is_external:
+                    external_dependencies.append(dependency)
 
-        for network in networks:
-            network.attributes[Constants.RES_NET_STITCH_PROVS] = list()
+            if resource.is_network:
+                resource.attributes[Constants.RES_NET_STITCH_PROVS] = list()
 
-        for network in networks:
-            if network.has_dependencies():
-                for dependency in network.dependencies:
-                    if dependency.resource.is_network:
-                        stitch_provider = network.slice.provider.type
+        for network in [resource for resource in resources if resource.is_network]:
+            for dependency in network.dependencies:
+                if dependency.resource.is_network:
+                    stitch_provider = network.slice.provider.type
 
-                        if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
-                            self.logger.info(
-                                f"Stitching network {dependency.resource.label} to {network.slice.provider.type}")
-                            dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
+                    if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
+                        dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
 
+    def plan(self):
+        resources = self.config.get_resource_config()
         self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
 
         exceptions = []
@@ -75,7 +75,7 @@ class Controller:
                 self.logger.warning(
                     f"Exception occurred while adding resource: {e} using {label}/{resource.slice.name}")
                 exceptions.append(e)
-                # self.logger.warning(e, exc_info=True)
+                self.logger.warning(e, exc_info=True)
 
         if exceptions:
             raise exceptions[0]
@@ -96,7 +96,7 @@ class Controller:
                 self.logger.warning(
                     f"Exception occurred while creating resource: {e} using {label}/{resource.slice.name}")
                 exceptions.append(e)
-                # self.logger.warning(e, exc_info=True)
+                self.logger.warning(e, exc_info=True)
 
         if exceptions:
             raise exceptions[0]
@@ -104,7 +104,7 @@ class Controller:
     def delete(self, *, provider_states: List[ProviderState]):
         exceptions = []
         resource_state_map = dict()
-        slice_state_map = dict()
+        slice_resource_map = dict()
 
         for provider_state in provider_states:
             for slice_state in provider_state.slice_states:
@@ -115,7 +115,7 @@ class Controller:
                     resource_state_map[node_state.label] = node_state
 
                 key = slice_state.attributes['name'] + ':' + provider_state.label
-                slice_state_map[key] = list()
+                slice_resource_map[key] = list()
 
         temp = self.config.get_resource_config()
         temp.reverse()
@@ -123,11 +123,11 @@ class Controller:
         for resource in temp:
             if resource.label in resource_state_map:
                 key = resource.slice.name + ":" + resource.slice.provider.label
-                slice_state_map[key].append(resource)
+                slice_resource_map[key].append(resource)
 
         remaining_resources = list()
 
-        for key, slice_resources in slice_state_map.items():
+        for key, slice_resources in slice_resource_map.items():
             idx = key.index(':')
             slice_name = key[0:idx]
             provider_label = key[idx+1:]
@@ -135,11 +135,7 @@ class Controller:
 
             for resource in slice_resources:
                 try:
-                    resource_dict = resource.attributes
-                    resource_dict[Constants.RES_TYPE] = resource.type
-                    resource_dict[Constants.RES_NAME_PREFIX] = resource.name
-                    resource_dict[Constants.LABEL] = resource.label
-                    provider.delete_resource(resource=resource_dict, slice_name=slice_name)
+                    provider.delete_resource(resource=resource.attributes, slice_name=slice_name)
                 except Exception as e:
                     self.logger.warning(f"Exception occurred while deleting resource: {e} using {provider_label}")
                     remaining_resources.append(resource)
@@ -176,15 +172,12 @@ class Controller:
             raise exceptions[0]
 
     def get_slices(self) -> List[Slice]:
-        resources = []
+        slices = []
 
         for provider in self.provider_factory.providers:
-            slices = provider.get_slices()
+            slices.extend(provider.get_slices())
 
-            if slices:
-                resources.extend(slices)
-
-        return resources
+        return slices
 
     def get_states(self) -> List[ProviderState]:
         provider_states = []
