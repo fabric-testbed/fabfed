@@ -39,11 +39,11 @@ class ChiNode(Node):
         super().__init__(label=label, name=name, image=image, site=site, flavor=flavor)
         self.project_name = project_name
         self.key_pair = key_pair
-        self.network_name = network
+        self.network = network
         self.slice_name = slice_name
         self.logger = logger
         self.private_key_file = os.environ['OS_SLICE_PRIVATE_KEY_FILE']
-        self._retry = 5
+        self._retry = 10
         self.username = "cc"
         self.state = None
         self.node_name = f'{self.slice_name}-{self.name}'
@@ -65,7 +65,7 @@ class ChiNode(Node):
     def __populate_state(self, node_info):
         self.logger.debug(f"Node Info for {self.node_name}: {node_info}")
         self.state = node_info['OS-EXT-STS:vm_state']
-        addresses = node_info['addresses'][self.network_name]
+        addresses = node_info['addresses'][self.network]
         self.addresses = [a['addr'] for a in addresses]
 
         if not self.mgmt_ip:
@@ -77,12 +77,12 @@ class ChiNode(Node):
 
     def __create_kvm(self):
         return chi.server.create_server(server_name=self.node_name, image_name=self.image,
-                                        network_name=self.network_name, key_name=self.key_pair,
+                                        network_name=self.network, key_name=self.key_pair,
                                         flavor_name=self.flavor)
 
     def __create_baremetal(self):
         return chi.server.create_server(server_name=self.node_name, image_name=self.image,
-                                        network_name=self.network_name, key_name=self.key_pair,
+                                        network_name=self.network, key_name=self.key_pair,
                                         reservation_id=self._lease_helper.get_reservation_id())
 
     def create(self):

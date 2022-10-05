@@ -21,11 +21,12 @@ class NodeState(BaseState):
 
 class SliceState(BaseState):
     def __init__(self, label, attributes, network_states: List[NetworkState],
-                 node_states: List[NodeState], pending):
+                 node_states: List[NodeState], pending, failed: Dict[str, str]):
         super().__init__("slice", label, attributes)
         self.network_states = network_states
         self.node_states = node_states
         self.pending = pending
+        self.failed = failed
 
 
 class ProviderState(BaseState):
@@ -57,7 +58,8 @@ def slice_representer(dumper: yaml.SafeDumper, slice_state: SliceState) -> yaml.
         "attributes": slice_state.attributes,
         "network_states": slice_state.network_states,
         "node_states": slice_state.node_states,
-        "pending": slice_state.pending
+        "pending": slice_state.pending,
+        "failed": slice_state.failed
     })
 
 

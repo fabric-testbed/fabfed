@@ -82,7 +82,7 @@ class SliceConfig(BaseConfig):
 
 DependencyInfo = namedtuple("DependencyInfo", "resource  attribute")
 
-Dependency = namedtuple("Dependency", "key resource  attribute")
+Dependency = namedtuple("Dependency", "key resource  attribute, is_external")
 
 
 class ResourceConfig(BaseConfig):
@@ -291,7 +291,8 @@ class ResourceDependencyEvaluator:
 
     def add_dependency(self, res: ResourceConfig, key: str, dependency_info: DependencyInfo):
         found = self._find_resource(dependency_info.resource)
-        temp = Dependency(key=key, resource=found, attribute=dependency_info.attribute)
+        is_external = res.slice.label != found.slice.label
+        temp = Dependency(key=key, resource=found, attribute=dependency_info.attribute, is_external=is_external)
         res.add_dependency(temp)
         self.dependency_map[res].add(found)
 

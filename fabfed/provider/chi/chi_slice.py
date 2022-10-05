@@ -1,8 +1,6 @@
 import logging
 
 from fabfed.model import Slice
-# from fabfed.provider.chi.chi_network import ChiNetwork
-# from fabfed.provider.chi.chi_node import ChiNode
 from fabfed.util.constants import Constants
 from .chi_constants import DEFAULT_NETWORK, DEFAULT_FLAVOR
 
@@ -48,7 +46,9 @@ class ChiSlice(Slice):
         site = resource.get(Constants.RES_SITE)
         network = resource.get(Constants.RES_NETWORK, DEFAULT_NETWORK)
 
-        if not isinstance(network, str):
+        from fabfed.util.parser import DependencyInfo
+
+        if isinstance(network, DependencyInfo):
             found = False
 
             for net in self._networks:
@@ -80,41 +80,44 @@ class ChiSlice(Slice):
             if self.resource_listener:
                 self.resource_listener.on_added(self, self.name, vars(node))
 
-    def add_resource(self, *, resource: dict):
-        # if True:
-        #     raise Exception("AHA: Add")
-
+    def do_add_resource(self, *, resource: dict):
         rtype = resource.get(Constants.RES_TYPE)
+
         if rtype == Constants.RES_TYPE_NETWORK.lower():
             self.add_network(resource)
         else:
             self.add_node(resource)
 
-    def create_resource(self, *, resource: dict):
-        if self.slice_created:
-            self.logger.debug(f"already provisioned. Will not bother to create any resource to {self.name}")
-            return
+    def do_create_resource(self, *, resource: dict):
+        rtype = resource.get(Constants.RES_TYPE)
+        label = resource.get(Constants.LABEL)
 
-        for n in self._networks:
-            n.create()
+        if rtype == Constants.RES_TYPE_NETWORK.lower():
+            temp = [net for net in self._networks if net.label == label]
 
-            if self.resource_listener:
-                self.resource_listener.on_created(self, self.name, vars(n))
+            for n in temp:
+                n.create()
 
-        for n in self._nodes:
-            n.create()
+                if self.resource_listener:
+                    self.resource_listener.on_created(self, self.name, vars(n))
 
-        for n in self._nodes:
-            n.wait_for_active()
+        else:
+            temp = [node for node in self._nodes if node.label == label]
 
-            if self.resource_listener:
-                self.resource_listener.on_created(self, self.name, vars(n))
+            for n in temp:
+                n.create()
 
-        self.slice_created = True
+                if self.resource_listener:
+                    self.resource_listener.on_created(self, self.name, vars(n))
+
+            for n in temp:
+                n.wait_for_active()
+
+                if self.resource_listener:
+                    self.resource_listener.on_created(self, self.name, vars(n))
 
     # noinspection PyTypeChecker
-    def delete_resource(self, *, resource: dict):
-        # name = resource['name']
+    def do_delete_resource(self, *, resource: dict):
         site = resource[Constants.RES_SITE]
         label = resource.get(Constants.LABEL)
         rtype = resource.get(Constants.RES_TYPE)

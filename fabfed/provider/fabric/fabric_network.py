@@ -1,28 +1,3 @@
-#!/usr/bin/env python3
-# MIT License
-#
-# Copyright (c) 2020 RENCI NRIG
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
-# Author Komal Thareja (kthare10@renci.org)
-
 from ipaddress import IPv4Address, IPv4Network
 
 from fabrictestbed_extensions.fablib.network_service import NetworkService
@@ -70,12 +45,10 @@ class NetworkBuilder:
 
         from fabfed.util.parser import DependencyInfo
 
-        if isinstance(self.vlan, DependencyInfo) and 'resolved_dependencies' in resource:
-            resolved_dependencies = [rd for rd in resource['resolved_dependencies'] if rd.attr == 'vlan']
+        if isinstance(self.vlan, DependencyInfo):
+            resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES] if rd.attr == 'vlan']
             assert len(resolved_dependencies) == 1
-
-            if resolved_dependencies:
-                self.vlan = resolved_dependencies[0].value[0]
+            self.vlan = resolved_dependencies[0].value[0]
 
         assert isinstance(self.vlan, int), f"missing or bad vlan {self.vlan}"
         self.facility_port = 'Chameleon-StarLight'
