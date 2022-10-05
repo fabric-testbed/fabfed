@@ -27,23 +27,6 @@ class FabricSlice(Slice):
             self.slice_object = fablib.new_slice(name)
 
     def add_network(self, resource: dict):
-        if resource['has_dependencies']:
-            external_dependencies_count = 0
-
-            for dependency in resource['dependencies']:
-                if dependency.resource.slice.label != self.label:
-                    external_dependencies_count += 1
-
-            if external_dependencies_count > len(resource['resolved_dependencies']):
-                if resource not in self.pending:
-                    self.logger.info(f"Adding to pending: {resource['name_prefix']}")
-                    self.pending.append(resource)
-                return
-
-            if resource['resolved_dependencies']:
-                self.logger.info(f"I have resolved all external dependencies {resource['resolved_dependencies']}")
-
-        # Double check that vlan is satisfied
         label = resource.get(Constants.LABEL)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         network_builder = NetworkBuilder(label, self.slice_object, name_prefix, resource)
@@ -58,9 +41,6 @@ class FabricSlice(Slice):
         # network_builder.handle_l3network(interfaces)
         net = network_builder.build()
         self._networks.append(net)
-
-        if resource in self.pending:
-            self.pending.remove(resource)
 
         if self.resource_listener:
             self.resource_listener.on_added(self, self.name, vars(net))
@@ -81,7 +61,7 @@ class FabricSlice(Slice):
             if self.resource_listener:
                 self.resource_listener.on_added(self, self.name, vars(node))
 
-    def add_resource(self, *, resource: dict):
+    def do_add_resource(self, *, resource: dict):
         # TODO we need to handle modified config after slice has been created. now exception will be thrown
         if self.slice_created:
             rtype = resource.get(Constants.RES_TYPE)
@@ -149,7 +129,10 @@ class FabricSlice(Slice):
             self.logger.error(f"Exception occurred: {e}")
             raise e
 
-    def create_resource(self, *, resource: dict):
+    def do_create_resource(self, *, resource: dict):
+        if self.failed:
+            raise Exception(str(self.failed))
+
         if self.slice_created:
             state = self.slice_object.get_state()
 
@@ -168,9 +151,6 @@ class FabricSlice(Slice):
                 self.notified_create = True
 
             return
-
-        for resource in self.pending:
-            self.add_resource(resource=resource)
 
         if self.pending:
             self.logger.warning(f"still have pending {len(self.pending)} resources")
@@ -222,7 +202,7 @@ class FabricSlice(Slice):
 
             self.notified_create = True
 
-    def delete_resource(self, *, resource: dict):
+    def do_delete_resource(self, *, resource: dict):
         if self.slice_created:
             self.slice_object.delete()
             self.slice_created = False

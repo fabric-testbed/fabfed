@@ -91,29 +91,34 @@ class Slice(ABC):
         self.resource_listener = None
         self.slice_created = False
         self.pending = []
+        self.failed = {}
+        self.added = []
 
     def set_resource_listener(self, resource_listener):
         self.resource_listener = resource_listener
 
-    # noinspection PyUnusedLocal
     def on_added(self, source, slice_name, resource: dict):
         assert self != source
+        assert slice_name
+        assert resource
 
-    # noinspection PyUnusedLocal
     def on_deleted(self, source, slice_name, resource):
         assert self != source
+        assert slice_name
+        assert resource
 
-    # noinspection PyUnusedLocal
     def on_created(self, source, slice_name, resource):
         assert self != source
+        assert slice_name
 
-        for pending_resource in self.pending:
-            for dependency in pending_resource['dependencies']:
+        for pending_resource in self.pending.copy():
+            for dependency in pending_resource[Constants.EXTERNAL_DEPENDENCIES]:
                 if dependency.resource.label == resource[Constants.LABEL]:
-                    resolved_dependencies = pending_resource['resolved_dependencies']
                     value = resource[dependency.attribute]
 
                     if value:
+                        resolved_dependencies = pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
+
                         if isinstance(value, list):
                             resolved_dependency = ResolvedDependency(attr=dependency.key, value=tuple(value))
                         else:
@@ -121,16 +126,62 @@ class Slice(ABC):
 
                         resolved_dependencies.append(resolved_dependency)
 
-    @abstractmethod
+                        if len(pending_resource[Constants.EXTERNAL_DEPENDENCIES]) == len(
+                                pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
+                            self.pending.remove(pending_resource)
+                            self.add_resource(resource=pending_resource)
+
     def add_resource(self, *, resource: dict):
-        pass
+        count = resource.get(Constants.RES_COUNT, 1)
+        label = resource.get(Constants.LABEL)
 
-    @abstractmethod
+        if count < 1:
+            self.logger.info(f"Skipping {label}. slices_name={self.name}: count={count}")
+            return
+        elif len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
+            self.logger.info(f"Adding  {label} to pending. slice_name={self.name}")
+            assert resource not in self.pending, f"Did not expect {label} to be in pending list"
+            self.pending.append(resource)
+            return
+
+        try:
+            self.do_add_resource(resource=resource)
+            self.added.append(label)
+        except Exception as e:
+            label = resource.get(Constants.LABEL)
+
+            self.failed[label] = 'ADD'
+            raise e
+
     def create_resource(self, *, resource: dict):
+        label = resource.get(Constants.LABEL)
+
+        if label in self.added:
+            try:
+                self.do_create_resource(resource=resource)
+            except Exception as e:
+                self.failed[label] = 'CREATE'
+                raise e
+
+    def delete_resource(self, *, resource: dict):
+        try:
+            self.do_delete_resource(resource=resource)
+        except Exception as e:
+            label = resource.get(Constants.LABEL)
+
+            self.failed[label] = 'DELETE'
+            raise e
+
+    @abstractmethod
+    def do_add_resource(self, *, resource: dict):
         pass
 
     @abstractmethod
-    def delete_resource(self, *, resource: dict):
+    def do_create_resource(self, *, resource: dict):
+        pass
+
+    @abstractmethod
+    def do_delete_resource(self, *, resource: dict):
         pass
 
     @property
@@ -191,8 +242,9 @@ class Slice(ABC):
         net_states = []
 
         for net in self.networks:
-            attributes = vars(net)
+            attributes = vars(net).copy()
             attributes.pop('logger', None)
+            attributes.pop('label')
             attributes = {key: value for key, value in attributes.items() if not key.startswith('_')}
             net_state = NetworkState(label=net.label, attributes=attributes)
             net_states.append(net_state)
@@ -200,8 +252,9 @@ class Slice(ABC):
         node_states = []
 
         for node in self.nodes:
-            attributes = vars(node)
+            attributes = vars(node).copy()
             attributes.pop('logger', None)
+            attributes.pop('label')
             attributes = {key: value for key, value in attributes.items() if not key.startswith('_')}
             node_state = NodeState(label=node.label, attributes=attributes)
             node_states.append(node_state)
@@ -213,7 +266,7 @@ class Slice(ABC):
             copy = {}
 
             for key, value in resource.items():
-                if key == 'dependencies' or key == 'resolved_dependencies':  # TODO Add to Yaml dumper/loader
+                if key in [Constants.EXTERNAL_DEPENDENCIES, Constants.RESOLVED_EXTERNAL_DEPENDENCIES]:
                     continue
 
                 if isinstance(value, DependencyInfo):  # TODO Add Yaml dumper/loader to parser.DependencyInfo
@@ -223,4 +276,4 @@ class Slice(ABC):
 
             pending.append(copy)
 
-        return SliceState(self.label, dict(name=self.name), net_states, node_states, pending)
+        return SliceState(self.label, dict(name=self.name), net_states, node_states, pending, self.failed)

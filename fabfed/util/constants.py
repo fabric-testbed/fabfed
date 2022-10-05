@@ -35,3 +35,6 @@ class Constants:
     PROPERTY_CONF_LOG_RETAIN = 'log-retain'
     PROPERTY_CONF_LOG_SIZE = 'log-size'
     PROPERTY_CONF_LOGGER = "logger"
+
+    EXTERNAL_DEPENDENCIES = "external_dependencies"
+    RESOLVED_EXTERNAL_DEPENDENCIES = "resolved_external_dependencies"

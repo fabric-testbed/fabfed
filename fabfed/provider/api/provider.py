@@ -56,35 +56,24 @@ class Provider(ABC):
 
     def add_resource(self, *, resource: dict, slice_name: str):
         self.logger.debug(f"Provider {self.name} calling slice.add {slice_name}")
-        self.logger.info(f"Adding {resource['name_prefix']} to {slice_name}")
-
-        from fabfed.util.constants import Constants
-        count = resource.get(Constants.RES_COUNT, 1)
-
-        if count < 1:
-            self.logger.debug(f"Skipping {resource} to {slice_name} {count}")
-            return
 
         slice_object = self.slices[slice_name]
 
         try:
             slice_object.add_resource(resource=resource)
         except Exception as e:
-            # slice_object.pending.append(resource)
             raise e
 
     def create_resource(self, *, resource: dict, slice_name: str):
         """
         This call will be called for every resource
         """
-
         self.logger.debug(f"Provider {self.name} calling slice.create {slice_name}")
+
         slice_object = self.slices[slice_name]
         try:
             slice_object.create_resource(resource=resource)
         except Exception as e:
-            # if resource not in slice_object.pending:
-            #     slice_object.pending.append(resource)
             raise e
 
     def delete_resource(self, *, resource: dict, slice_name: str):
