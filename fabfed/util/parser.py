@@ -70,32 +70,22 @@ class ProviderConfig(BaseConfig):
         super().__init__(type, name, attrs)
 
 
-class SliceConfig(BaseConfig):
-    def __init__(self, type: str, name: str, attrs: Dict, provider: ProviderConfig):
-        super().__init__(type, name, attrs)
-        self._provider = provider
-
-    @property
-    def provider(self) -> ProviderConfig:
-        return self._provider
-
-
 DependencyInfo = namedtuple("DependencyInfo", "resource  attribute")
 
 Dependency = namedtuple("Dependency", "key resource  attribute, is_external")
 
 
 class ResourceConfig(BaseConfig):
-    def __init__(self, type: str, name: str, attrs:  Dict, slize: SliceConfig):
+    def __init__(self, type: str, name: str, attrs:  Dict, provider: ProviderConfig):
         super().__init__(type, name, attrs)
-        assert slize, f"slice is required for {name}"
-        assert isinstance(slize, SliceConfig), f"expected SliceConfig for {name}"
-        self._slice = slize
+        assert provider, f"provider is required for {name}"
+        assert isinstance(provider, ProviderConfig), f"expected SliceConfig for {name}"
+        self._provider = provider
         self._resource_dependencies = set()
 
     @property
-    def slice(self) -> SliceConfig:
-        return self._slice
+    def provider(self) -> ProviderConfig:
+        return self._provider
 
     @property
     def dependencies(self) -> Set[Dependency]:
@@ -115,43 +105,24 @@ class ResourceConfig(BaseConfig):
     def is_network(self):
         return self.type == 'network'
 
-    @property
-    def provider(self):
-        return self.slice.provider
 
-
-def slice_from_basic_config(basic_config) -> SliceConfig:
+def resource_from_basic_config(basic_config, providers) -> ResourceConfig:
     attrs = basic_config.attributes.copy()
 
     if 'provider' not in attrs:
-        raise ParseConfigException(f"slice missing provider {basic_config.var_name}")
+        raise ParseConfigException(f"resource missing provider {basic_config.var_name}")
 
     provider = attrs.pop('provider')
 
-    if not isinstance(provider, ProviderConfig):
-        raise ParseConfigException(f"malformed provider config  for {basic_config.var_name}")
+    if not provider:
+        raise ParseConfigException(f"missing provider while parsing {basic_config}")
 
-    return SliceConfig(basic_config.type, basic_config.var_name, attrs, provider)
-
-
-def resource_from_basic_config(basic_config, slices) -> ResourceConfig:
-    attrs = basic_config.attributes.copy()
-
-    if 'slice' not in attrs:
-        raise ParseConfigException(f"resource missing slice {basic_config.var_name}")
-
-    temp = attrs.pop('slice')
-    temp_provider = temp.attributes.get('provider', None)
-
-    if not temp_provider:
-        raise ParseConfigException(f"slice {temp} missing provider while parsing {basic_config}")
-
-    index = slices.index(SliceConfig(temp.type, temp.var_name, {}, temp_provider))
+    index = providers.index(ProviderConfig(provider.type, provider.var_name, {}))
 
     if index < 0:
-        raise ParseConfigException(f"did not find slice {temp.var_name} for {basic_config}")
+        raise ParseConfigException(f"did not find provider {provider.var_name} for {basic_config}")
 
-    return ResourceConfig(basic_config.type, basic_config.var_name, attrs, slices[index])
+    return ResourceConfig(basic_config.type, basic_config.var_name, attrs, provider)
 
 
 class VariableEvaluator:
@@ -232,6 +203,7 @@ class Evaluator:
             raise ParseConfigException(f"bad dependency {path}")
 
         for config_entry in config_entries:
+            # TODO CHECK IF THIS IS A PROVIDER CONFIG INSTEAD ...
             if config_entry.type == parts[0] and config_entry.var_name == parts[1]:
                 if config_entry.type == 'node' or config_entry.type == 'network':
                     return DependencyInfo(resource=config_entry, attribute='.'.join(parts[2:]))
@@ -279,19 +251,20 @@ class Evaluator:
 
 
 class ResourceDependencyEvaluator:
-    def __init__(self, resources: List[ResourceConfig], slices: List[SliceConfig]):
+    # AES
+    def __init__(self, resources: List[ResourceConfig], providers: List[ProviderConfig]):
         self.resources = resources
-        self.slices = slices
+        self.providers = providers
         self.dependency_map: Dict[ResourceConfig, Set[ResourceConfig]] = {}
 
     def _find_resource(self, basic_config):
-        index = self.resources.index(resource_from_basic_config(basic_config, self.slices))
+        index = self.resources.index(resource_from_basic_config(basic_config, self.providers))
         assert index >= 0, "expected to find resource in list"
         return self.resources[index]
 
     def add_dependency(self, res: ResourceConfig, key: str, dependency_info: DependencyInfo):
         found = self._find_resource(dependency_info.resource)
-        is_external = res.slice.label != found.slice.label
+        is_external = res.provider.label != found.provider.label
         temp = Dependency(key=key, resource=found, attribute=dependency_info.attribute, is_external=is_external)
         res.add_dependency(temp)
         self.dependency_map[res].add(found)
@@ -426,20 +399,11 @@ class Parser:
         return ProviderConfig(type, name, attributes)
 
     @staticmethod
-    def _filter_slices(base_configs) -> List[SliceConfig]:
-        slices = []
-
-        for base_config in filter(lambda r: r.type == 'slice', base_configs):
-            slices.append(slice_from_basic_config(base_config))
-
-        return slices
-
-    @staticmethod
-    def _filter_resources(base_configs, slices) -> List[ResourceConfig]:
+    def _filter_resources(base_configs, providers) -> List[ResourceConfig]:
         resources = []
 
-        for basic_config in filter(lambda r: r.type != 'slice', base_configs):
-            resources.append(resource_from_basic_config(basic_config, slices))
+        for base_config in base_configs:
+            resources.append(resource_from_basic_config(base_config, providers))
 
         return resources
 
@@ -461,20 +425,16 @@ class Parser:
             raise ParseConfigException(f'detected duplicate providers')
 
     @staticmethod
-    def _validate_slices(slices: List[SliceConfig]):
-        if len(slices) == 0:
-            raise ParseConfigException("no slices found ...")
-
-        if len(slices) != len(set(slices)):
-            raise ParseConfigException(f'detected duplicate slices')
-
-    @staticmethod
     def _validate_resources(resources: List[ResourceConfig]):
         if len(resources) == 0:
             raise ParseConfigException("no resources found ...")
 
         if len(resources) != len(set(resources)):
             raise ParseConfigException(f'detected duplicate  resources')
+
+        for resource in resources:
+            if resource.type not in ['node', 'network']:
+                raise ParseConfigException(f'not expecting a resource type {resource.type}')
 
     @staticmethod
     def parse_variables(ns_list: list, var_dict: dict) -> List[Variable]:
@@ -523,28 +483,25 @@ class Parser:
     @staticmethod
     def parse(*, dir_path=None,
               content=None,
-              var_dict=None) -> Tuple[List[ProviderConfig], List[SliceConfig], List[ResourceConfig]]:
+              var_dict=None) -> Tuple[List[ProviderConfig], List[ResourceConfig]]:
 
         from .utils import load_as_ns_from_yaml
 
         ns_list = load_as_ns_from_yaml(dir_path=dir_path, content=content)
         variables = Parser.parse_variables(ns_list, var_dict)
         providers = Parser.parse_providers(ns_list)
+
         resource_base_configs = Parser.parse_resource_base_configs(ns_list)
 
         variable_evaluator = VariableEvaluator(variables, providers, resource_base_configs)
         providers, resource_configs = variable_evaluator.evaluate()
+
         evaluator = Evaluator(providers, resource_base_configs)
         providers, resource_configs = evaluator.evaluate()
-
-        slices = Parser._filter_slices(resource_configs)
-        Parser._validate_slices(slices)
-
-        resources = Parser._filter_resources(resource_configs, slices)
+        resources = Parser._filter_resources(resource_configs, providers)
         Parser._validate_resources(resources)
 
-        dependency_evaluator = ResourceDependencyEvaluator(resources, slices)
+        dependency_evaluator = ResourceDependencyEvaluator(resources, providers)
         dependency_map = dependency_evaluator.evaluate()
         ordered_resources = order_resources(dependency_map)
-
-        return providers, slices, ordered_resources
+        return providers, ordered_resources

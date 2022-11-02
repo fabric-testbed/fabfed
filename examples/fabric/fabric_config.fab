@@ -1,8 +1,6 @@
 variable:
   - fabric_site:
       - default: STAR
-  - slice_name:
-      - default:
 
 provider:
   - fabric:
@@ -11,13 +9,9 @@ provider:
          profile: fabric
 
 resource:
-  - slice:
-      - fabric_slice:
-          - provider: '{{ fabric.fabric_provider }}'
-            name: '{{ var.slice_name }}'
   - node:
       - fabric_node:
-          - slice:  '{{ slice.fabric_slice }}'
+          - provider:  '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}' 
             count: 1
             image: default_rocky_8
