@@ -34,14 +34,14 @@ def provider_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) 
     return ProviderState(**loader.construct_mapping(node))
 
 
-def provider_representer(dumper: yaml.SafeDumper, slice_state: ProviderState) -> yaml.nodes.MappingNode:
+def provider_representer(dumper: yaml.SafeDumper, provider_state: ProviderState) -> yaml.nodes.MappingNode:
     return dumper.represent_mapping("!ProviderState", {
-        "label": slice_state.label,
-        "attributes": slice_state.attributes,
-        "network_states": slice_state.network_states,
-        "node_states": slice_state.node_states,
-        "pending": slice_state.pending,
-        "failed": slice_state.failed
+        "label": provider_state.label,
+        "attributes": provider_state.attributes,
+        "network_states": provider_state.network_states,
+        "node_states": provider_state.node_states,
+        "pending": provider_state.pending,
+        "failed": provider_state.failed
     })
 
 
