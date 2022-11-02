@@ -6,17 +6,23 @@ class ProviderFactory:
     def __init__(self):
         self._providers: Dict[str, Provider] = {}
 
-    def init_provider(self, *, type: str, label: str, attributes, logger):
+    def init_provider(self, *, type: str, label: str, name: str, attributes, logger):
         if type == 'fabric':
             from fabfed.provider.fabric.fabric_provider import FabricProvider
 
-            provider = FabricProvider(type=type, name=label, logger=logger, config=attributes)
+            provider = FabricProvider(type=type, label=label, name=name, logger=logger, config=attributes)
             provider.setup_environment()
             self._providers[label] = provider
         elif type == 'chi':
             from fabfed.provider.chi.chi_provider import ChiProvider
 
-            provider = ChiProvider(type=type, name=label, logger=logger, config=attributes)
+            provider = ChiProvider(type=type, label=label, name=name, logger=logger, config=attributes)
+            self._providers[label] = provider
+        elif type == 'sense':
+            from fabfed.provider.sense.sense_provider import SenseProvider
+
+            provider = SenseProvider(type=type, label=label, name=name, logger=logger, config=attributes)
+            provider.setup_environment()
             self._providers[label] = provider
         else:
             raise Exception(f"no provider for type {type}")

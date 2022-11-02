@@ -187,7 +187,12 @@ def load_states(friendly_name) -> List[ProviderState]:
 
     if os.path.exists(file_path):
         with open(file_path, 'r') as stream:
-            return yaml.load(stream, Loader=get_loader())
+            try:
+                return yaml.load(stream, Loader=get_loader())
+            except Exception as e:
+                from fabfed.exceptions import StateException
+
+                raise StateException(f'Exception while loading state at {file_path}:{e}')
 
     return []
 
@@ -200,4 +205,9 @@ def save_states(states: List[ProviderState], friendly_name):
     file_path = os.path.join(get_base_dir(), friendly_name + '.yml')
 
     with open(file_path, "w") as stream:
-        stream.write(yaml.dump(states, Dumper=get_dumper()))
+        try:
+            stream.write(yaml.dump(states, Dumper=get_dumper()))
+        except Exception as e:
+            from fabfed.exceptions import StateException
+
+            raise StateException(f'Exception while saving state at {file_path}:{e}')

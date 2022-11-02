@@ -1,22 +1,27 @@
 import logging
+from typing import List
 
-from fabfed.model import Slice
-from ...util.constants import Constants
+from fabfed.model import Node, Network
+from fabfed.provider.api.provider import Provider
 from .fabric_network import NetworkBuilder, FabricNetwork
 from .fabric_node import FabricNode, NodeBuilder
+from ...util.constants import Constants
 
 
-class FabricSlice(Slice):
-    def __init__(self, *, label, name: str, logger: logging.Logger):
-        super().__init__(label=label, name=name)
+class FabricSlice:
+    def __init__(self, *, provider: Provider, logger: logging.Logger):
+        self.provider = provider
         self.logger = logger
         self.notified_create = False
+        self.slice_created = False
 
+    def init(self):
         from fabrictestbed_extensions.fablib.fablib import fablib
 
         # noinspection PyBroadException
         try:
-            self.slice_object = fablib.get_slice(name=name)
+            self.slice_object = fablib.get_slice(name=self.provider.name)
+            self.logger.info(f"Found slice {self.provider.name}:state={self.slice_object.get_state()}")
         except Exception:
             self.slice_object = None
 
@@ -24,28 +29,52 @@ class FabricSlice(Slice):
             self.slice_created = True
         else:
             self.slice_created = False
-            self.slice_object = fablib.new_slice(name)
+            self.slice_object = fablib.new_slice(name=self.provider.name)
 
-    def add_network(self, resource: dict):
+    @property
+    def name(self) -> str:
+        return self.provider.name
+
+    @property
+    def failed(self):
+        return self.provider.failed
+
+    @property
+    def resource_listener(self):
+        return self.provider.resource_listener
+
+    @property
+    def nodes(self) -> List[Node]:
+        return self.provider.nodes
+
+    @property
+    def networks(self) -> List[Network]:
+        return self.provider.networks
+
+    @property
+    def pending(self):
+        return self.provider.pending
+
+    def _add_network(self, resource: dict):
         label = resource.get(Constants.LABEL)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         network_builder = NetworkBuilder(label, self.slice_object, name_prefix, resource)
         network_builder.handle_facility_port()
         interfaces = []   # TODO handle this internal dependency properly
 
-        for node in self._nodes:
+        for node in self.provider._nodes:
             interfaces.append(node.get_interfaces()[0])
 
         assert len(interfaces) > 0
         network_builder.handle_l2network(interfaces)  # This throws an exception in network_service.py
         # network_builder.handle_l3network(interfaces)
         net = network_builder.build()
-        self._networks.append(net)
+        self.provider._networks.append(net)
 
         if self.resource_listener:
-            self.resource_listener.on_added(self, self.name, vars(net))
+            self.resource_listener.on_added(source=self, provider=self, resource=net)
 
-    def add_node(self, resource: dict):
+    def _add_node(self, resource: dict):
         node_count = resource.get(Constants.RES_COUNT, 1)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         nic_model = resource.get(Constants.RES_NIC_MODEL, 'NIC_Basic')
@@ -56,12 +85,12 @@ class FabricSlice(Slice):
             node_builder = NodeBuilder(label, self.slice_object, name, resource)
             node_builder.add_component(model=nic_model, name="nic1")
             node = node_builder.build()
-            self._nodes.append(node)
+            self.nodes.append(node)
 
             if self.resource_listener:
-                self.resource_listener.on_added(self, self.name, vars(node))
+                self.resource_listener.on_added(source=self, provider=self, resource=node)
 
-    def do_add_resource(self, *, resource: dict):
+    def add_resource(self, *, resource: dict):
         # TODO we need to handle modified config after slice has been created. now exception will be thrown
         if self.slice_created:
             rtype = resource.get(Constants.RES_TYPE)
@@ -74,11 +103,11 @@ class FabricSlice(Slice):
                 for i in range(node_count):
                     name = f"{name_prefix}{i}"
                     delegate = self.slice_object.get_node(name)
-                    fabric_node = FabricNode(label=label, delegate=delegate)
-                    self._nodes.append(fabric_node)
+                    node = FabricNode(label=label, delegate=delegate)
+                    self.nodes.append(node)
 
                     if self.resource_listener:
-                        self.resource_listener.on_added(self, self.name, vars(fabric_node))
+                        self.resource_listener.on_added(source=self, provider=self, resource=node)
             elif rtype == Constants.RES_TYPE_NETWORK.lower():
                 delegates = self.slice_object.get_network_services()
                 # noinspection PyTypeChecker
@@ -87,25 +116,24 @@ class FabricSlice(Slice):
                 subnet = IPv4Network(resource.get(Constants.RES_SUBNET))
                 pool_start = IPv4Address(resource.get(Constants.RES_NET_POOL_START))
                 pool_end = IPv4Address(resource.get(Constants.RES_NET_POOL_END))
-
-                fabric_network = FabricNetwork(label=label,
-                                               delegate=delegates[0],
-                                               subnet=subnet,
-                                               pool_start=pool_start,
-                                               pool_end=pool_end)
-                self._networks.append(fabric_network)
+                net = FabricNetwork(label=label,
+                                    delegate=delegates[0],
+                                    subnet=subnet,
+                                    pool_start=pool_start,
+                                    pool_end=pool_end)
+                self.provider._networks.append(net)
 
                 if self.resource_listener:
-                    self.resource_listener.on_added(self, self.name, vars(fabric_network))
+                    self.resource_listener.on_added(source=self, provider=self, resource=net)
             else:
                 raise Exception("Unknown resource ....")
             return
 
         rtype = resource.get(Constants.RES_TYPE)
         if rtype == Constants.RES_TYPE_NETWORK.lower():
-            self.add_network(resource)
+            self._add_network(resource)
         elif rtype == Constants.RES_TYPE_NODE.lower():
-            self.add_node(resource)
+            self._add_node(resource)
         else:
             raise Exception("Unknown resource ....")
 
@@ -129,9 +157,9 @@ class FabricSlice(Slice):
             self.logger.error(f"Exception occurred: {e}")
             raise e
 
-    def do_create_resource(self, *, resource: dict):
+    def create_resource(self, *, resource: dict):
         if self.failed:
-            raise Exception(str(self.failed))
+            raise Exception(f"slice {self.name} failed to create ...")
 
         if self.slice_created:
             state = self.slice_object.get_state()
@@ -143,10 +171,10 @@ class FabricSlice(Slice):
 
             if not self.notified_create and self.resource_listener:
                 for node in self.nodes:
-                    self.resource_listener.on_created(self, self.name, vars(node))
+                    self.resource_listener.on_created(source=self, provider=self, resource=node)
 
                 for net in self.networks:
-                    self.resource_listener.on_created(self, self.name, vars(net))
+                    self.resource_listener.on_created(source=self, provider=self, resource=net)
 
                 self.notified_create = True
 
@@ -165,11 +193,11 @@ class FabricSlice(Slice):
             delegate = self.slice_object.get_node(node.name)
             temp.append(FabricNode(label=node.label, delegate=delegate))
 
-        self._nodes = temp
+        self.provider._nodes = temp
 
         temp = []
 
-        for net in self._networks:
+        for net in self.provider._networks:
             delegate = self.slice_object.get_network(net.name)
             from ipaddress import IPv4Address, IPv4Network
 
@@ -180,30 +208,30 @@ class FabricSlice(Slice):
                                            pool_end=IPv4Address(net.pool_end))
             temp.append(fabric_network)
 
-        self._networks = temp
+        self.provider._networks = temp
 
         if self.networks:
             from ipaddress import IPv4Network
-            available_ips = self._networks[0].available_ips()
-            subnet = IPv4Network(self._networks[0].subnet)
-            net_name = self._networks[0].name
+            available_ips = self.networks[0].available_ips()
+            subnet = IPv4Network(self.networks[0].subnet)
+            net_name = self.networks[0].name
 
-            for node in self._nodes:
+            for node in self.nodes:
                 iface = node.get_interface(network_name=net_name)
                 node_addr = available_ips.pop(0)
                 iface.ip_addr_add(addr=node_addr, subnet=subnet)
 
         if self.resource_listener:
             for node in self.nodes:
-                self.resource_listener.on_created(self, self.name, vars(node))
+                self.resource_listener.on_created(source=self, provider=self, resource=node)
 
             for net in self.networks:
-                self.resource_listener.on_created(self, self.name, vars(net))
+                self.resource_listener.on_created(source=self, provider=self, resource=net)
 
             self.notified_create = True
 
-    def do_delete_resource(self, *, resource: dict):
+    def delete_resource(self, *, resource: dict):
         if self.slice_created:
             self.slice_object.delete()
             self.slice_created = False
-            self.logger.info(f"Destroyed slice  {self.name}")
+            self.logger.info(f"Destroyed slice  {self.name}") # TODO EMIT DELETE EVENT
