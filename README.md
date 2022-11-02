@@ -9,29 +9,24 @@ The FabFed is a Python library for a cross-testbed federation framework that (1)
 
 The FabFed code took the initial form from the Mobius API, and refactored and reinvented the slice modeling, user interface, data structure and  stitching workflows. 
 
-The example below showcases network stitching of two slices, a [chi](https://www.chameleoncloud.org/) slice and a [fabric](https://portal.fabric-testbed.net/) slice. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 17 states that the network labeled fabric_network gets its vlan from the chi_network. 
+The example below showcases network stitching across providers, a [chi](https://www.chameleoncloud.org/) provider and a [fabric](https://portal.fabric-testbed.net/) provider. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 12 states that the network labeled `fabric_network` gets its `vlan` from the `chi_network`. 
 
 - For more details, refer to fabfed's [workflow design](./docs/workflow_design.md)
 - For a complete example, refer to  [Fabric Chameleon Stitching](./examples/stitch)
 
 ```
   1 resource:
-  2   - slice:
-  3       - fabric_slice:
-  4           - provider: '{{ fabric.fabric_provider }}'
-  5   - slice:
-  6       - chi_slice:
-  7           - provider: '{{ chi.chi_provider }}'
+  2
+  3   - network:
+  4       - chi_network:
+  5           - provider: '{{ chi.chi_provider }}'
+  6             site: CHI@UC
+  7             vlans: []
   8   - network:
-  9       - chi_network:
- 10           - slice:  '{{ slice.chi_slice }}'
- 11             site: CHI@UC
- 12.            vlans: []
- 13   - network:
- 14       - fabric_network:
- 15           - slice: '{{ slice.fabric_slice }}'
- 16             site: 'STAR'
- 17             vlan: '{{ network.chi_network.vlans}}'
+  9       - fabric_network:
+ 10          - provider: '{{ fabric.fabric_provider }}'
+ 11             site: 'STAR'
+ 12             vlan: '{{ network.chi_network.vlans}}'
 ```
 
 # <a name="install"></a>Installation
