@@ -6,8 +6,9 @@ from .fabric_constants import *
 
 
 class FabricProvider(Provider):
-    def __init__(self, *, type, name, logger: logging.Logger, config: dict):
-        super().__init__(type=type, name=name, logger=logger, config=config)
+    def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
+        super().__init__(type=type, label=label, name=name, logger=logger, config=config)
+        self.slice = None
 
     def setup_environment(self):
         config = self.config
@@ -34,15 +35,23 @@ class FabricProvider(Provider):
         os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = config.get(FABRIC_SLICE_PRIVATE_KEY_LOCATION)
         os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = config.get(FABRIC_SLICE_PUBLIC_KEY_LOCATION)
 
-    def init_slice(self, *, slice_config: dict, slice_name: str):
-        self.logger.debug(f"initializing  slice {slice_name}: slice_attributes={slice_config}")
+    def _init_slice(self):
+        if not self.slice:
+            self.logger.info(f"Initializing  slice {self.name}")
 
-        if slice_name in self.slices:
-            raise Exception("provider cannot have more than one slice with same name")
+            from fabfed.provider.fabric.fabric_slice import FabricSlice
 
-        from fabfed.provider.fabric.fabric_slice import FabricSlice
+            self.slice = FabricSlice(provider=self, logger=self.logger)
+            self.slice.init()
 
-        label = slice_config.get(Constants.LABEL)
-        fabric_slice = FabricSlice(label=label, name=slice_name, logger=self.logger)
-        self.slices[slice_name] = fabric_slice
-        fabric_slice.set_resource_listener(self)
+    def do_add_resource(self, *, resource: dict):
+        self._init_slice()
+        self.slice.add_resource(resource=resource)
+
+    def do_create_resource(self, *, resource: dict):
+        self._init_slice()
+        self.slice.create_resource(resource=resource)
+
+    def do_delete_resource(self, *, resource: dict):
+        self._init_slice()
+        self.slice.delete_resource(resource=resource)

@@ -29,7 +29,7 @@ def manage_workflow(args):
             sys.exit(1)
 
         try:
-            controller.init(default_provider_factory)
+            controller.init(session=args.session, provider_factory=default_provider_factory)
         except Exception as e:
             logger.error(f"Exceptions while initializing providers  .... {e}")
             sys.exit(1)
@@ -52,10 +52,9 @@ def manage_workflow(args):
         networks = 0
 
         for state in states:
-            for slice_state in state.slice_states:
-                pending += len(slice_state.pending)
-                nodes += len(slice_state.node_states)
-                networks += len(slice_state.network_states)
+            pending += len(state.pending)
+            nodes += len(state.node_states)
+            networks += len(state.network_states)
 
         logger.info(f"nodes={nodes}, networks={networks}, pending={pending}")
         return
@@ -63,7 +62,7 @@ def manage_workflow(args):
     if args.plan:
         config = Config(dir_path=args.config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger)
-        controller.init(default_provider_factory)
+        controller.init(session=args.session, provider_factory=default_provider_factory)
         controller.plan()
         states = controller.get_states()
         utils.dump_states(states, args.json)
@@ -79,15 +78,14 @@ def manage_workflow(args):
         temp = []
 
         for provider_state in states:
-            for slice_state in provider_state.slice_states:
-                for node_state in slice_state.node_states:
-                    attributes = dict()
-                    props = ['mgmt_ip', 'username', 'site', 'state', 'id']
+            for node_state in provider_state.node_states:
+                attributes = dict()
+                props = ['mgmt_ip', 'username', 'site', 'state', 'id']
 
-                    for prop in props:
-                        attributes[prop] = node_state.attributes[prop]
-                    node_state.attributes = attributes
-                    temp.append(node_state)
+                for prop in props:
+                    attributes[prop] = node_state.attributes[prop]
+                node_state.attributes = attributes
+                temp.append(node_state)
 
         utils.dump_states(temp, args.json)
         return
@@ -99,7 +97,7 @@ def manage_workflow(args):
             if states:
                 config = Config(dir_path=args.config_dir, var_dict=var_dict)
                 controller = Controller(config=config, logger=logger)
-                controller.init(default_provider_factory)
+                controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)
         except Exception as e:
             logger.error(f"We have exceptions .... {type(e)} {e}")

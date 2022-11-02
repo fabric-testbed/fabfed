@@ -12,11 +12,11 @@ from .chi_util import LeaseHelper
 
 class ChiNetwork(Network):
     def __init__(self, *, label, name: str, site: str, project_name: str,
-                 logger: logging.Logger, slice_name: str, subnet: str, pool_start: str,
+                 logger: logging.Logger, subnet: str, pool_start: str,
                  pool_end: str, gateway: str, stitch_provider: str):
         super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
-        self.slice_name = slice_name
+        # self.slice_name = slice_name
         self.subnet = subnet
         self.pool_start = pool_start
         self.pool_end = pool_end

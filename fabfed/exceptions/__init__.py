@@ -4,5 +4,12 @@ class FabfedException(Exception):
 
 
 class ParseConfigException(FabfedException):
-    """Base class for other exceptions"""
+    pass
+
+
+class ResourceTypeNotSupported(FabfedException):
+    pass
+
+
+class StateException(FabfedException):
     pass

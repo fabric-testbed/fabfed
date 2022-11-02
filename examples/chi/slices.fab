@@ -1,5 +1,0 @@
-resource:
-  - slice:
-      - chi_slice:
-          - provider: '{{ chi.chi_provider }}'
-            name: '{{ var.slice_name }}'

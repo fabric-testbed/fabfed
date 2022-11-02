@@ -1,5 +1,6 @@
-import yaml
 from typing import Dict, List
+
+import yaml
 
 
 class BaseState:
@@ -19,41 +20,22 @@ class NodeState(BaseState):
         super().__init__("node", label, attributes)
 
 
-class SliceState(BaseState):
+class ProviderState(BaseState):
     def __init__(self, label, attributes, network_states: List[NetworkState],
                  node_states: List[NodeState], pending, failed: Dict[str, str]):
-        super().__init__("slice", label, attributes)
+        super().__init__("provider", label, attributes)
         self.network_states = network_states
         self.node_states = node_states
         self.pending = pending
         self.failed = failed
 
 
-class ProviderState(BaseState):
-    def __init__(self, type, label, attributes, slice_states: List[SliceState]):
-        super().__init__(type, label, attributes)
-        self.slice_states = slice_states
-
-
 def provider_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ProviderState:
     return ProviderState(**loader.construct_mapping(node))
 
 
-def provider_representer(dumper: yaml.SafeDumper, provider_state: ProviderState) -> yaml.nodes.MappingNode:
+def provider_representer(dumper: yaml.SafeDumper, slice_state: ProviderState) -> yaml.nodes.MappingNode:
     return dumper.represent_mapping("!ProviderState", {
-        "type": provider_state.type,
-        "label": provider_state.label,
-        "attributes": provider_state.attributes,
-        "slice_states": provider_state.slice_states
-    })
-
-
-def slice_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> SliceState:
-    return SliceState(**loader.construct_mapping(node))
-
-
-def slice_representer(dumper: yaml.SafeDumper, slice_state: SliceState) -> yaml.nodes.MappingNode:
-    return dumper.represent_mapping("!SliceState", {
         "label": slice_state.label,
         "attributes": slice_state.attributes,
         "network_states": slice_state.network_states,
@@ -87,7 +69,6 @@ def node_representer(dumper: yaml.SafeDumper, node_state: NodeState) -> yaml.nod
 
 def get_loader():
     loader = yaml.SafeLoader
-    loader.add_constructor("!SliceState", slice_constructor)
     loader.add_constructor("!NetworkState", network_constructor)
     loader.add_constructor("!ProviderState", provider_constructor)
     loader.add_constructor("!NodeState", node_constructor)
@@ -96,7 +77,6 @@ def get_loader():
 
 def get_dumper():
     safe_dumper = yaml.SafeDumper
-    safe_dumper.add_representer(SliceState, slice_representer)
     safe_dumper.add_representer(NetworkState, network_representer)
     safe_dumper.add_representer(ProviderState, provider_representer)
     safe_dumper.add_representer(NodeState, node_representer)
