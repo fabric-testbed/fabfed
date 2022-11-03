@@ -20,12 +20,18 @@ class NodeState(BaseState):
         super().__init__("node", label, attributes)
 
 
+class ServiceState(BaseState):
+    def __init__(self, *, label, attributes):
+        super().__init__("service", label, attributes)
+
+
 class ProviderState(BaseState):
     def __init__(self, label, attributes, network_states: List[NetworkState],
-                 node_states: List[NodeState], pending, failed: Dict[str, str]):
+                 node_states: List[NodeState], service_states: List[ServiceState], pending, failed: Dict[str, str]):
         super().__init__("provider", label, attributes)
         self.network_states = network_states
         self.node_states = node_states
+        self.service_states = service_states
         self.pending = pending
         self.failed = failed
 
@@ -40,6 +46,7 @@ def provider_representer(dumper: yaml.SafeDumper, provider_state: ProviderState)
         "attributes": provider_state.attributes,
         "network_states": provider_state.network_states,
         "node_states": provider_state.node_states,
+        "service_states": provider_state.service_states,
         "pending": provider_state.pending,
         "failed": provider_state.failed
     })
@@ -67,11 +74,23 @@ def node_representer(dumper: yaml.SafeDumper, node_state: NodeState) -> yaml.nod
     })
 
 
+def service_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ServiceState:
+    return ServiceState(**loader.construct_mapping(node))
+
+
+def service_representer(dumper: yaml.SafeDumper, service_state: ServiceState) -> yaml.nodes.MappingNode:
+    return dumper.represent_mapping("!ServiceState", {
+        "label": service_state.label,
+        "attributes": service_state.attributes
+    })
+
+
 def get_loader():
     loader = yaml.SafeLoader
     loader.add_constructor("!NetworkState", network_constructor)
     loader.add_constructor("!ProviderState", provider_constructor)
     loader.add_constructor("!NodeState", node_constructor)
+    loader.add_constructor("!ServiceState", service_constructor)
     return loader
 
 
@@ -80,4 +99,5 @@ def get_dumper():
     safe_dumper.add_representer(NetworkState, network_representer)
     safe_dumper.add_representer(ProviderState, provider_representer)
     safe_dumper.add_representer(NodeState, node_representer)
+    safe_dumper.add_representer(ServiceState, service_representer)
     return safe_dumper

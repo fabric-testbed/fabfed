@@ -16,9 +16,11 @@ class Controller:
 
     def init(self, *, session: str, provider_factory: ProviderFactory):
         for provider_config in self.config.get_provider_config():
+            name = provider_config.attributes.get('name')
+            name = f"{session}-{name}" if name else session
             provider_factory.init_provider(type=provider_config.type,
                                            label=provider_config.label,
-                                           name=session,
+                                           name=name,
                                            attributes=provider_config.attributes,
                                            logger=self.logger)
 
@@ -108,6 +110,9 @@ class Controller:
             for node_state in provider_state.node_states:
                 resource_state_map[node_state.label] = node_state
 
+            for service_state in provider_state.service_states:
+                resource_state_map[service_state.label] = service_state
+
             key = provider_state.label
             provider_resource_map[key] = list()
 
@@ -147,11 +152,13 @@ class Controller:
 
                 if remaining_resource.provider.label == provider_state.label:
                     if remaining_resource.is_network:
-                        provider_state.node_states.append(resource_state)
-                    else:
                         provider_state.network_states.append(resource_state)
+                    elif remaining_resource.is_node:
+                        provider_state.node_states.append(resource_state)
+                    elif remaining_resource.is_service:
+                        provider_state.service_states.append(resource_state)
 
-            if provider_state.node_states or provider_state.network_states:
+            if provider_state.node_states or provider_state.network_states or provider_state.service_states:
                 provider_states.append(provider_state)
 
         if exceptions:

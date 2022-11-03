@@ -58,7 +58,9 @@ class Network(ABC):
 
 
 class Service(ABC):
-    pass
+    def __init__(self, *, label, name: str):
+        self.label = label
+        self.name = name
 
 
 ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")

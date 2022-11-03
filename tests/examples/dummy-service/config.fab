@@ -1,0 +1,10 @@
+provider:
+  - dummy:
+    - my_provider:
+       - url: https://some_url:5000
+
+resource:
+  - service:
+      - dtn_service:
+         - provider: '{{ dummy.my_provider }}'
+           image: dtnaas/tools

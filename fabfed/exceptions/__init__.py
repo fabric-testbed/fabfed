@@ -13,3 +13,7 @@ class ResourceTypeNotSupported(FabfedException):
 
 class StateException(FabfedException):
     pass
+
+
+class ProviderTypeNotSupported(FabfedException):
+    pass
