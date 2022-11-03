@@ -2,20 +2,9 @@ provider:
   - dummy:
     - my_provider:
        - url: https://some_url:5000
-         name: aha 
-
-  - dummy:
-    - my_provider2:
-       - url: https://some_url:5000
-         name: coucou2
 
 resource:
   - service:
-      - dtn1:
+      - dtn:
          - provider: '{{ dummy.my_provider }}'
-           image: "{{ service.dtn2.image }}"
-
-  - service:
-      - dtn2:
-         - provider: '{{ dummy.my_provider2 }}'
            image: ubuntu
