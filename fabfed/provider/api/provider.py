@@ -126,27 +126,32 @@ class Provider(ABC):
             raise e
 
     def get_state(self) -> ProviderState:
-        from fabfed.model.state import NetworkState, NodeState
+        from fabfed.model.state import NetworkState, NodeState, ServiceState
 
         net_states = []
 
-        for net in self.networks:
-            attributes = vars(net).copy()
+        def cleanup_attrs(attrs):
+            attributes = attrs.copy()
             attributes.pop('logger', None)
             attributes.pop('label')
-            attributes = {key: value for key, value in attributes.items() if not key.startswith('_')}
-            net_state = NetworkState(label=net.label, attributes=attributes)
+            attributes = {k: v for k, v in attributes.items() if not k.startswith('_')}
+            return attributes
+
+        for net in self.networks:
+            net_state = NetworkState(label=net.label, attributes=cleanup_attrs(vars(net)))
             net_states.append(net_state)
 
         node_states = []
 
         for node in self.nodes:
-            attributes = vars(node).copy()
-            attributes.pop('logger', None)
-            attributes.pop('label')
-            attributes = {key: value for key, value in attributes.items() if not key.startswith('_')}
-            node_state = NodeState(label=node.label, attributes=attributes)
+            node_state = NodeState(label=node.label, attributes=cleanup_attrs(vars(node)))
             node_states.append(node_state)
+
+        service_states = []
+
+        for service in self.services:
+            service_state = ServiceState(label=service.label, attributes=cleanup_attrs(vars(service)))
+            service_states.append(service_state)
 
         pending = []
         from fabfed.util.parser import DependencyInfo
@@ -165,7 +170,8 @@ class Provider(ABC):
 
             pending.append(copy)
 
-        return ProviderState(self.label, dict(name=self.name), net_states, node_states, pending, self.failed)
+        return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
+                             pending, self.failed)
 
     def list_networks(self) -> list:
         from tabulate import tabulate
@@ -195,6 +201,10 @@ class Provider(ABC):
 
         return tabulate(table, headers=["ID", "Name", "Site", "Flavor", "Image",
                                         "Management IP", "State"])
+
+    @abstractmethod
+    def setup_environment(self):
+        pass
 
     @abstractmethod
     def do_add_resource(self, *, resource: dict):

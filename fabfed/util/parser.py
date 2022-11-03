@@ -1,6 +1,7 @@
 from collections import namedtuple
 from types import SimpleNamespace
 from typing import List, Tuple, Dict, Set, Any
+from .constants import Constants
 
 from fabfed.exceptions import ParseConfigException
 
@@ -99,11 +100,15 @@ class ResourceConfig(BaseConfig):
 
     @property
     def is_node(self):
-        return self.type == 'node'
+        return self.type == Constants.RES_TYPE_NODE
 
     @property
     def is_network(self):
-        return self.type == 'network'
+        return self.type == Constants.RES_TYPE_NETWORK
+
+    @property
+    def is_service(self):
+        return self.type == Constants.RES_TYPE_SERVICE
 
 
 def resource_from_basic_config(basic_config, providers) -> ResourceConfig:
@@ -424,6 +429,12 @@ class Parser:
         if len(providers) != len(set(providers)):
             raise ParseConfigException(f'detected duplicate providers')
 
+        from fabfed.exceptions import ProviderTypeNotSupported
+
+        for provider in providers:
+            if provider.type not in Constants.PROVIDER_CLASSES:
+                raise ProviderTypeNotSupported(provider.type)
+
     @staticmethod
     def _validate_resources(resources: List[ResourceConfig]):
         if len(resources) == 0:
@@ -432,9 +443,11 @@ class Parser:
         if len(resources) != len(set(resources)):
             raise ParseConfigException(f'detected duplicate  resources')
 
+        from fabfed.exceptions import ResourceTypeNotSupported
+
         for resource in resources:
-            if resource.type not in ['node', 'network']:
-                raise ParseConfigException(f'not expecting a resource type {resource.type}')
+            if resource.type not in Constants.RES_SUPPORTED_TYPES:
+                raise ResourceTypeNotSupported(resource.type)
 
     @staticmethod
     def parse_variables(ns_list: list, var_dict: dict) -> List[Variable]:

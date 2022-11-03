@@ -9,10 +9,12 @@ from .chi_constants import *
 class ChiProvider(Provider):
     def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
-        self.mappings = dict()
         self.helper = None
 
-    def setup_environment(self, *, site: str):
+    def setup_environment(self):
+        pass
+
+    def _setup_environment(self, *, site: str):
         """
         Setup the environment variables for Chameleon
         Should be invoked before any of the chi packages are imported otherwise, none of the CHI APIs work and
@@ -64,7 +66,7 @@ class ChiProvider(Provider):
 
     def do_add_resource(self, *, resource: dict):
         site = resource.get(Constants.RES_SITE)
-        self.setup_environment(site=site)
+        self._setup_environment(site=site)
         key_pair = self.config[CHI_KEY_PAIR]
         project_name = self.config[CHI_PROJECT_NAME]
         label = resource.get(Constants.LABEL)
@@ -128,7 +130,7 @@ class ChiProvider(Provider):
 
     def do_create_resource(self, *, resource: dict):
         site = resource.get(Constants.RES_SITE)
-        self.setup_environment(site=site)
+        self._setup_environment(site=site)
         label = resource.get(Constants.LABEL)
         rtype = resource.get(Constants.RES_TYPE)
 
@@ -156,7 +158,7 @@ class ChiProvider(Provider):
     # noinspection PyTypeChecker
     def do_delete_resource(self, *, resource: dict):
         site = resource.get(Constants.RES_SITE)
-        self.setup_environment(site=site)
+        self._setup_environment(site=site)
         key_pair = self.config[CHI_KEY_PAIR]
         project_name = self.config[CHI_PROJECT_NAME]
         label = resource.get(Constants.LABEL)
