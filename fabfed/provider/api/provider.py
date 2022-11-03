@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict
+
 from fabfed.model import Node, Network, Service, ResolvedDependency
 from fabfed.model.state import ProviderState
 from fabfed.util.constants import Constants
@@ -67,33 +68,47 @@ class Provider(ABC):
         for pending_resource in self.pending.copy():
             for dependency in pending_resource[Constants.EXTERNAL_DEPENDENCIES]:
                 if dependency.resource.label == resource_dict[Constants.LABEL]:
-                    value = resource_dict[dependency.attribute]
+                    try:
+                        value = resource_dict.get(dependency.attribute)
+                        label = pending_resource[Constants.LABEL]
+                        self.logger.info(
+                            f"Resolving: {dependency} for {label}: value={value} using {self.label}")
 
-                    if value:
-                        resolved_dependencies = pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
+                        if value or not dependency.attribute:
+                            resolved_dependencies = pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
 
-                        if isinstance(value, list):
-                            resolved_dependency = ResolvedDependency(attr=dependency.key, value=tuple(value))
+                            if isinstance(value, list):
+                                resolved_dependency = ResolvedDependency(attr=dependency.key, value=tuple(value))
+                            else:
+                                resolved_dependency = ResolvedDependency(attr=dependency.key, value=value)
+
+                            resolved_dependencies.append(resolved_dependency)
+                            self.logger.info(
+                                f"Resolved dependency {dependency} for {label} using {self.label}")
+
+                            if len(pending_resource[Constants.EXTERNAL_DEPENDENCIES]) == len(
+                                    pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
+                                self.pending.remove(pending_resource)
+                                self.logger.info(f"Removing {label} from pending using {self.label}")
+                                self.add_resource(resource=pending_resource)
                         else:
-                            resolved_dependency = ResolvedDependency(attr=dependency.key, value=value)
-
-                        resolved_dependencies.append(resolved_dependency)
-
-                        if len(pending_resource[Constants.EXTERNAL_DEPENDENCIES]) == len(
-                                pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
-                            self.pending.remove(pending_resource)
-                            self.add_resource(resource=pending_resource)
+                            self.logger.warning(
+                                f"Could not resolve {dependency} for {label} using {self.label}")
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Exception occurred while resolving dependency: {e} using {self.label}")
+                        self.logger.warning(e, exc_info=True)
 
     def add_resource(self, *, resource: dict):
         count = resource.get(Constants.RES_COUNT, 1)
         label = resource.get(Constants.LABEL)
 
         if count < 1:
-            self.logger.info(f"Skipping {label}. slices_name={self.name}: count={count}")
+            self.logger.info(f"Skipping {label}. using {self.label}: count={count}")
             return
         elif len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
-            self.logger.info(f"Adding  {label} to pending. slice_name={self.name}")
-            assert resource not in self.pending, f"Did not expect {label} to be in pending list"
+            self.logger.info(f"Adding  {label} to pending using {self.label}")
+            assert resource not in self.pending, f"Did not expect {label} to be in pending list using {self.label}"
             self.pending.append(resource)
             return
 

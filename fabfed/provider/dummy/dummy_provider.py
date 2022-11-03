@@ -5,6 +5,9 @@ from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 
 '''
+
+To add a provider, all you should need is to add its classpath to fabfed.util.constants.Constants.PROVIDER_CLASSES
+
 Useful Commands:
 cd tests/examples/dummy-service
 fabfed workflow --session <session> -validate
@@ -53,7 +56,7 @@ class DummyProvider(Provider):
         assert rtype
         assert label
         assert rtype in Constants.RES_SUPPORTED_TYPES
-        self.logger.info(f"Adding resource={resource}")
+        self.logger.info(f"Adding resource={resource} using {self.label}")
 
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         service_count = resource.get(Constants.RES_COUNT, 1)
@@ -76,7 +79,7 @@ class DummyProvider(Provider):
         assert rtype
         assert label
         assert rtype in Constants.RES_SUPPORTED_TYPES
-        self.logger.info(f"Creating resource={resource}")
+        self.logger.info(f"Creating resource={resource} using {self.label}")
 
         temp = [service for service in self.services if service.label == label]
 
@@ -90,7 +93,7 @@ class DummyProvider(Provider):
         assert rtype
         assert label
         assert rtype in Constants.RES_SUPPORTED_TYPES
-        self.logger.info(f"Deleting resource={resource}")
+        self.logger.info(f"Deleting resource={resource} using {self.label}")
 
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         service_count = resource.get(Constants.RES_COUNT, 1)

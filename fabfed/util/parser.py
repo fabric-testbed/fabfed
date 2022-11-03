@@ -210,7 +210,7 @@ class Evaluator:
         for config_entry in config_entries:
             # TODO CHECK IF THIS IS A PROVIDER CONFIG INSTEAD ...
             if config_entry.type == parts[0] and config_entry.var_name == parts[1]:
-                if config_entry.type == 'node' or config_entry.type == 'network':
+                if config_entry.type in Constants.RES_SUPPORTED_TYPES:
                     return DependencyInfo(resource=config_entry, attribute='.'.join(parts[2:]))
 
                 return config_entry
