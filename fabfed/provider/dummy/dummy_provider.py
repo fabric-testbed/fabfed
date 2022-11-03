@@ -8,13 +8,18 @@ from fabfed.util.constants import Constants
 
 To add a provider, all you should need is to add its classpath to fabfed.util.constants.Constants.PROVIDER_CLASSES
 
+see tests/examples/dummy-service for a simple example.
+see tests/examples/dummy-service-dependency for en example with an external dependency. (Dependency acroos providers)
+
 Useful Commands:
-cd tests/examples/dummy-service
-fabfed workflow --session <session> -validate
-fabfed workflow --session <session> -plan
-fabfed workflow --session <session> -apply
-fabfed workflow --session <session> -show
-fabfed workflow --session <session> -destroy
+see tests/examples/dummy-service  # for a simple example
+see tests/examples/dummy-service/config.fab 
+
+>fabfed workflow --session <session> -validate
+>fabfed workflow --session <session> -plan
+>fabfed workflow --session <session> -apply
+>fabfed workflow --session <session> -show
+>fabfed workflow --session <session> -destroy
 '''
 
 
@@ -61,6 +66,18 @@ class DummyProvider(Provider):
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         service_count = resource.get(Constants.RES_COUNT, 1)
         image = resource.get(Constants.RES_IMAGE)
+
+        from fabfed.util.parser import DependencyInfo
+
+        # In the simple example image is just a string but it is a DependencyInfo in the dependency example
+        # Retrieve if the image is not an str
+        if isinstance(image, DependencyInfo):
+            resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
+                                     if rd.attr == 'image']
+            assert len(resolved_dependencies) == 1
+            image = resolved_dependencies[0].value
+
+        assert isinstance(image, str)
 
         for n in range(0, service_count):
             service_name = f"{self.name}-{service_name_prefix}{n}"
