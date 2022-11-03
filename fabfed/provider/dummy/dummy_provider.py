@@ -8,8 +8,12 @@ from fabfed.util.constants import Constants
 
 To add a provider, all you should need is to add its classpath to fabfed.util.constants.Constants.PROVIDER_CLASSES
 
+
 see tests/examples/dummy-service for a simple example.
-see tests/examples/dummy-service-dependency for en example with an external dependency. (Dependency acroos providers)
+see tests/examples/dummy-service-dependency for en example with an external dependency. (Dependency across providers)
+
+This example also show how to hide attributes by using underscores and how to expose interesting attributes
+to other resources by extracting it and using yaml python supported types.
 
 Useful Commands:
 see tests/examples/dummy-service  # for a simple example
@@ -23,14 +27,30 @@ see tests/examples/dummy-service/config.fab
 '''
 
 
+class HideAttribute:
+    def __init__(self, *, x=10, y=20):
+        self.x = x
+        self.y = y
+
+
 class DummyService(Service):
-    def __init__(self, *, label, name: str, image, logger: logging.Logger):
+    def __init__(self, *, label, name: str, image, x=None, logger: logging.Logger):
         super().__init__(label=label, name=name)
         self.logger = logger
         self.image = image
+        # We hide an complex attribute by using underscores otherwise marshalling the state will fail
+        # as we do not have yaml representer for it.
+        self._hidden_attribute = HideAttribute()
+        self.exposed_attribute_x = x
 
     def create(self):
-        self.logger.info(f" Service {self.name} created")
+        import random
+
+        if not self.exposed_attribute_x:
+            self._hidden_attribute = HideAttribute(x=random.random(), y=random.random())
+            self.exposed_attribute_x = self._hidden_attribute.x
+
+        self.logger.info(f" Service {self.name} created. X={self.exposed_attribute_x}")
 
     def delete(self):
         self.logger.info(f" Service {self.name} deleted")
@@ -44,6 +64,15 @@ class DummyProvider(Provider):
     def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
 
+    def _validate_resource(self, resource: dict):
+        assert resource.get(Constants.LABEL)
+        assert resource.get(Constants.RES_TYPE) in Constants.RES_SUPPORTED_TYPES
+        assert resource.get(Constants.RES_NAME_PREFIX)
+        assert resource.get(Constants.RES_COUNT, 1)
+        assert resource.get(Constants.RES_IMAGE)
+
+        self.logger.info(f"Validated:OK Resource={resource} using {self.label}")
+
     def do_add_resource(self, *, resource: dict):
         """
         Called by add_resource(self, *, resource: dict) if resource has no external dependencies.
@@ -56,32 +85,30 @@ class DummyProvider(Provider):
         Note that external dependencies are respurce dependencies across different providers.
         @param resource: resource attributes
         """
-        rtype = resource.get(Constants.RES_TYPE)
-        label = resource.get(Constants.LABEL)
-        assert rtype
-        assert label
-        assert rtype in Constants.RES_SUPPORTED_TYPES
         self.logger.info(f"Adding resource={resource} using {self.label}")
+        self._validate_resource(resource)
 
-        service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-        service_count = resource.get(Constants.RES_COUNT, 1)
         image = resource.get(Constants.RES_IMAGE)
 
         from fabfed.util.parser import DependencyInfo
 
-        # In the simple example image is just a string but it is a DependencyInfo in the dependency example
-        # Retrieve if the image is not an str
-        if isinstance(image, DependencyInfo):
-            resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
-                                     if rd.attr == 'image']
-            assert len(resolved_dependencies) == 1
-            image = resolved_dependencies[0].value
+        exposed_attribute_x = resource.get("exposed_attribute_x")
 
-        assert isinstance(image, str)
+        # In the dependency example, exposed_attribute_x is an external dependency
+        if isinstance(exposed_attribute_x, DependencyInfo):
+            resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
+                                     if rd.attr == 'exposed_attribute_x']
+            assert len(resolved_dependencies) == 1
+            exposed_attribute_x = resolved_dependencies[0].value
+
+        label = resource.get(Constants.LABEL)
+        service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+        service_count = resource.get(Constants.RES_COUNT, 1)
 
         for n in range(0, service_count):
             service_name = f"{self.name}-{service_name_prefix}{n}"
-            service = DummyService(label=label, name=service_name, image=image, logger=self.logger)
+            service = DummyService(label=label, name=service_name, image=image,
+                                   x=exposed_attribute_x, logger=self.logger)
 
             self._services.append(service)
             self.resource_listener.on_added(source=self, provider=self, resource=service)
@@ -91,11 +118,8 @@ class DummyProvider(Provider):
         Called by add_resource(self, *, resource: dict) if resource has no external dependencies
         @param resource: resource attributes
         """
-        rtype = resource.get(Constants.RES_TYPE)
         label = resource.get(Constants.LABEL)
-        assert rtype
-        assert label
-        assert rtype in Constants.RES_SUPPORTED_TYPES
+
         self.logger.info(f"Creating resource={resource} using {self.label}")
 
         temp = [service for service in self.services if service.label == label]
@@ -105,13 +129,9 @@ class DummyProvider(Provider):
             self.resource_listener.on_created(source=self, provider=self, resource=service)
 
     def do_delete_resource(self, *, resource: dict):
-        rtype = resource.get(Constants.RES_TYPE)
-        label = resource.get(Constants.LABEL)
-        assert rtype
-        assert label
-        assert rtype in Constants.RES_SUPPORTED_TYPES
         self.logger.info(f"Deleting resource={resource} using {self.label}")
 
+        label = resource.get(Constants.LABEL)
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         service_count = resource.get(Constants.RES_COUNT, 1)
         image = resource.get(Constants.RES_IMAGE)
