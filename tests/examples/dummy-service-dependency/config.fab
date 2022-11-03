@@ -6,14 +6,16 @@ provider:
 
   - dummy:
     - my_provider2:
-       - url: https://some_url:5000
+       - url: https://some_other_url:5000
          name: prov2 
 
 resource:
   - service:
       - dtn1:
          - provider: '{{ dummy.my_provider }}'
-           image: "{{ service.dtn2.image }}"
+           image: "centos"
+           exposed_attribute_x: "{{ service.dtn2.exposed_attribute_x }}"
+           
 
   - service:
       - dtn2:
