@@ -69,12 +69,12 @@ class Provider(ABC):
             for dependency in pending_resource[Constants.EXTERNAL_DEPENDENCIES]:
                 if dependency.resource.label == resource_dict[Constants.LABEL]:
                     try:
-                        value = resource_dict.get(dependency.attribute)
+                        value = resource if not dependency.attribute else resource_dict.get(dependency.attribute)
                         label = pending_resource[Constants.LABEL]
                         self.logger.info(
                             f"Resolving: {dependency} for {label}: value={value} using {self.label}")
 
-                        if value or not dependency.attribute:
+                        if value:
                             resolved_dependencies = pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
 
                             if isinstance(value, list):
