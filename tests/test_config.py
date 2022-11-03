@@ -1,5 +1,6 @@
 from fabfed.util.parser import Parser, DependencyInfo
 from fabfed.exceptions import ParseConfigException
+from fabfed.exceptions import ResourceTypeNotSupported
 import pytest
 
 
@@ -8,13 +9,13 @@ def test_malformed_node():
 resource:
   - node:
       - my_node:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 2
       - my_node2:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 2
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
     '''
@@ -28,14 +29,14 @@ def test_no_nodes_and_no_networks():
 resource:
   - no_type:
       - my_no_type:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
     '''
 
-    with pytest.raises(ParseConfigException):
+    with pytest.raises(ResourceTypeNotSupported):
         Parser.parse(content=yaml_str)
 
 
@@ -46,7 +47,7 @@ resource:
       - my_node:
             - count: 2
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
     '''
@@ -60,10 +61,10 @@ def test_no_provider_node():
 resource:
   - node:
       - my_node:
-            - no_provider: '{{ prov1.my_provider }}'
+            - no_provider: '{{ fabric.my_provider }}'
             
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
     '''
@@ -75,10 +76,10 @@ provider:
 def test_duplicate_providers():
     yaml_str = '''
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user2
     '''
@@ -92,14 +93,14 @@ def test_duplicate_nodes():
 resource:
   - node:
       - my_node:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 2
   - node:
       - my_node:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 5
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
     '''
@@ -113,17 +114,17 @@ def test_duplicate_node_across_providers():
 resource:
   - node:
       - my_node:
-          - provider: '{{ prov1.my_provider1 }}'
+          - provider: '{{ fabric.my_provider1 }}'
             count: 2
   - node:
       - my_node:
-          - provider: '{{ prov2.my_provider2 }}' 
+          - provider: '{{ chi.my_provider2 }}' 
           
 provider:
-  - prov1:
+  - fabric:
     - my_provider1:
        - user: user1
-  - prov2:
+  - chi:
     - my_provider2:
        - user: user1
     '''
@@ -137,17 +138,17 @@ def test_duplicate_networks_across_slices():
 resource:
   - network:
       - my_net:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 2
   - network:
       - my_net:
-          - provider: '{{ prov2.my_provider2 }}'
+          - provider: '{{ chi.my_provider2 }}'
 
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
-  - prov2:
+  - chi:
     - my_provider2:
        - user: user2
     '''
@@ -161,16 +162,16 @@ def test_duplicate_across_types():
 resource:
   - node:
       - my_var:
-          - provider: '{{ prov1.my_var }}'
+          - provider: '{{ fabric.my_var }}'
             count: 2
   - network:
       - my_var:
-          - provider: '{{ prov2.my_provider2 }}'
+          - provider: '{{ chi.my_provider2 }}'
 provider:
-  - prov1:
+  - fabric:
     - my_var:
        - user: user1
-  - prov2:
+  - chi:
     - my_provider2:
        - user: user1
     '''
@@ -183,7 +184,7 @@ def test_different_types():
 resource:
   - node:
       - my_node:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 1
             up: True
             vlans: [1, 2]
@@ -192,7 +193,7 @@ resource:
               ip:
                 - interface: eth0
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
         '''
@@ -204,13 +205,13 @@ provider:
 def test_missing_variable():
     yaml_str = '''
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: '{{ var.user_name }}'
 resource:
   - node:
       - my_node:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
     '''
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
@@ -224,7 +225,7 @@ variable:
   - slice_name:
       - default: "user10"
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: "some_user"
 resource:
@@ -233,7 +234,7 @@ resource:
           - slice:  '{{ slice.my_slice }}'
   - slice:
       - my_slice:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
     '''
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
@@ -253,7 +254,7 @@ variable:
   - vlan:
 
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: '{{ var.user_name }}'
          name: '{{ var.provider_name }}'
@@ -261,7 +262,7 @@ provider:
 resource:
   - node:
       - my_node:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
             ports:  '{{ var.open_ports }}'
             vlan:   '{{ var.vlan }}'
             groups: '{{ var.groups }}'
@@ -285,7 +286,7 @@ def test_dependencies():
 resource:
   - node:
       - my_node:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
             simple_attr: '{{ network.my_network.vlan }}'
             list_attr:  [ '{{ network.my_network.ip }}', '{{ network.my_network.port }}']
             complex_attr:
@@ -294,9 +295,9 @@ resource:
                 - interface: '{{ network.my_network.os_interface.mask }}'
   - network:
       - my_network:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
     '''

@@ -50,13 +50,17 @@ def manage_workflow(args):
         pending = 0
         nodes = 0
         networks = 0
+        services = 0
+        failed = 0
 
         for state in states:
             pending += len(state.pending)
             nodes += len(state.node_states)
             networks += len(state.network_states)
+            services += len(state.service_states)
+            failed += len(state.failed)
 
-        logger.info(f"nodes={nodes}, networks={networks}, pending={pending}")
+        logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
         return
 
     if args.plan:
