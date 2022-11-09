@@ -17,5 +17,5 @@ resource:
             subnet: "192.168.100.0/24"
             pool_start: 192.168.100.200
             pool_end: 192.168.100.250
-            vlan: '{{ network.chi_network.vlans}}'
-            interface: '{{ node.fabric_node.interfaces }}'
+            vlan: '{{ network.chi_network }}'
+            interface: '{{ node.fabric_node }}'
