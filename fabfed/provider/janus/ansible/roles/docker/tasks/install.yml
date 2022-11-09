@@ -1,0 +1,77 @@
+---
+
+- name: install Ubuntu docker-ce dependencies
+  block:
+    - name: install gpg
+      apt:
+        name: gpg
+        state: present
+
+    - name: add docker gpg key (Ubuntu)
+      apt_key:
+        url: https://dispense.es.net/docker/linux/ubuntu/gpg
+        state: present
+
+    - name: add docker-ce repository (Ubuntu)
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu "{{ ansible_distribution_release }}" stable
+        state: present
+        filename: docker
+
+    - name: update apt cache (Ubuntu)
+      apt:
+        update_cache: true
+  when: ansible_distribution == 'Ubuntu'
+
+- name: install CentOS docker-ce dependencies
+  block:
+    - name: ensure old docker packages are removed (CentOS)
+      package:
+        name: "{{ item }}"
+        state: absent
+      with_items: "{{ packages_to_remove }}"
+
+    - name: add docker-ce repository (CentOS)
+      yum_repository:
+        name: docker-ce
+        description: Docker CE Stable - $basearch
+        baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/stable
+        enabled: true
+        gpgcheck: true
+        gpgkey: https://download.docker.com/linux/centos/gpg
+
+    - name: update yum (CentOS)
+      yum:
+        update_only: true
+        update_cache: true
+  when: ansible_distribution in [ 'CentOS', 'Rocky' ]
+
+- name: install Debian docker-ce dependencies
+  block:
+    - name: add docker gpg key (debian)
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+
+    - name: add docker-ce repository (debian)
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian "{{ ansible_distribution_release }}" stable
+        state: present
+        filename: docker
+
+    - name: update apt cache (debian)
+      apt:
+        update_cache: true
+  when: ansible_distribution == 'Debian'
+
+- name: install packages
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ packages }}"
+
+- name: enable and start docker service
+  service:
+    name: docker
+    enabled: true
+    state: started
