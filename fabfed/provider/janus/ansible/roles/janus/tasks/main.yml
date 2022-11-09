@@ -1,0 +1,23 @@
+---
+- name: set ipv6 facts
+  set_fact:
+    ipv6_registry: "{{ 'registry.ipv6.docker.com/' if not inventory_hostname|ansible.utils.ipv4 else '' }}"
+
+- name: apply compose template
+  template:
+    src: files/node-compose.yml.j2
+    dest: /tmp/node-compose.yml
+
+- name: run containers via compose
+  become: True
+  shell:
+    cmd: "docker compose -f node-compose.yml up -d"
+    chdir: /tmp
+
+# Not working with compose v2 (docker-compose-plugin)
+# https://github.com/ansible-collections/community.docker/issues/216
+#- name: compose time
+#  docker_compose:
+#    project_src: /tmp
+#    files:
+#      - node-compose.yml
