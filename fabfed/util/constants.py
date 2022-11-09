@@ -50,5 +50,6 @@ class Constants:
         "fabric": "fabfed.provider.fabric.fabric_provider.FabricProvider",
         "chi": "fabfed.provider.chi.chi_provider.ChiProvider",
         "sense": "fabfed.provider.sense.sense_provider.SenseProvider",
+        "janus": "fabfed.provider.janus.janus_provider.JanusProvider",
         "dummy": "fabfed.provider.dummy.dummy_provider.DummyProvider"
     }
