@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+from fabfed.exceptions import ControllerException
 from fabfed.model.state import ProviderState
 from fabfed.util.config import Config
 from .helper import ControllerResourceListener
@@ -38,13 +39,16 @@ class Controller:
             resource_dict[Constants.RES_TYPE] = resource.type
             resource_dict[Constants.RES_NAME_PREFIX] = resource.name
             resource_dict[Constants.LABEL] = resource.label
-            resource_dict['has_dependencies'] = resource.has_dependencies()  # TODO: Fix Controller test and remove this
-            external_dependencies = resource_dict[Constants.EXTERNAL_DEPENDENCIES] = list()
+            resource_dict[Constants.EXTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.RESOLVED_EXTERNAL_DEPENDENCIES] = list()
+            resource_dict[Constants.INTERNAL_DEPENDENCIES] = list()
+            resource_dict[Constants.RESOLVED_INTERNAL_DEPENDENCIES] = list()
 
             for dependency in resource.dependencies:
                 if dependency.is_external:
-                    external_dependencies.append(dependency)
+                    resource_dict[Constants.EXTERNAL_DEPENDENCIES].append(dependency)
+                else:
+                    resource_dict[Constants.INTERNAL_DEPENDENCIES].append(dependency)
 
             if resource.is_network:
                 resource.attributes[Constants.RES_NET_STITCH_PROVS] = list()
@@ -69,13 +73,11 @@ class Controller:
             try:
                 provider.add_resource(resource=resource.attributes)
             except Exception as e:
-                self.logger.warning(
-                    f"Exception occurred while adding resource: {e} using {label}/{resource.name}")
                 exceptions.append(e)
-                self.logger.warning(e, exc_info=True)
+                self.logger.error(e, exc_info=True)
 
         if exceptions:
-            raise exceptions[0]
+            raise ControllerException(exceptions)
 
     def create(self):
         resources = self.config.get_resource_config()
@@ -90,13 +92,11 @@ class Controller:
             try:
                 provider.create_resource(resource=resource.attributes)
             except Exception as e:
-                self.logger.warning(
-                    f"Exception occurred while creating resource: {e} using {label}/{resource.provider.name}")
                 exceptions.append(e)
-                self.logger.warning(e, exc_info=True)
+                self.logger.error(e, exc_info=True)
 
         if exceptions:
-            raise exceptions[0]
+            raise ControllerException(exceptions)
 
     def delete(self, *, provider_states: List[ProviderState]):
         exceptions = []
@@ -144,6 +144,7 @@ class Controller:
         for provider_state in provider_states_copy:
             provider_state.node_states.clear()
             provider_state.network_states.clear()
+            provider_state.service_states.clear()
             provider = self.provider_factory.get_provider(label=provider_state.label)
             provider_state.failed = provider.failed
 
@@ -162,7 +163,7 @@ class Controller:
                 provider_states.append(provider_state)
 
         if exceptions:
-            raise exceptions[0]
+            raise ControllerException(exceptions)
 
     def get_states(self) -> List[ProviderState]:
         provider_states = []

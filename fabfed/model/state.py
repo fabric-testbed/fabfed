@@ -2,6 +2,9 @@ from typing import Dict, List
 
 import yaml
 
+from fabfed.util.parser import DependencyInfo, ResourceConfig, ProviderConfig, BaseConfig, Dependency
+from fabfed.model import ResolvedDependency
+
 
 class BaseState:
     def __init__(self, type: str, label: str, attributes: Dict):
@@ -74,6 +77,43 @@ def node_representer(dumper: yaml.SafeDumper, node_state: NodeState) -> yaml.nod
     })
 
 
+def base_config_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> BaseConfig:
+    return BaseConfig(**loader.construct_mapping(node))
+
+
+def base_config_representer(dumper: yaml.SafeDumper, base_config: BaseConfig) -> yaml.nodes.MappingNode:
+    return dumper.represent_mapping("!BaseConfig", {
+        "type": base_config.type,
+        "name": base_config.name,
+        "attrs": base_config.attributes
+    })
+
+
+def provider_config_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ProviderConfig:
+    return ProviderConfig(**loader.construct_mapping(node))
+
+
+def provider_config_representer(dumper: yaml.SafeDumper, provider_config: ProviderConfig) -> yaml.nodes.MappingNode:
+    return dumper.represent_mapping("!ProviderConfig", {
+        "type": provider_config.type,
+        "name": provider_config.var_name,
+        "attrs": provider_config.attributes
+    })
+
+
+def resource_config_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ResourceConfig:
+    return ResourceConfig(**loader.construct_mapping(node))
+
+
+def resource_config_representer(dumper: yaml.SafeDumper, resource_config: ResourceConfig) -> yaml.nodes.MappingNode:
+    return dumper.represent_mapping("!ResourceConfig", {
+        "type": resource_config.type,
+        "name": resource_config.var_name,
+        "attrs": resource_config.attributes,
+        "provider": resource_config.provider
+    })
+
+
 def service_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ServiceState:
     return ServiceState(**loader.construct_mapping(node))
 
@@ -85,12 +125,37 @@ def service_representer(dumper: yaml.SafeDumper, service_state: ServiceState) ->
     })
 
 
+def named_tuple(self, data):
+    if hasattr(data, '_asdict'):
+        if isinstance(data, DependencyInfo):
+            data = dict(dependency_info=dict(resource=str(data.resource),
+                                             attribute=data.attribute))
+        elif isinstance(data, Dependency):
+            data = dict(dependency=dict(resource=str(data.resource),
+                                        key=data.key,
+                                        is_external=data.is_external,
+                                        attribute=data.attribute))
+        elif isinstance(data, ResolvedDependency):
+            data = dict(resolved_dependency=dict(resource_label=data.resource_label,
+                                                 attribute=data.attr,
+                                                 value=str(data.value)))
+        else:
+            data = data._asdict()
+
+        return self.represent_dict(data)
+
+    return self.represent_list(data)
+
+
 def get_loader():
     loader = yaml.SafeLoader
     loader.add_constructor("!NetworkState", network_constructor)
     loader.add_constructor("!ProviderState", provider_constructor)
     loader.add_constructor("!NodeState", node_constructor)
     loader.add_constructor("!ServiceState", service_constructor)
+    loader.add_constructor("!ResourceConfig", resource_config_constructor)
+    loader.add_constructor("!ProviderConfig", provider_config_constructor)
+    loader.add_constructor("!BaseConfig", base_config_constructor)
     return loader
 
 
@@ -100,4 +165,8 @@ def get_dumper():
     safe_dumper.add_representer(ProviderState, provider_representer)
     safe_dumper.add_representer(NodeState, node_representer)
     safe_dumper.add_representer(ServiceState, service_representer)
+    safe_dumper.add_representer(ResourceConfig, resource_config_representer)
+    safe_dumper.add_representer(ProviderConfig, provider_config_representer)
+    safe_dumper.add_representer(BaseConfig, base_config_representer)
+    safe_dumper.yaml_multi_representers[tuple] = named_tuple
     return safe_dumper

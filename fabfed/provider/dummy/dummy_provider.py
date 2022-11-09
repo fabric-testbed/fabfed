@@ -1,6 +1,5 @@
 import logging
 
-from fabfed.model import Service
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 
@@ -33,21 +32,23 @@ class HideAttribute:
         self.y = y
 
 
-class DummyService(Service):
+class DummyService:
     def __init__(self, *, label, name: str, image, x=None, logger: logging.Logger):
-        super().__init__(label=label, name=name)
+        # super().__init__(label=label, name=name)
+        self.label = label
+        self.name = name
         self.logger = logger
         self.image = image
-        # We hide an complex attribute by using underscores otherwise marshalling the state will fail
+        # We hide a complex attribute by using underscores otherwise marshalling the state will fail
         # as we do not have yaml representer for it.
-        self._hidden_attribute = HideAttribute()
-        self.exposed_attribute_x = x
+        self._hidden_attribute = HideAttribute(x=x)
+        self.exposed_attribute_x = self._hidden_attribute.x  # Here we expose x which can be marshalled
 
     def create(self):
         import random
 
         if not self.exposed_attribute_x:
-            self._hidden_attribute = HideAttribute(x=random.random(), y=random.random())
+            self._hidden_attribute = HideAttribute(x=random.randint(1, 5), y=random.random())
             self.exposed_attribute_x = self._hidden_attribute.x
 
         self.logger.info(f" Service {self.name} created. X={self.exposed_attribute_x}")
@@ -71,7 +72,8 @@ class DummyProvider(Provider):
         assert resource.get(Constants.RES_COUNT, 1)
         assert resource.get(Constants.RES_IMAGE)
 
-        self.logger.info(f"Validated:OK Resource={resource} using {self.label}")
+        label = resource.get(Constants.LABEL)
+        self.logger.info(f"Validated:OK Resource={label} using {self.label}")
 
     def do_add_resource(self, *, resource: dict):
         """
@@ -85,28 +87,34 @@ class DummyProvider(Provider):
         Note that external dependencies are respurce dependencies across different providers.
         @param resource: resource attributes
         """
-        self.logger.info(f"Adding resource={resource} using {self.label}")
+        label = resource.get(Constants.LABEL)
+        self.logger.info(f"Adding resource={label} using {self.label}")
         self._validate_resource(resource)
-
         image = resource.get(Constants.RES_IMAGE)
-
-        from fabfed.util.parser import DependencyInfo
-
         exposed_attribute_x = resource.get("exposed_attribute_x")
 
         # In the dependency example, exposed_attribute_x is an external dependency
-        if isinstance(exposed_attribute_x, DependencyInfo):
-            resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
-                                     if rd.attr == 'exposed_attribute_x']
-            assert len(resolved_dependencies) == 1
-            exposed_attribute_x = resolved_dependencies[0].value
+        import fabfed.provider.api.dependency_util as util
+
+        if util.has_resolved_external_dependencies(resource=resource, attribute='exposed_attribute_x'):
+            # Service dtn1 depends on service dtn2. dtn1 and dtn2 have different providers.
+            # Extract all values. There can be more than one if count of service.dtn2 is greater than 1.
+
+            values = util.get_values_for_dependency(resource=resource, attribute='exposed_attribute_x')
+            assert values
+
+            # The next line handles both dependencies:
+            #          exposed_attribute_x: "{{ service.dtn2 }}"
+            #          exposed_attribute_x: "{{ service.dtn2.exposed_attribute_x }}"
+            values = [value.exposed_attribute_x if isinstance(value, DummyService) else value for value in values]
+            exposed_attribute_x = sum(values)
 
         label = resource.get(Constants.LABEL)
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         service_count = resource.get(Constants.RES_COUNT, 1)
 
         for n in range(0, service_count):
-            service_name = f"{self.name}-{service_name_prefix}{n}"
+            service_name = f"{self.name}-{service_name_prefix}-{n}"
             service = DummyService(label=label, name=service_name, image=image,
                                    x=exposed_attribute_x, logger=self.logger)
 
@@ -137,7 +145,7 @@ class DummyProvider(Provider):
         image = resource.get(Constants.RES_IMAGE)
 
         for n in range(0, service_count):
-            service_name = f"{self.name}-{service_name_prefix}{n}"
+            service_name = f"{self.name}-{service_name_prefix}-{n}"
             service = DummyService(label=label, name=service_name, image=image, logger=self.logger)
             service.delete()
-            self.resource_listener.on_added(source=self, provider=self, resource=service)
+            self.resource_listener.on_deleted(source=self, provider=self, resource=service)
