@@ -43,6 +43,9 @@ class Constants:
     EXTERNAL_DEPENDENCIES = "external_dependencies"
     RESOLVED_EXTERNAL_DEPENDENCIES = "resolved_external_dependencies"
 
+    INTERNAL_DEPENDENCIES = "internal_dependencies"
+    RESOLVED_INTERNAL_DEPENDENCIES = "resolved_internal_dependencies"
+
     PROVIDER_CLASSES = {
         "fabric": "fabfed.provider.fabric.fabric_provider.FabricProvider",
         "chi": "fabfed.provider.chi.chi_provider.ChiProvider",

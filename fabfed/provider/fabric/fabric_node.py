@@ -15,7 +15,11 @@ class FabricNode(Node):
 
         self._delegate = delegate
         self.slice_name = delegate.get_slice().get_name()
-        self.mgmt_ip = str(delegate.get_management_ip())
+        self.mgmt_ip = delegate.get_management_ip()
+
+        if self.mgmt_ip:
+            self.mgmt_ip = str(self.mgmt_ip)
+
         self.username = delegate.get_username()
         self.state = delegate.get_reservation_state()
 

@@ -43,12 +43,11 @@ class NetworkBuilder:
         self.slice_object = slice_object
         self.vlan = resource.get('vlan')  # facility port vlan
 
-        from fabfed.util.parser import DependencyInfo
+        import fabfed.provider.api.dependency_util as util
 
-        if isinstance(self.vlan, DependencyInfo):
-            resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES] if rd.attr == 'vlan']
-            assert len(resolved_dependencies) == 1
-            self.vlan = resolved_dependencies[0].value[0]
+        if util.has_resolved_external_dependencies(resource=resource, attribute='vlan'):
+            net = util.get_single_value_for_dependency(resource=resource, attribute='vlan')
+            self.vlan = net.vlans[0]
 
         assert isinstance(self.vlan, int), f"missing or bad vlan {self.vlan}"
         self.facility_port = 'Chameleon-StarLight'
@@ -67,18 +66,18 @@ class NetworkBuilder:
         facility_port = self.slice_object.add_facility_port(name=self.facility_port, site=self.facility_port_site,
                                                             vlan=str(self.vlan))
         facility_port_interface = facility_port.get_interfaces()[0]
-        self.interfaces.append(facility_port_interface)
+        # self.interfaces.append(facility_port_interface)
 
     def handle_l2network(self, interfaces):
         assert len(interfaces) > 0
-        assert len(self.interfaces) == 1
+        # assert len(self.interfaces) == 1
 
         self.interfaces.extend(interfaces)
         self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
 
     def handle_l3network(self, interfaces):
         assert len(interfaces) > 0
-        assert len(self.interfaces) == 1
+        # assert len(self.interfaces) == 1
 
         self.interfaces.extend(interfaces)
         self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name, interfaces=self.interfaces)
