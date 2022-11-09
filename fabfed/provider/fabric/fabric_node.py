@@ -3,7 +3,7 @@ from typing import List, Dict
 from fabrictestbed_extensions.fablib.node import Node as Delegate
 from fabrictestbed_extensions.fablib.slice import Slice
 
-from fabfed.model import Node
+from fabfed.model import Node, SSHInfo
 from fabfed.util.constants import Constants
 
 
@@ -68,6 +68,11 @@ class FabricNode(Node):
     def get_reservation_state(self) -> str:
         return self._delegate.get_reservation_state()
 
+    def get_ssh_info(self) -> (str, str, str):
+        return SSHInfo(self.username, self.mgmt_ip,
+                       self._delegate.get_private_key_file(),
+                       self._delegate.get_fablib_manager().get_bastion_username(),
+                       self._delegate.get_fablib_manager().get_bastion_public_addr())
 
 class NodeBuilder:
     def __init__(self, label, slice_object: Slice, name: str,  resource: dict):
