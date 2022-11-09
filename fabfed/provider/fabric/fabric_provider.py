@@ -41,8 +41,9 @@ class FabricProvider(Provider):
 
             from fabfed.provider.fabric.fabric_slice import FabricSlice
 
-            self.slice = FabricSlice(provider=self, logger=self.logger)
-            self.slice.init()
+            temp = FabricSlice(provider=self, logger=self.logger)
+            temp.init()
+            self.slice = temp
 
     def do_add_resource(self, *, resource: dict):
         self._init_slice()

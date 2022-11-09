@@ -63,4 +63,4 @@ class Service(ABC):
         self.name = name
 
 
-ResolvedDependency = namedtuple("ResolvedDependency", "attr  value")
+ResolvedDependency = namedtuple("ResolvedDependency", "resource_label attr value")

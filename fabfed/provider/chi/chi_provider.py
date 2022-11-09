@@ -4,6 +4,7 @@ import os
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from .chi_constants import *
+import fabfed.provider.api.dependency_util as util
 
 
 class ChiProvider(Provider):
@@ -95,20 +96,9 @@ class ChiProvider(Provider):
         else:
             network = resource.get(Constants.RES_NETWORK, DEFAULT_NETWORK)
 
-            from fabfed.util.parser import DependencyInfo
-
-            if isinstance(network, DependencyInfo):
-                found = False
-
-                for net in self.networks:
-                    if net.label == network.resource.label:
-                        net_vars = vars(net)
-                        network = net_vars[network.attribute]
-                        found = True
-                        break
-
-                if not found:
-                    raise Exception(f"could not resolve internal network dependency {network}")
+            if util.has_resolved_internal_dependencies(resource=resource, attribute='network'):
+                net = util.get_single_value_for_dependency(resource=resource, attribute='network')
+                network = net.name
 
             node_count = resource.get(Constants.RES_COUNT, 1)
             image = resource.get(Constants.RES_IMAGE)

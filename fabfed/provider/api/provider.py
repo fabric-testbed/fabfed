@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict
 
-from fabfed.model import Node, Network, Service, ResolvedDependency
+from fabfed.model import Node, Network, Service
 from fabfed.model.state import ProviderState
 from fabfed.util.constants import Constants
 
@@ -23,6 +23,13 @@ class Provider(ABC):
         self._pending = []
         self._failed = {}
         self._added = []
+
+    @property
+    def resources(self) -> List:
+        resources = [n for n in self._nodes]
+        resources.extend([n for n in self._networks])
+        resources.extend([n for n in self._services])
+        return resources
 
     @property
     def nodes(self) -> List[Node]:
@@ -59,45 +66,32 @@ class Provider(ABC):
         assert resource
         pass
 
+    def get_dependency_resolver(self, *, external=True):
+        from .dependency_reslover import DependencyResolver
+
+        return DependencyResolver(label=self.label, external=external, logger=self.logger)
+
     def on_created(self, *, source, provider, resource: object):
         assert self != source
         assert provider
 
-        resource_dict = vars(resource)
-
         for pending_resource in self.pending.copy():
-            for dependency in pending_resource[Constants.EXTERNAL_DEPENDENCIES]:
-                if dependency.resource.label == resource_dict[Constants.LABEL]:
-                    try:
-                        value = resource if not dependency.attribute else resource_dict.get(dependency.attribute)
-                        label = pending_resource[Constants.LABEL]
-                        self.logger.info(
-                            f"Resolving: {dependency} for {label}: value={value} using {self.label}")
+            resolver = self.get_dependency_resolver()
+            label = pending_resource[Constants.LABEL]
+            resolver.resolve_dependency(resource=pending_resource, from_resource=resource)
+            ok = resolver.check_if_external_dependencies_are_resolved(resource=pending_resource)
 
-                        if value:
-                            resolved_dependencies = pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
+            if ok:
+                resolver.extract_values(resource=pending_resource)
+                self.pending.remove(pending_resource)
+                self.logger.info(f"Removing {label} from pending using {self.label}")
 
-                            if isinstance(value, list):
-                                resolved_dependency = ResolvedDependency(attr=dependency.key, value=tuple(value))
-                            else:
-                                resolved_dependency = ResolvedDependency(attr=dependency.key, value=value)
-
-                            resolved_dependencies.append(resolved_dependency)
-                            self.logger.info(
-                                f"Resolved dependency {dependency} for {label} using {self.label}")
-
-                            if len(pending_resource[Constants.EXTERNAL_DEPENDENCIES]) == len(
-                                    pending_resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
-                                self.pending.remove(pending_resource)
-                                self.logger.info(f"Removing {label} from pending using {self.label}")
-                                self.add_resource(resource=pending_resource)
-                        else:
-                            self.logger.warning(
-                                f"Could not resolve {dependency} for {label} using {self.label}")
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Exception occurred while resolving dependency: {e} using {self.label}")
-                        self.logger.warning(e, exc_info=True)
+                try:
+                    self.add_resource(resource=pending_resource)
+                except Exception as e:
+                    self.logger.warning(
+                        f"Exception occurred while adding pending resource: {e} using {self.label}")
+                    self.logger.warning(e, exc_info=True)
 
     def add_resource(self, *, resource: dict):
         count = resource.get(Constants.RES_COUNT, 1)
@@ -111,6 +105,19 @@ class Provider(ABC):
             assert resource not in self.pending, f"Did not expect {label} to be in pending list using {self.label}"
             self.pending.append(resource)
             return
+        elif len(resource[Constants.INTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_INTERNAL_DEPENDENCIES]):
+            self.logger.info(f"Handling internal dependencies {label} using provider {self.label}")
+            resolver = self.get_dependency_resolver(external=False)
+
+            for temp in self.resources:
+                resolver.resolve_dependency(resource=resource, from_resource=temp)
+
+            ok = resolver.check_if_external_dependencies_are_resolved(resource=resource)
+
+            assert ok, "Did you want put this internal in pending ..."  # TODO
+
+            if ok:
+                resolver.extract_values(resource=resource)
 
         try:
             self.do_add_resource(resource=resource)
@@ -143,8 +150,6 @@ class Provider(ABC):
     def get_state(self) -> ProviderState:
         from fabfed.model.state import NetworkState, NodeState, ServiceState
 
-        net_states = []
-
         def cleanup_attrs(attrs):
             attributes = attrs.copy()
             attributes.pop('logger', None)
@@ -152,41 +157,11 @@ class Provider(ABC):
             attributes = {k: v for k, v in attributes.items() if not k.startswith('_')}
             return attributes
 
-        for net in self.networks:
-            net_state = NetworkState(label=net.label, attributes=cleanup_attrs(vars(net)))
-            net_states.append(net_state)
-
-        node_states = []
-
-        for node in self.nodes:
-            node_state = NodeState(label=node.label, attributes=cleanup_attrs(vars(node)))
-            node_states.append(node_state)
-
-        service_states = []
-
-        for service in self.services:
-            service_state = ServiceState(label=service.label, attributes=cleanup_attrs(vars(service)))
-            service_states.append(service_state)
-
-        pending = []
-        from fabfed.util.parser import DependencyInfo
-
-        for resource in self.pending:
-            copy = {}
-
-            for key, value in resource.items():
-                if key in [Constants.EXTERNAL_DEPENDENCIES, Constants.RESOLVED_EXTERNAL_DEPENDENCIES]:
-                    continue
-
-                if isinstance(value, DependencyInfo):  # TODO Add Yaml dumper/loader to parser.DependencyInfo
-                    value = str(value)
-
-                copy[key] = value
-
-            pending.append(copy)
-
+        net_states = [NetworkState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.networks]
+        node_states = [NodeState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.nodes]
+        service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in self.services]
         return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
-                             pending, self.failed)
+                             self.pending, self.failed)
 
     def list_networks(self) -> list:
         from tabulate import tabulate

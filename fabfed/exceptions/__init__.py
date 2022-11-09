@@ -17,3 +17,16 @@ class StateException(FabfedException):
 
 class ProviderTypeNotSupported(FabfedException):
     pass
+
+
+class ControllerException(FabfedException):
+    def __init__(self, exceptions):
+        self.exceptions = exceptions
+
+        self.message = f"Number Of Exceptions={len(exceptions)}:["
+
+        for ex in exceptions:
+            self.message += "\nmsg=" + ''.join(str(ex).splitlines())
+
+        self.message += "\n]"
+        super().__init__(self.message)

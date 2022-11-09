@@ -1,19 +1,23 @@
 import logging
 from typing import List
 
+import fabfed.provider.api.dependency_util as util
 from fabfed.model import Node, Network
-from fabfed.provider.api.provider import Provider
 from .fabric_network import NetworkBuilder, FabricNetwork
 from .fabric_node import FabricNode, NodeBuilder
+from .fabric_provider import FabricProvider
 from ...util.constants import Constants
 
 
+# noinspection PyUnresolvedReferences
 class FabricSlice:
-    def __init__(self, *, provider: Provider, logger: logging.Logger):
+    def __init__(self, *, provider: FabricProvider, logger: logging.Logger):
         self.provider = provider
         self.logger = logger
         self.notified_create = False
         self.slice_created = False
+        self.slice_object = None
+        self.retry = 10
 
     def init(self):
         from fabrictestbed_extensions.fablib.fablib import fablib
@@ -60,16 +64,18 @@ class FabricSlice:
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         network_builder = NetworkBuilder(label, self.slice_object, name_prefix, resource)
         network_builder.handle_facility_port()
-        interfaces = []   # TODO handle this internal dependency properly
+        assert util.has_resolved_internal_dependencies(resource=resource, attribute='interface')
+        interfaces = []
+        temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
-        for node in self.provider._nodes:
+        for node in temp:
             interfaces.append(node.get_interfaces()[0])
 
         assert len(interfaces) > 0
-        network_builder.handle_l2network(interfaces)  # This throws an exception in network_service.py
-        # network_builder.handle_l3network(interfaces)
+        # network_builder.handle_l2network(interfaces)  # This throws an exception in network_service.py
+        network_builder.handle_l3network(interfaces)
         net = network_builder.build()
-        self.provider._networks.append(net)
+        self.provider.networks.append(net)
 
         if self.resource_listener:
             self.resource_listener.on_added(source=self, provider=self, resource=net)
@@ -121,7 +127,7 @@ class FabricSlice:
                                     subnet=subnet,
                                     pool_start=pool_start,
                                     pool_end=pool_end)
-                self.provider._networks.append(net)
+                self.provider.networks.append(net)
 
                 if self.resource_listener:
                     self.resource_listener.on_added(source=self, provider=self, resource=net)
@@ -154,12 +160,14 @@ class FabricSlice:
             self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
             return slice_id
         except Exception as e:
-            self.logger.error(f"Exception occurred: {e}")
+            # self.logger.error(f"Exception occurred: {e}")
             raise e
 
     def create_resource(self, *, resource: dict):
+        label = resource.get(Constants.LABEL)
+
         if self.failed:
-            raise Exception(f"slice {self.name} failed to create ...")
+            raise Exception(f"fabric slice {self.name} has some failures. Refusing to create {label}")
 
         if self.slice_created:
             state = self.slice_object.get_state()
@@ -187,6 +195,34 @@ class FabricSlice:
         self._submit_and_wait()
         self.slice_created = True
 
+        for attempt in range(self.retry):
+            mngmt_ips = []
+            from fabrictestbed_extensions.fablib.fablib import fablib
+
+            self.slice_object = fablib.get_slice(name=self.provider.name)
+
+            for node in self.nodes:
+                delegate = self.slice_object.get_node(node.name)
+                mgmt_ip = delegate.get_management_ip()
+
+                if mgmt_ip:
+                    mngmt_ips.append(mgmt_ip)
+
+            if len(self.nodes) == len(mngmt_ips):
+                break
+
+            if attempt == self.retry:
+                self.logger.warning(f"Giving up on checking node management ips ...slice "
+                                    f"{self.provider.label} {self.nodes}:{mngmt_ips}:")
+                break
+
+            import time
+
+            self.logger.info(
+                f"Going to sleep. Will try checking node management ips ...slice {self.provider.label}")
+
+            time.sleep(2)
+
         temp = []
 
         for node in self.nodes:
@@ -197,7 +233,7 @@ class FabricSlice:
 
         temp = []
 
-        for net in self.provider._networks:
+        for net in self.provider.networks:
             delegate = self.slice_object.get_network(net.name)
             from ipaddress import IPv4Address, IPv4Network
 
@@ -231,7 +267,10 @@ class FabricSlice:
             self.notified_create = True
 
     def delete_resource(self, *, resource: dict):
+        label = resource.get(Constants.LABEL)
+        self.logger.debug(f"Destroying resource {self.name}: {label}")
+
         if self.slice_created:
             self.slice_object.delete()
             self.slice_created = False
-            self.logger.info(f"Destroyed slice  {self.name}") # TODO EMIT DELETE EVENT
+            self.logger.info(f"Destroyed slice {self.name}")  # TODO EMIT DELETE EVENT

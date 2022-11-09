@@ -239,7 +239,8 @@ class Evaluator:
 
             return temp
         elif isinstance(value, SimpleNamespace):
-            return self.handle_substitution(vars(value))
+            raise Exception(f'{value}')
+            # return self.handle_substitution(vars(value))
         else:
             return value
 
