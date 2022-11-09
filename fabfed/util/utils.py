@@ -211,3 +211,21 @@ def save_states(states: List[ProviderState], friendly_name):
             from fabfed.exceptions import StateException
 
             raise StateException(f'Exception while saving state at {file_path}:{e}')
+
+    file_path = os.path.join(get_base_dir(), friendly_name + '-inventory.yml')
+
+    with open(file_path, "w") as stream:
+        try:
+            for state in states:
+                for node in state.node_states:
+                    print (node.attributes)
+            #stream.write(yaml.dump(states))
+        except Exception as e:
+            from fabfed.exceptions import StateException
+
+            raise StateException(f'Exception while saving state at {file_path}:{e}')
+
+def ansible_inventory(self, path: str = None):
+        import yaml
+        import os
+

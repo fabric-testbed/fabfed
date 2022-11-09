@@ -1,8 +1,11 @@
+import os
+import json
 import logging
 
 from fabfed.model import Service
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
+from fabfed.provider.janus.util.ansible_helper import AnsibleHelper
 
 
 class JanusService(Service):
@@ -15,9 +18,21 @@ class JanusService(Service):
         self._node = node
 
     def create(self):
-        import random
+        hosts =f"""
+fabric_nodes:
+  hosts:
+    {self._node.host}:
+  vars:
+    ansible_connection: ssh
+    ansible_ssh_common_args: {self._node.proxyjump_str}
+    ansible_ssh_private_key_file: {self._node.keyfile}
+    ansible_user: {self._node.user}"""
 
-        print (self._node.get_ssh_info())
+        self.logger.info(hosts)
+
+        helper = AnsibleHelper(hosts, self.logger)
+        script_dir = os.path.dirname(__file__)
+        helper.run_playbook(os.path.join(script_dir, "ansible/janus.yml"))
         self.logger.info(f" Service {self.name} created. service_node={self._node}")
 
     def delete(self):
@@ -68,7 +83,6 @@ class JanusProvider(Provider):
             assert len(resolved_dependencies) == 1
             node = resolved_dependencies[0].value
 
-        print (node)
         label = resource.get(Constants.LABEL)
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         service_count = resource.get(Constants.RES_COUNT, 1)
