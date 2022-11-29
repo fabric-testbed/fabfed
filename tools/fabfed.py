@@ -4,11 +4,12 @@ from fabfed.controller.controller import Controller
 from fabfed.controller.provider_factory import default_provider_factory
 from fabfed.exceptions import ControllerException
 from fabfed.util import utils
+from fabfed.util import state as sutil
 from fabfed.util.config import Config
 
 
 def manage_workflow(args):
-    logger = utils.init_looger()
+    logger = utils.init_logger()
 
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
@@ -60,7 +61,7 @@ def manage_workflow(args):
             failed += len(state.failed)
 
         logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
-        utils.save_states(states, args.session)
+        sutil.save_states(states, args.session)
         return
 
     if args.plan:
@@ -74,12 +75,12 @@ def manage_workflow(args):
             logger.error(f"Exceptions while adding resources ... {e}")
 
         states = controller.get_states()
-        utils.dump_states(states, args.json)
+        sutil.dump_states(states, args.json)
         return
 
     if args.show:
         states = utils.load_states(args.session)
-        utils.dump_states(states, args.json)
+        stutil.dump_states(states, args.json)
         return
 
     if args.summary:
@@ -96,7 +97,7 @@ def manage_workflow(args):
                 node_state.attributes = attributes
                 temp.append(node_state)
 
-        utils.dump_states(temp, args.json)
+        sutil.dump_states(temp, args.json)
         return
 
     if args.destroy:
@@ -114,7 +115,7 @@ def manage_workflow(args):
 
             logger.error(traceback.format_exc())
 
-        utils.save_states(states, args.session)
+        sutil.save_states(states, args.session)
         return
 
 

@@ -18,16 +18,6 @@ class JanusService(Service):
         self._node = node
 
     def create(self):
-        hosts =f"""
-fabric_nodes:
-  hosts:
-    {self._node.host}:
-  vars:
-    ansible_connection: ssh
-    ansible_ssh_common_args: {self._node.proxyjump_str}
-    ansible_ssh_private_key_file: {self._node.keyfile}
-    ansible_user: {self._node.user}"""
-
         self.logger.info(hosts)
 
         helper = AnsibleHelper(hosts, self.logger)

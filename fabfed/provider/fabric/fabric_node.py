@@ -78,6 +78,8 @@ class FabricNode(Node):
     def get_reservation_state(self) -> str:
         return self._delegate.get_reservation_state()
 
+    def write_ansible(self):
+        print ("HERE")
 
 class NodeBuilder:
     def __init__(self, label, slice_object: Slice, name: str,  resource: dict):

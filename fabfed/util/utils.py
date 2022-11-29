@@ -2,7 +2,6 @@ import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from typing import List
 
-from fabfed.model.state import ProviderState
 from fabfed.util.constants import Constants
 
 
@@ -55,7 +54,7 @@ def build_parser(*, manage_workflow, manage_sessions):
     return parser
 
 
-def init_looger(log_level=logging.INFO):
+def init_logger(log_level=logging.INFO):
     from logging.handlers import RotatingFileHandler
 
     log_config = {'log-file': './fabfed.log',
@@ -163,69 +162,4 @@ def dump_sessions(to_json: bool):
 
     return sessions
 
-
-def dump_states(states, to_json: bool):
-    import sys
-    from fabfed.model.state import get_dumper
-
-    if to_json:
-        import json
-
-        sys.stdout.write(json.dumps(states, default=lambda o: o.__dict__, indent=3))
-    else:
-        import yaml
-
-        sys.stdout.write(yaml.dump(states, Dumper=get_dumper()))
-
-
-def load_states(friendly_name) -> List[ProviderState]:
-    import yaml
-    import os
-    from fabfed.model.state import get_loader
-
-    file_path = os.path.join(get_base_dir(), friendly_name + '.yml')
-
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as stream:
-            try:
-                return yaml.load(stream, Loader=get_loader())
-            except Exception as e:
-                from fabfed.exceptions import StateException
-
-                raise StateException(f'Exception while loading state at {file_path}:{e}')
-
-    return []
-
-
-def save_states(states: List[ProviderState], friendly_name):
-    import yaml
-    import os
-    from fabfed.model.state import get_dumper
-
-    file_path = os.path.join(get_base_dir(), friendly_name + '.yml')
-
-    with open(file_path, "w") as stream:
-        try:
-            stream.write(yaml.dump(states, Dumper=get_dumper()))
-        except Exception as e:
-            from fabfed.exceptions import StateException
-
-            raise StateException(f'Exception while saving state at {file_path}:{e}')
-
-    file_path = os.path.join(get_base_dir(), friendly_name + '-inventory.yml')
-
-    with open(file_path, "w") as stream:
-        try:
-            for state in states:
-                for node in state.node_states:
-                    print (node.attributes)
-            #stream.write(yaml.dump(states))
-        except Exception as e:
-            from fabfed.exceptions import StateException
-
-            raise StateException(f'Exception while saving state at {file_path}:{e}')
-
-def ansible_inventory(self, path: str = None):
-        import yaml
-        import os
 
