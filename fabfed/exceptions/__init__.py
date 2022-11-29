@@ -2,6 +2,8 @@ class FabfedException(Exception):
     """Base class for other exceptions"""
     pass
 
+class AnsibleException(FabfedException):
+    pass
 
 class ParseConfigException(FabfedException):
     pass
