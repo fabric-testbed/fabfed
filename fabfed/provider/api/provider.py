@@ -75,6 +75,9 @@ class Provider(ABC):
         assert self != source
         assert provider
 
+        resource.write_ansible(provider.name)
+        resource_dict = vars(resource)
+
         for pending_resource in self.pending.copy():
             resolver = self.get_dependency_resolver()
             label = pending_resource[Constants.LABEL]

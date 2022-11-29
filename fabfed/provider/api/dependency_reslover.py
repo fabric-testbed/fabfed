@@ -18,7 +18,7 @@ class DependencyResolver:
 
     def check_if_external_dependencies_are_resolved(self, *, resource: dict):
         label = resource[Constants.LABEL]
-        self.logger.info(f"Checking if all dependencies are resloved for {label} using {self.label}")
+        self.logger.info(f"Checking if all dependencies are resolved for {label} using {self.label}")
 
         if len(resource[self.dependency_label]) == len(resource[self.resolved_dependency_label]):
             ok = True

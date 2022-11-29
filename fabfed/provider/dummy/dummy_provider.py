@@ -1,5 +1,6 @@
 import logging
 
+from fabfed.model import Service, Node, SSHNode
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 
@@ -31,12 +32,32 @@ class HideAttribute:
         self.x = x
         self.y = y
 
+class DummyNode(Node, SSHNode):
+    def __init__(self, *, label, name: str, image, site, flavor, logger: logging.Logger):
+        super().__init__(label=label, name=name, image=image, site=site, flavor=flavor)
+        self.logger = logger
 
-class DummyService:
+    def create(self):
+        self.logger.info(f" Node {self.name} created.")
+        self.user = "dummy_user"
+        self.host = "localhost"
+        self.keyfile = "~/.ssh/dummy_key"
+        #self.jump_user = "dummy_jump_user"
+        self.jump_host = "dummy.jumphost.net"
+        self.jump_keyfile = "~/.ssh/dummy_jump_key"
+
+    def delete(self):
+        self.logger.info(f" Node {self.name} deleted")
+
+    def get_reservation_id(self):
+        pass
+
+    def get_reservation_state(self):
+        pass
+
+class DummyService(Service):
     def __init__(self, *, label, name: str, image, x=None, logger: logging.Logger):
-        # super().__init__(label=label, name=name)
-        self.label = label
-        self.name = name
+        super().__init__(label=label, name=name)
         self.logger = logger
         self.image = image
         # We hide a complex attribute by using underscores otherwise marshalling the state will fail
@@ -55,7 +76,6 @@ class DummyService:
 
     def delete(self):
         self.logger.info(f" Service {self.name} deleted")
-
 
 class DummyProvider(Provider):
 
@@ -110,16 +130,31 @@ class DummyProvider(Provider):
             exposed_attribute_x = sum(values)
 
         label = resource.get(Constants.LABEL)
-        service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-        service_count = resource.get(Constants.RES_COUNT, 1)
+        rtype = resource.get(Constants.RES_TYPE)
 
-        for n in range(0, service_count):
-            service_name = f"{self.name}-{service_name_prefix}-{n}"
-            service = DummyService(label=label, name=service_name, image=image,
-                                   x=exposed_attribute_x, logger=self.logger)
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            node_count = resource.get(Constants.RES_COUNT, 1)
+            name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+            site = resource.get(Constants.RES_SITE)
+            flavor = resource.get(Constants.RES_FLAVOR, "dummy_flavor")
 
-            self._services.append(service)
-            self.resource_listener.on_added(source=self, provider=self, resource=service)
+            for i in range(node_count):
+                name = f"{name_prefix}{i}"
+                node = DummyNode(label=label, name=name, site=site, image=image, flavor=flavor, logger=self.logger)
+                self.nodes.append(node)
+                self.resource_listener.on_added(source=self, provider=self, resource=node)
+
+        elif rtype == Constants.RES_TYPE_SERVICE.lower():
+            service_count = resource.get(Constants.RES_COUNT, 1)
+            service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+
+            for n in range(0, service_count):
+                service_name = f"{self.name}-{service_name_prefix}-{n}"
+                service = DummyService(label=label, name=service_name, image=image,
+                                       x=exposed_attribute_x, logger=self.logger)
+
+                self._services.append(service)
+                self.resource_listener.on_added(source=self, provider=self, resource=service)
 
     def do_create_resource(self, *, resource: dict):
         """
@@ -130,11 +165,21 @@ class DummyProvider(Provider):
 
         self.logger.info(f"Creating resource={resource} using {self.label}")
 
-        temp = [service for service in self.services if service.label == label]
+        rtype = resource.get(Constants.RES_TYPE)
 
-        for service in temp:
-            service.create()
-            self.resource_listener.on_created(source=self, provider=self, resource=service)
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            for node in self.nodes:
+                node.create()
+                self.resource_listener.on_created(source=self, provider=self, resource=node)
+        elif rtype == Constants.RES_TYPE_NETWORK.lower():
+            for net in self.networks:
+                net.create()
+                self.resource_listener.on_created(source=self, provider=self, resource=net)
+        elif rtype == Constants.RES_TYPE_SERVICE.lower():
+            temp = [service for service in self.services if service.label == label]
+            for service in temp:
+                service.create()
+                self.resource_listener.on_created(source=self, provider=self, resource=service)
 
     def do_delete_resource(self, *, resource: dict):
         self.logger.info(f"Deleting resource={resource} using {self.label}")
