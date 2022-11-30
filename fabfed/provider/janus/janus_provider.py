@@ -5,22 +5,24 @@ import logging
 from fabfed.model import Service
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
+from fabfed.util.utils import get_base_dir
 from fabfed.provider.janus.util.ansible_helper import AnsibleHelper
 
 
 class JanusService(Service):
-    def __init__(self, *, label, name: str, image, node=None, logger: logging.Logger):
+    def __init__(self, *, label, name: str, image, node=None, provider=None, logger: logging.Logger):
         super().__init__(label=label, name=name)
         self.logger = logger
         self.image = image
-        # We hide an complex attribute by using underscores otherwise marshalling the state will fail
-        # as we do not have yaml representer for it.
         self._node = node
+        self._provider = provider
 
     def create(self):
-        self.logger.info(hosts)
-
-        helper = AnsibleHelper(hosts, self.logger)
+        friendly_name = self._provider.name
+        label = self._node.label
+        name = self._node.name
+        host_file = os.path.join(get_base_dir(), f"{friendly_name}-{label}-{name}-inventory.ini")
+        helper = AnsibleHelper(host_file, self.logger)
         script_dir = os.path.dirname(__file__)
         helper.run_playbook(os.path.join(script_dir, "ansible/janus.yml"))
         self.logger.info(f" Service {self.name} created. service_node={self._node}")
@@ -61,17 +63,11 @@ class JanusProvider(Provider):
         self._validate_resource(resource)
 
         image = resource.get(Constants.RES_IMAGE)
-
-        from fabfed.util.parser import DependencyInfo
-
-        node = resource.get("node")
-
-        # In the dependency example, exposed_attribute_x is an external dependency
-        if isinstance(node, DependencyInfo):
-            resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
-                                     if rd.attr == 'node']
-            assert len(resolved_dependencies) == 1
-            node = resolved_dependencies[0].value
+        resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
+                                 if rd.attr == 'node']
+        assert len(resolved_dependencies) == 1
+        node = resolved_dependencies[0].value[0]
+        assert (node)
 
         label = resource.get(Constants.LABEL)
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
@@ -80,7 +76,7 @@ class JanusProvider(Provider):
         for n in range(0, service_count):
             service_name = f"{self.name}-{service_name_prefix}{n}"
             service = JanusService(label=label, name=service_name, image=image,
-                                   node=node, logger=self.logger)
+                                   node=node, provider=self, logger=self.logger)
 
             self._services.append(service)
             self.resource_listener.on_added(source=self, provider=self, resource=service)

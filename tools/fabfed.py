@@ -79,12 +79,12 @@ def manage_workflow(args):
         return
 
     if args.show:
-        states = utils.load_states(args.session)
-        stutil.dump_states(states, args.json)
+        states = sutil.load_states(args.session)
+        sutil.dump_states(states, args.json)
         return
 
     if args.summary:
-        states = utils.load_states(args.session)
+        states = sutil.load_states(args.session)
         temp = []
 
         for provider_state in states:
