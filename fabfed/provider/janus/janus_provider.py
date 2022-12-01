@@ -14,7 +14,7 @@ class JanusService(Service):
         super().__init__(label=label, name=name)
         self.logger = logger
         self.image = image
-        self._node = node
+        self._node = node[0] if isinstance(node, tuple) else node
         self._provider = provider
 
     def create(self):
@@ -63,20 +63,18 @@ class JanusProvider(Provider):
         self._validate_resource(resource)
 
         image = resource.get(Constants.RES_IMAGE)
-        resolved_dependencies = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
-                                 if rd.attr == 'node']
-        assert len(resolved_dependencies) == 1
-        node = resolved_dependencies[0].value[0]
-        assert (node)
-
+        nodes = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
+                 if rd.attr == 'node']
         label = resource.get(Constants.LABEL)
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         service_count = resource.get(Constants.RES_COUNT, 1)
 
+        assert (len(nodes) == service_count)
+
         for n in range(0, service_count):
             service_name = f"{self.name}-{service_name_prefix}{n}"
             service = JanusService(label=label, name=service_name, image=image,
-                                   node=node, provider=self, logger=self.logger)
+                                   node=nodes[n].value, provider=self, logger=self.logger)
 
             self._services.append(service)
             self.resource_listener.on_added(source=self, provider=self, resource=service)

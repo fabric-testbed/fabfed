@@ -41,9 +41,10 @@ class ChiNode(Node):
         self.key_pair = key_pair
         self.network = network
         self.logger = logger
-        self.private_key_file = os.environ['OS_SLICE_PRIVATE_KEY_FILE']
+        self.keyfile = os.environ['OS_SLICE_PRIVATE_KEY_FILE']
         self._retry = 10
         self.username = "cc"
+        self.user = self.username
         self.state = None
         # self.name = f'{prefix}-{self.name}'
         self.lease_name = f'{self.name}-lease'
@@ -71,6 +72,7 @@ class ChiNode(Node):
             for a in addresses:
                 if a['OS-EXT-IPS:type'] == 'floating':
                     self.mgmt_ip = a['addr']
+                    self.host = self.mgmt_ip
 
         self.id = self.get_reservation_id()
 

@@ -9,7 +9,7 @@
 
     - name: add docker gpg key (Ubuntu)
       apt_key:
-        url: https://dispense.es.net/docker/linux/ubuntu/gpg
+        url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
     - name: add docker-ce repository (Ubuntu)
