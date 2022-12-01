@@ -101,7 +101,7 @@ def manage_workflow(args):
         return
 
     if args.destroy:
-        states = utils.load_states(args.session)
+        states = sutil.load_states(args.session)
 
         try:
             if states:
