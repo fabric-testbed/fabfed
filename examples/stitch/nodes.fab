@@ -13,5 +13,5 @@ resource:
             site: CHI@UC
             image: CC-Ubuntu20.04
             network: '{{ network.chi_network }}'
-            count: 2 
+            count: 2
             flavor: m1.medium

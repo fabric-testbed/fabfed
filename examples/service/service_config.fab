@@ -9,6 +9,10 @@ provider:
     - fabric_provider:
        - credential_file: ~/.fabfed/fabfed_credentials.yml
          profile: fabric
+  - chi:
+    - chi_provider:
+       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: chi
   - janus:
     - janus_provider:
        - url: https://192.168.1.1:5000
@@ -21,9 +25,18 @@ resource:
             count: 1
             image: default_rocky_8
             nic_model: NIC_ConnectX_5
+  - node:
+      - chi_node:
+          - provider: '{{ chi.chi_provider }}'
+            site: CHI@UC
+            image: CC-Ubuntu20.04
+            count: 1
+            flavor: m1.medium
+
   - service:
       - dtn_service:
            - provider: '{{ janus.janus_provider }}'
-             node: '{{ node.fabric_node }}'
+             node: [ '{{ node.fabric_node }}', '{{ node.chi_node }}' ]
+             count: 2
              image: dtnaas/tools
              profile: default
