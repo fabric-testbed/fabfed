@@ -1,25 +1,28 @@
 from fabfed.provider.api.provider import Provider
 from typing import List, Dict
 
+from fabfed.util.constants import Constants
+
 
 class ProviderFactory:
     def __init__(self):
         self._providers: Dict[str, Provider] = {}
 
-    def init_provider(self, *, type: str, label: str, attributes, logger):
-        if type == 'fabric':
-            from fabfed.provider.fabric.fabric_provider import FabricProvider
+    def init_provider(self, *, type: str, label: str, name: str, attributes, logger):
+        if type not in Constants.PROVIDER_CLASSES:
+            from fabfed.exceptions import ProviderTypeNotSupported
+            raise ProviderTypeNotSupported(type)
 
-            provider = FabricProvider(type=type, name=label, logger=logger, config=attributes)
-            provider.setup_environment()
-            self._providers[label] = provider
-        elif type == 'chi':
-            from fabfed.provider.chi.chi_provider import ChiProvider
+        import importlib
 
-            provider = ChiProvider(type=type, name=label, logger=logger, config=attributes)
-            self._providers[label] = provider
-        else:
-            raise Exception(f"no provider for type {type}")
+        full_name = Constants.PROVIDER_CLASSES.get(type)
+        idx = full_name.rindex('.')
+        module_name = full_name[:idx]
+        class_name = full_name[idx+1:]
+        cls = getattr(importlib.import_module(module_name), class_name)
+        provider = cls(type=type, label=label, name=name, logger=logger, config=attributes)
+        provider.setup_environment()
+        self._providers[label] = provider
 
     @property
     def providers(self) -> List[Provider]:

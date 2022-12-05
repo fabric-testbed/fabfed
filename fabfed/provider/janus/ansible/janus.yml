@@ -1,0 +1,9 @@
+- name: Install Janus and dependencies
+  hosts: all
+  strategy: free
+  become: yes
+  roles:
+    - { role: roles/docker, tags: 'docker' }
+    - { role: roles/janus, tags: 'janus' }
+    - { role: roles/janus-add-node, tags: 'janus-add' }
+    - { role: roles/janus-del-node, tags: 'janus-del' }

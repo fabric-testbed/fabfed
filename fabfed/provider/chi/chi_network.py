@@ -1,27 +1,3 @@
-#!/usr/bin/env python3
-# MIT License
-#
-# Copyright (c) 2020 RENCI NRIG
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
-# Author Komal Thareja (kthare10@renci.org)
 import json
 import logging
 import time
@@ -36,15 +12,16 @@ from .chi_util import LeaseHelper
 
 class ChiNetwork(Network):
     def __init__(self, *, label, name: str, site: str, project_name: str,
-                 logger: logging.Logger, slice_name: str, subnet: str, pool_start: str,
+                 logger: logging.Logger, subnet: str, pool_start: str,
                  pool_end: str, gateway: str, stitch_provider: str):
         super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
-        self.slice_name = slice_name
+        # self.slice_name = slice_name
         self.subnet = subnet
         self.pool_start = pool_start
         self.pool_end = pool_end
         self.gateway = gateway
+        # TODO assert stitch_provider, "expecting a stitch provider"
         self.stitch_provider = stitch_provider
         self._retry = 10
         self.lease_name = f'{name}-lease'
@@ -93,9 +70,9 @@ class ChiNetwork(Network):
 
         try:
             chameleon_subnet = chi.network.get_subnet(self.subnet_name)
-            self.logger.info(f'Subnet already created:  {self.subnet_name}')
+            self.logger.info(f'Subnet already created: {self.subnet_name}')
         except Exception as e:
-            self.logger.warning(f'Error while creating subnet:  {self.subnet_name} {e}')
+            self.logger.warning(f'Error while creating subnet: {self.subnet_name} {e}')
             chameleon_subnet = None
 
         if not chameleon_subnet:
@@ -116,11 +93,11 @@ class ChiNetwork(Network):
                 break
 
         if chameleon_router:
-            self.logger.info(f'Router already created  : {self.router_name}')
+            self.logger.info(f'Router already created: {self.router_name}')
             self.logger.debug(f'Router: {chameleon_router}')
         else:
             chameleon_router = chi.network.create_router(self.router_name, gw_network_name='public')
-            self.logger.info(f'Router created : {self.router_name}')
+            self.logger.info(f'Router created: {self.router_name}')
             chi.network.add_subnet_to_router_by_name(self.router_name, self.subnet_name)
             self.logger.info(f'Attached subnet {self.subnet_name} to router  {self.router_name}')
             self.logger.debug(f'Router: {chameleon_router}')
@@ -130,7 +107,8 @@ class ChiNetwork(Network):
         chi.set('project_domain_name', 'default')
         chi.use_site(self.site)
 
-        from neutronclient.common.exceptions import Conflict
+        from neutronclient.common.exceptions import Conflict, NotFound
+        from keystoneauth1.exceptions.connection import ConnectFailure
         import time
 
         while True:
@@ -141,9 +119,12 @@ class ChiNetwork(Network):
                 chi.network.remove_subnet_from_router(router_id, subnet_id)
                 self.logger.info(f"Removed subnet {self.subnet_name} from router {self.router_name}")
                 break
-            except Conflict as ce:
+            except (Conflict, ConnectFailure) as ce:
                 self.logger.warning(f"Error Removing subnet .will try again ...{ce}")
                 time.sleep(10)
+            except NotFound as nf:
+                self.logger.warning(f"Error Removing subnet ...{nf}")
+                break
             except RuntimeError as re:
                 if "No subnets found with" in str(re):
                     break
