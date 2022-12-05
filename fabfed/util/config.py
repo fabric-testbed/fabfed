@@ -1,15 +1,10 @@
-from .parser import Parser, ResourceConfig, ProviderConfig, SliceConfig
+from .parser import Parser, ResourceConfig, ProviderConfig
 from typing import List
 
 
 class Config:
     def __init__(self, *, dir_path=None, content=None, var_dict=None):
-        self.providers, self.slices, self.resources = Parser.parse(dir_path=dir_path,
-                                                                   content=content,
-                                                                   var_dict=var_dict)
-
-    def get_slice_config(self) -> List[SliceConfig]:
-        return self.slices
+        self.providers, self.resources = Parser.parse(dir_path=dir_path, content=content, var_dict=var_dict)
 
     def get_provider_config(self) -> List[ProviderConfig]:
         return self.providers

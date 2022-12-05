@@ -1,4 +1,6 @@
-from fabfed.util.parser import Parser, ParseConfigException, DependencyInfo
+from fabfed.util.parser import Parser, DependencyInfo
+from fabfed.exceptions import ParseConfigException
+from fabfed.exceptions import ResourceTypeNotSupported
 import pytest
 
 
@@ -7,17 +9,13 @@ def test_malformed_node():
 resource:
   - node:
       - my_node:
-          - slice: '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 2
       - my_node2:
-          - slice: '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 2
-
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
     '''
@@ -29,131 +27,46 @@ provider:
 def test_no_nodes_and_no_networks():
     yaml_str = '''
 resource:
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
+  - no_type:
+      - my_no_type:
+          - provider: '{{ fabric.my_provider }}'
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
-       - user: user1      
+       - user: user1
     '''
 
-    with pytest.raises(ParseConfigException):
+    with pytest.raises(ResourceTypeNotSupported):
         Parser.parse(content=yaml_str)
 
 
-def test_no_slices():
+def test_not_pointing_to_provider():
     yaml_str = '''
 resource:
   - node:
       - my_node:
             - count: 2
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
-       - user: user1      
+       - user: user1
     '''
 
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
 
 
-def test_malformed_slice():
+def test_no_provider_node():
     yaml_str = '''
 resource:
   - node:
       - my_node:
-            - slice: '{{ slice.my_slice }}'
-  - slice:
-      - my_slice:
-            - no_provider: '{{ prov1.my_provider }}'
+            - no_provider: '{{ fabric.my_provider }}'
+            
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
-       - user: user1      
-    '''
-
-    with pytest.raises(ParseConfigException):
-        Parser.parse(content=yaml_str)
-
-
-def test_duplicate_slices():
-    yaml_str = '''
-resource:
-  - node:
-      - my_node:
-            - slice: '{{ slice.my_slice }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
-provider:
-  - prov1:
-    - my_provider:
-       - user: user1      
-    '''
-
-    with pytest.raises(ParseConfigException):
-        Parser.parse(content=yaml_str)
-
-
-def test_duplicate_slices_across_providers():
-    yaml_str = '''
-resource:
-  - node:
-      - my_node:
-            - slice: '{{ slice.my_slice }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov2.my_provider2 }}'
-provider:
-  - prov1:
-    - my_provider:
-       - user: user1 
-  - prov2:
-    - my_provider2:
-       - user: user1        
-    '''
-
-    with pytest.raises(ParseConfigException):
-        Parser.parse(content=yaml_str)
-
-
-def test_slice_bad_reference():
-    yaml_str = '''
-resource:
-  - slice:
-      - my_slice:
-          - provider: '{{ prov20.my_provider }}'
-provider:
-  - prov1:
-    - my_provider:
-       - user: user1      
-    '''
-
-    with pytest.raises(ParseConfigException):
-        Parser.parse(content=yaml_str)
-
-
-def test_no_provider():
-    yaml_str = '''
-resource:
-  - node:
-      - my_node:
-          - slice: '{{ slice.my_slice }}'
-            count: 2
-  - node:
-      - my_node:
-          - slice: '{{ slice.my_slice }}'
-            count: 5
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'       
+       - user: user1
     '''
 
     with pytest.raises(ParseConfigException):
@@ -163,12 +76,12 @@ resource:
 def test_duplicate_providers():
     yaml_str = '''
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
-       - user: user1 
-  - prov2:
+       - user: user1
+  - fabric:
     - my_provider:
-       - user: user2        
+       - user: user2
     '''
 
     with pytest.raises(ParseConfigException):
@@ -180,46 +93,38 @@ def test_duplicate_nodes():
 resource:
   - node:
       - my_node:
-          - slice: '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 2
   - node:
       - my_node:
-          - slice: '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 5
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
-       - user: user1      
+       - user: user1
     '''
 
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
 
 
-def test_duplicate_nodes_across_slices():
+def test_duplicate_node_across_providers():
     yaml_str = '''
 resource:
   - node:
       - my_node:
-          - slice: '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider1 }}'
             count: 2
   - node:
       - my_node:
-          - slice: '{{ slice.my_slice2 }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
-  - slice:
-      - my_slice2:
-          - provider: '{{ prov2.my_provider2 }}'
+          - provider: '{{ chi.my_provider2 }}' 
+          
 provider:
-  - prov1:
-    - my_provider:
+  - fabric:
+    - my_provider1:
        - user: user1
-  - prov2:
+  - chi:
     - my_provider2:
        - user: user1
     '''
@@ -233,24 +138,19 @@ def test_duplicate_networks_across_slices():
 resource:
   - network:
       - my_net:
-          - slice: '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 2
   - network:
       - my_net:
-          - slice: '{{ slice.my_slice2 }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
-  - slice:
-      - my_slice2:
-          - provider: '{{ prov2.my_provider2 }}'
+          - provider: '{{ chi.my_provider2 }}'
+
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
-  - prov2:
+  - chi:
     - my_provider2:
-       - user: user1
+       - user: user2
     '''
 
     with pytest.raises(ParseConfigException):
@@ -262,22 +162,16 @@ def test_duplicate_across_types():
 resource:
   - node:
       - my_var:
-          - slice: '{{ slice.my_var }}'
+          - provider: '{{ fabric.my_var }}'
             count: 2
   - network:
       - my_var:
-          - slice: '{{ slice.my_slice2 }}'
-  - slice:
-      - my_var:
-          - provider: '{{ prov1.my_provider }}'
-  - slice:
-      - my_slice2:
-          - provider: '{{ prov2.my_provider2 }}'
+          - provider: '{{ chi.my_provider2 }}'
 provider:
-  - prov1:
-    - my_provider:
+  - fabric:
+    - my_var:
        - user: user1
-  - prov2:
+  - chi:
     - my_provider2:
        - user: user1
     '''
@@ -290,7 +184,7 @@ def test_different_types():
 resource:
   - node:
       - my_node:
-          - slice: '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider }}'
             count: 1
             up: True
             vlans: [1, 2]
@@ -298,15 +192,12 @@ resource:
               type: ipv4
               ip:
                 - interface: eth0
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
         '''
-    _, _, resources = Parser.parse(content=yaml_str)
+    _, resources = Parser.parse(content=yaml_str)
     assert len(resources) == 1
     assert len(resources[0].dependencies) == 0
 
@@ -314,16 +205,13 @@ provider:
 def test_missing_variable():
     yaml_str = '''
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: '{{ var.user_name }}'
 resource:
   - node:
       - my_node:
-          - slice:  '{{ slice.my_slice }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
     '''
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
@@ -337,7 +225,7 @@ variable:
   - slice_name:
       - default: "user10"
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: "some_user"
 resource:
@@ -346,7 +234,7 @@ resource:
           - slice:  '{{ slice.my_slice }}'
   - slice:
       - my_slice:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
     '''
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
@@ -355,32 +243,29 @@ resource:
 def test_variables():
     yaml_str = '''
 variable:
-  - slice_name:
-      - default: "test_slice"
+  - provider_name:
+      - default: "test_provider"
   - user_name:
       - default: "user10"
-  - open_ports: 
+  - open_ports:
       - default: [22, 443]
   - groups:
       - default:
-  - vlan: 
-      
+  - vlan:
+
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: '{{ var.user_name }}'
-       
+         name: '{{ var.provider_name }}'
+
 resource:
   - node:
       - my_node:
-          - slice:  '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider }}'
             ports:  '{{ var.open_ports }}'
             vlan:   '{{ var.vlan }}'
             groups: '{{ var.groups }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
-            name:     '{{ var.slice_name }}'
     '''
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
@@ -388,8 +273,8 @@ resource:
     # now let's inject some values for groups and vlan
     var_dict = dict(groups=['g1'], vlan=5)
 
-    providers, slices, resources = Parser.parse(content=yaml_str, var_dict=var_dict)
-    assert slices[0].name == 'test_slice'
+    providers, resources = Parser.parse(content=yaml_str, var_dict=var_dict)
+    assert providers[0].name == "test_provider"
     assert providers[0].attributes['user'] == 'user10'
     assert resources[0].attributes['ports'] == [22, 443]
     assert resources[0].attributes['vlan'] == 5
@@ -401,7 +286,7 @@ def test_dependencies():
 resource:
   - node:
       - my_node:
-          - slice:  '{{ slice.my_slice }}'
+          - provider: '{{ fabric.my_provider }}'
             simple_attr: '{{ network.my_network.vlan }}'
             list_attr:  [ '{{ network.my_network.ip }}', '{{ network.my_network.port }}']
             complex_attr:
@@ -410,18 +295,14 @@ resource:
                 - interface: '{{ network.my_network.os_interface.mask }}'
   - network:
       - my_network:
-          - slice:  '{{ slice.my_slice }}'
-  - slice:
-      - my_slice:
-          - provider: '{{ prov1.my_provider }}'
+          - provider: '{{ fabric.my_provider }}'
 provider:
-  - prov1:
+  - fabric:
     - my_provider:
        - user: user1
     '''
-    providers, slices, resources = Parser.parse(content=yaml_str)
+    providers, resources = Parser.parse(content=yaml_str)
     assert len(providers) == 1
-    assert len(slices) == 1
     assert len(resources) == 2
 
     for resource in resources:

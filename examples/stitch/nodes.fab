@@ -1,7 +1,7 @@
 resource:
   - node:
       - fabric_node:
-          - slice:  '{{ slice.fabric_slice }}'
+          - provider: '{{ fabric.fabric_provider }}'
             site: 'STAR'
             count: 1
             image: default_rocky_8
@@ -9,9 +9,9 @@ resource:
 
   - node:
       - chi_node:
-          - slice:  '{{ slice.chi_slice }}'
+          - provider: '{{ chi.chi_provider }}'
             site: CHI@UC
             image: CC-Ubuntu20.04
-            network: '{{ network.chi_network.name }}'
-            count: 2 
+            network: '{{ network.chi_network }}'
+            count: 2
             flavor: m1.medium

@@ -1,0 +1,13 @@
+---
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - vlan
+  - python3-pip
+  - python3-docker
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-compose-plugin
