@@ -1,0 +1,37 @@
+provider:
+  - dummy:
+    - my_provider:
+       - url: https://some_url:5000
+         name: prov1 
+
+  - dummy:
+    - my_provider2:
+       - url: https://some_other_url:5000
+         name: prov2 
+
+  - dummy:
+    - my_provider3:
+       - url: https://some_other_url:5000
+
+resource:
+  - service:
+      - dtn1:
+         - provider: '{{ dummy.my_provider }}'
+           image: "centos"
+           count: 1 
+           # exposed_attribute_x: "{{ service.dtn2 }}"                                             # Pointing to a single service
+           # exposed_attribute_x: "{{ service.dtn2.exposed_attribute_x }}"                         # Pointing to a specific attribute which must be exposed
+           exposed_attribute_x: [ "{{ service.dtn2 }}", "{{ service.dtn3.exposed_attribute_x }}" ] # Pointing to more than service
+           
+
+  - service:
+      - dtn2:
+         - provider: '{{ dummy.my_provider2 }}'
+           image: ubuntu
+           count: 2                                         # Note that count can be > 0. If you set the count 0. The dtn1 service will be in pending .... 
+
+  - service:
+      - dtn3:
+         - provider: '{{ dummy.my_provider3 }}'
+           image: ubuntu
+           count: 3                                         

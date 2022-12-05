@@ -1,0 +1,54 @@
+variable:
+  - fabric_site:
+      - default: TACC
+  - slice_name:
+      - default:
+
+provider:
+  - fabric:
+    - fabric_provider:
+       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: fabric
+  - chi:
+    - chi_provider:
+       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: chi
+  - janus:
+    - janus_provider:
+       - url: https://192.168.1.1:5000
+
+resource:
+#  - network:
+#      - fabric_network:
+#          - provider: '{{ fabric.fabric_provider }}'
+#            site: 'STAR'
+#            subnet: "192.168.100.0/24"
+#            pool_start: 192.168.100.200
+#            pool_end: 192.168.100.250
+#            vlan: 3001
+#            interface: '{{ node.fabric_node }}'
+
+  - node:
+      - fabric_node:
+          - provider:  '{{ fabric.fabric_provider }}'
+            site: '{{ var.fabric_site }}'
+            count: 1
+            image: default_rocky_8
+            nic_model: NIC_ConnectX_5
+
+#  - node:
+#      - chi_node:
+#          - provider: '{{ chi.chi_provider }}'
+#            site: CHI@UC
+#            image: CC-Ubuntu20.04
+#            count: 1
+#            flavor: m1.medium
+
+  - service:
+      - dtn_service:
+           - provider: '{{ janus.janus_provider }}'
+#             node: [ '{{ node.fabric_node }}', '{{ node.chi_node }}' ]
+             node: '{{ node.fabric_node }}'
+             count: 1
+             image: dtnaas/tools
+             profile: default

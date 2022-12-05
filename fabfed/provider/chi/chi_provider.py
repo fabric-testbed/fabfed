@@ -1,42 +1,21 @@
-#!/usr/bin/env python3
-# MIT License
-#
-# Copyright (c) 2020 RENCI NRIG
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
-# Author Komal Thareja (kthare10@renci.org)
 import logging
 import os
 
-from fabfed.model.state import ProviderState
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from .chi_constants import *
+import fabfed.provider.api.dependency_util as util
 
 
 class ChiProvider(Provider):
-    def __init__(self, *, type, name, logger: logging.Logger, config: dict):
-        super().__init__(type=type, name=name, logger=logger, config=config)
-        self.mappings = dict()
+    def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
+        super().__init__(type=type, label=label, name=name, logger=logger, config=config)
+        self.helper = None
 
-    def setup_environment(self, *, site: str):
+    def setup_environment(self):
+        pass
+
+    def _setup_environment(self, *, site: str):
         """
         Setup the environment variables for Chameleon
         Should be invoked before any of the chi packages are imported otherwise, none of the CHI APIs work and
@@ -86,77 +65,123 @@ class ChiProvider(Provider):
         else:
             return "uc"
 
-    def init_slice(self, *, slice_config: dict, slice_name: str):
-        self.logger.debug(f"Initializing {slice_name}: {slice_config}")
-        label = slice_config.get(Constants.LABEL)
-
-        if slice_name in self.mappings:
-            raise Exception("provider cannot have more than one slice with same name")
-
-        self.mappings[slice_name] = label
-
-    def add_resource(self, *, resource: dict, slice_name: str):
-        self.logger.debug(f"Adding {resource} to {slice_name}")
-        count = resource.get(Constants.RES_COUNT, 1)
-
-        if count < 1:
-            self.logger.debug(f"Skipping {resource} to {slice_name} {count}")
-            return None
-
+    def do_add_resource(self, *, resource: dict):
         site = resource.get(Constants.RES_SITE)
-        self.setup_environment(site=site)
+        self._setup_environment(site=site)
+        key_pair = self.config[CHI_KEY_PAIR]
+        project_name = self.config[CHI_PROJECT_NAME]
+        label = resource.get(Constants.LABEL)
+        rtype = resource.get(Constants.RES_TYPE)
 
-        # Should be done only after setting up the environment
-        from fabfed.provider.chi.chi_slice import ChiSlice
-        if slice_name in self.slices:
-            slice_object = self.slices[slice_name]
+        if rtype == Constants.RES_TYPE_NETWORK.lower():
+            subnet = resource.get(Constants.RES_SUBNET)
+            pool_start = resource.get(Constants.RES_NET_POOL_START, None)
+            pool_end = resource.get(Constants.RES_NET_POOL_END, None)
+            gateway = resource.get(Constants.RES_NET_GATEWAY, None)
+            stitch_providers = resource.get(Constants.RES_NET_STITCH_PROVS, list())
+            assert stitch_providers
+
+            net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+            from fabfed.provider.chi.chi_network import ChiNetwork
+
+            net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
+                             subnet=subnet, pool_start=pool_start, pool_end=pool_end,
+                             gateway=gateway, stitch_provider=stitch_providers[0],
+                             project_name=project_name)
+            self._networks.append(net)
+
+            if self.resource_listener:
+                self.resource_listener.on_added(source=self, provider=self, resource=net)
+
         else:
-            label = self.mappings[slice_name]
-            slice_object = ChiSlice(label=label, name=slice_name, logger=self.logger,
-                                    key_pair=self.config.get(CHI_KEY_PAIR),
-                                    project_name=self.config.get(CHI_PROJECT_NAME))
-            slice_object.set_resource_listener(self)
-            self.slices[slice_name] = slice_object
+            network = resource.get(Constants.RES_NETWORK, DEFAULT_NETWORK)
 
-        slice_object.add_resource(resource=resource)
-        return slice_object
+            if util.has_resolved_internal_dependencies(resource=resource, attribute='network'):
+                net = util.get_single_value_for_dependency(resource=resource, attribute='network')
+                network = net.name
 
-    def destroy_resources(self, *, provider_state: ProviderState):
-        """
-        Delete provisioned resources
-         """
-        self.logger.debug(f"Destroying {provider_state.label}: num_slices={len(provider_state.slice_states)}")
+            node_count = resource.get(Constants.RES_COUNT, 1)
+            image = resource.get(Constants.RES_IMAGE)
+            node_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+            flavor = resource.get(Constants.RES_FLAVOR, DEFAULT_FLAVOR)
+            label = resource.get(Constants.LABEL)
 
-        for slice_state in provider_state.slice_states:
-            name = slice_state.attributes['name']
-            self.logger.info(f"Deleting slice {name}")
+            for n in range(0, node_count):
+                node_name = f"{self.name}-{node_name_prefix}{n}"
 
-            all_states = []
-            all_states.extend(slice_state.network_states)
-            all_states.extend(slice_state.node_states)
+                from fabfed.provider.chi.chi_node import ChiNode
 
-            site = None
+                node = ChiNode(label=label, name=node_name, image=image, site=site, flavor=flavor, logger=self.logger,
+                               key_pair=key_pair, network=network, project_name=project_name)
+                self._nodes.append(node)
 
-            for temp in all_states:
-                site = temp.attributes.get('site', None)
+                if self.resource_listener:
+                    self.resource_listener.on_added(source=self, provider=self, resource=node)
 
-                if site:
-                    break
+    def do_create_resource(self, *, resource: dict):
+        site = resource.get(Constants.RES_SITE)
+        self._setup_environment(site=site)
+        label = resource.get(Constants.LABEL)
+        rtype = resource.get(Constants.RES_TYPE)
 
-            assert site, "no site ...."
+        if rtype == Constants.RES_TYPE_NETWORK.lower():
+            temp = [net for net in self._networks if net.label == label]
 
-            self.setup_environment(site=site)
+            for net in temp:
+                net.create()
 
-            from fabfed.provider.chi.chi_slice import ChiSlice
+                if self.resource_listener:
+                    self.resource_listener.on_created(source=self, provider=self, resource=net)
 
-            if name in self.slices:
-                slice_object = self.slices[name]
-            else:
-                label = self.mappings[name]
-                slice_object = ChiSlice(label=label, name=name, logger=self.logger,
-                                        key_pair=self.config.get(CHI_KEY_PAIR),
-                                        project_name=self.config.get(CHI_PROJECT_NAME))
-                slice_object.set_resource_listener(self)
-                self.slices[name] = slice_object
+        else:
+            temp = [node for node in self._nodes if node.label == label]
 
-            slice_object.destroy(slice_state=slice_state)
+            for node in temp:
+                node.create()
+
+            for node in temp:
+                node.wait_for_active()
+
+                if self.resource_listener:
+                    self.resource_listener.on_created(source=self, provider=self, resource=node)
+
+    # noinspection PyTypeChecker
+    def do_delete_resource(self, *, resource: dict):
+        site = resource.get(Constants.RES_SITE)
+        self._setup_environment(site=site)
+        key_pair = self.config[CHI_KEY_PAIR]
+        project_name = self.config[CHI_PROJECT_NAME]
+        label = resource.get(Constants.LABEL)
+        rtype = resource.get(Constants.RES_TYPE)
+
+        if rtype == Constants.RES_TYPE_NETWORK.lower():
+            net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+            self.logger.debug(f"Deleting network: {net_name} at site {site}")
+            from fabfed.provider.chi.chi_network import ChiNetwork
+
+            net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
+                             subnet=None, pool_start=None, pool_end=None,
+                             gateway=None, stitch_provider=None,
+                             project_name=project_name)
+            net.delete()
+            self.logger.info(f"Deleted network: {net_name} at site {site}")
+
+            if self.resource_listener:
+                self.resource_listener.on_deleted(source=self, provider=self, resource=net)
+        else:
+            node_count = resource.get(Constants.RES_COUNT, 1)
+
+            for n in range(0, node_count):
+                node_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+                node_name = f"{self.name}-{node_name_prefix}{n}"
+                self.logger.debug(f"Deleting node: {node_name} at site {site}")
+
+                from fabfed.provider.chi.chi_node import ChiNode
+
+                node = ChiNode(label=label, name=node_name, image=None, site=site, flavor=None, logger=self.logger,
+                               key_pair=key_pair, network=None, project_name=project_name)
+                node.delete()
+                self.logger.info(f"Deleted node: {node_name} at site {site}")
+
+                if self.resource_listener:
+                    self.resource_listener.on_deleted(source=self, provider=self, resource=node)

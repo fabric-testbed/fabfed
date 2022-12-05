@@ -1,22 +1,21 @@
 resource:
   - network:
       - chi_network:
-          - slice:  '{{ slice.chi_slice }}'
+          - provider: '{{ chi.chi_provider }}'
             site: CHI@UC
             name: stitch_net
             subnet: "192.168.100.0/24"
             pool_start: 192.168.100.100
             pool_end: 192.168.100.150
             gateway: 192.168.100.1
-            stitch_provider: fabric
             vlans: []
 
   - network:
       - fabric_network:
-          - slice: '{{ slice.fabric_slice }}'
+          - provider: '{{ fabric.fabric_provider }}'
             site: 'STAR'
             subnet: "192.168.100.0/24"
             pool_start: 192.168.100.200
             pool_end: 192.168.100.250
-            vlan: '{{ network.chi_network.vlans}}'
-            interface: '{{ node.fabric_node.interfaces }}'
+            vlan: '{{ network.chi_network }}'
+            interface: '{{ node.fabric_node }}'

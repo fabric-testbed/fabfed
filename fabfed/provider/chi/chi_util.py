@@ -60,7 +60,6 @@ class LeaseHelper:
 
         for i in range(retry):
             try:
-                # TODO I keep seeing this keystoneauth1.exceptions.connection.ConnectFailure
                 chi.lease.wait_for_active(self.lease_name)
                 self.lease = chi.lease.get_lease(self.lease_name)
                 self.logger.debug(f"lease {self.lease}: status={self.lease['status']}")

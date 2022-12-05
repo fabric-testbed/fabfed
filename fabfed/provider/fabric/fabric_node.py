@@ -1,38 +1,11 @@
-#!/usr/bin/env python3
-# MIT License
-#
-# Copyright (c) 2020 RENCI NRIG
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
-# Author Komal Thareja (kthare10@renci.org)
-
-from collections import namedtuple
-from typing import List
+from typing import List, Dict
 
 from fabrictestbed_extensions.fablib.node import Node as Delegate
 from fabrictestbed_extensions.fablib.slice import Slice
 
 from fabfed.model import Node
 from fabfed.util.constants import Constants
-
-Component = namedtuple("Component", "model  name")
+from .fabric_constants import *
 
 
 class FabricNode(Node):
@@ -43,11 +16,38 @@ class FabricNode(Node):
 
         self._delegate = delegate
         self.slice_name = delegate.get_slice().get_name()
-        self.mgmt_ip = str(delegate.get_management_ip())
-        self._components: List[Component] = []
+        self.mgmt_ip = delegate.get_management_ip()
+
+        if self.mgmt_ip:
+            self.mgmt_ip = str(self.mgmt_ip)
+
+        self.username = delegate.get_username()
+        self.state = delegate.get_reservation_state()
+        self.user = self.username
+        self.host = self.mgmt_ip
+        self.keyfile = self._delegate.get_private_key_file()
+        self.jump_user = self._delegate.get_fablib_manager().get_bastion_username()
+        self.jump_host = self._delegate.get_fablib_manager().get_bastion_public_addr()
+        self.jump_keyfile = self._delegate.get_fablib_manager().get_bastion_key_filename()
+
+        if self.state:
+            self.state = self.state.lower()
+
+        self.id = delegate.get_reservation_id()
+
+        self.addr_list = []
+
+        if delegate.get_management_ip():
+            for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
+                ifname = ip_addr['ifname']
+
+                for addr_info in ip_addr['addr_info']:
+                    self.addr_list.append(dict(ifname=ifname, addr_info=addr_info['local']))
+
+        self.components: List[Dict[str, str]] = []
 
         for component in delegate.get_components():
-            self._components.append(Component(name=component.get_name(), model=component.get_model()))
+            self.components.append(dict(name=component.get_name(), model=component.get_model()))
 
     def get_interfaces(self):
         return self._delegate.get_interfaces()
@@ -69,6 +69,9 @@ class FabricNode(Node):
 
     def execute(self, command, retry=3, retry_interval=10):
         self._delegate.execute(command, retry, retry_interval)
+
+    def add_route(self, subnet, gateway):
+        self._delegate.ip_route_add(subnet=subnet, gateway=gateway)
 
     def get_management_ip(self) -> str:
         return self._delegate.get_management_ip()
@@ -97,6 +100,11 @@ class NodeBuilder:
         disk = flavor.get(Constants.RES_FLAVOR_DISK, Delegate.default_disk)
         self.label = label
         self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
+        # Fabfed will always include two basic NICs for FabNetv4/v6
+        net_iface_v4 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV4_NET_IFACE_NAME).get_interfaces()[0]
+        net_iface_v6 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV6_NET_IFACE_NAME).get_interfaces()[0]
+        slice_object.add_l3network(name=f"{name}-{FABRIC_IPV4_NET_NAME}", interfaces=[net_iface_v4], type='IPv4')
+        slice_object.add_l3network(name=f"{name}-{FABRIC_IPV6_NET_NAME}", interfaces=[net_iface_v6], type='IPv6')
 
     def add_component(self, model=None, name=None):
         self.node.add_component(model=model, name=name)
