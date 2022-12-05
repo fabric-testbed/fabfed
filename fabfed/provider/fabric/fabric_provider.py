@@ -37,7 +37,7 @@ class FabricProvider(Provider):
 
     def _init_slice(self):
         if not self.slice:
-            self.logger.info(f"Initializing  slice {self.name}")
+            self.logger.info(f"Initializing slice {self.name}")
 
             from fabfed.provider.fabric.fabric_slice import FabricSlice
 

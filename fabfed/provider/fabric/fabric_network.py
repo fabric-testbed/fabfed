@@ -49,20 +49,27 @@ class NetworkBuilder:
             net = util.get_single_value_for_dependency(resource=resource, attribute='vlan')
             self.vlan = net.vlans[0]
 
-        assert isinstance(self.vlan, int), f"missing or bad vlan {self.vlan}"
-        self.facility_port = 'Chameleon-StarLight'
-        self.facility_port_site = resource.get(Constants.RES_SITE)
         self.interfaces = []
         self.net_name = name  # f'net_facility_port'
-        from ipaddress import IPv4Address, IPv4Network
 
-        self.subnet = IPv4Network(resource.get(Constants.RES_SUBNET))
-        self.pool_start = IPv4Address(resource.get(Constants.RES_NET_POOL_START))
-        self.pool_end = IPv4Address(resource.get(Constants.RES_NET_POOL_END))
+        if self.vlan:
+            from ipaddress import IPv4Address, IPv4Network
+            self.subnet = IPv4Network(resource.get(Constants.RES_SUBNET))
+            self.pool_start = IPv4Address(resource.get(Constants.RES_NET_POOL_START))
+            self.pool_end = IPv4Address(resource.get(Constants.RES_NET_POOL_END))
+            self.facility_port = 'Chameleon-StarLight'
+            self.facility_port_site = resource.get(Constants.RES_SITE)
+        else:
+            self.subnet = None
+            self.pool_start = None
+            self.pool_end = None
+
         self.label = label
         self.net = None
 
     def handle_facility_port(self):
+        if not self.vlan:
+            return
         facility_port = self.slice_object.add_facility_port(name=self.facility_port, site=self.facility_port_site,
                                                             vlan=str(self.vlan))
         facility_port_interface = facility_port.get_interfaces()[0]
@@ -71,21 +78,18 @@ class NetworkBuilder:
     def handle_l2network(self, interfaces):
         assert len(interfaces) > 0
         # assert len(self.interfaces) == 1
-
+        if not self.vlan:
+            return
         self.interfaces.extend(interfaces)
         self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
 
     def handle_l3network(self, interfaces):
         assert len(interfaces) > 0
         # assert len(self.interfaces) == 1
-
         self.interfaces.extend(interfaces)
         self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name, interfaces=self.interfaces)
 
     def build(self) -> FabricNetwork:
         assert self.net
-        assert self.subnet
-        assert self.pool_start
-        assert self.pool_end
         return FabricNetwork(label=self.label, delegate=self.net, subnet=self.subnet, pool_start=self.pool_start,
                              pool_end=self.pool_end)

@@ -225,3 +225,6 @@ class ChiNode(Node):
                 time.sleep(retry_interval)
             finally:
                 helper.close_quietly()
+
+    def add_route(self, subnet, gateway):
+        pass
