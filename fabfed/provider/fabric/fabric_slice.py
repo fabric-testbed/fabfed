@@ -213,7 +213,7 @@ class FabricSlice:
             self.logger.warning(f"still have pending {len(self.pending)} resources")
             return
 
-        #self._submit_and_wait()
+        self._submit_and_wait()
         self.slice_created = True
 
         for attempt in range(self.retry):
