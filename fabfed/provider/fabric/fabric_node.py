@@ -5,6 +5,7 @@ from fabrictestbed_extensions.fablib.slice import Slice
 
 from fabfed.model import Node
 from fabfed.util.constants import Constants
+from .fabric_constants import *
 
 
 class FabricNode(Node):
@@ -69,6 +70,9 @@ class FabricNode(Node):
     def execute(self, command, retry=3, retry_interval=10):
         self._delegate.execute(command, retry, retry_interval)
 
+    def add_route(self, subnet, gateway):
+        self._delegate.ip_route_add(subnet=subnet, gateway=gateway)
+
     def get_management_ip(self) -> str:
         return self._delegate.get_management_ip()
 
@@ -96,6 +100,11 @@ class NodeBuilder:
         disk = flavor.get(Constants.RES_FLAVOR_DISK, Delegate.default_disk)
         self.label = label
         self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
+        # Fabfed will always include two basic NICs for FabNetv4/v6
+        net_iface_v4 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV4_NET_IFACE_NAME).get_interfaces()[0]
+        net_iface_v6 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV6_NET_IFACE_NAME).get_interfaces()[0]
+        slice_object.add_l3network(name=f"{name}-{FABRIC_IPV4_NET_NAME}", interfaces=[net_iface_v4], type='IPv4')
+        slice_object.add_l3network(name=f"{name}-{FABRIC_IPV6_NET_NAME}", interfaces=[net_iface_v6], type='IPv6')
 
     def add_component(self, model=None, name=None):
         self.node.add_component(model=model, name=name)

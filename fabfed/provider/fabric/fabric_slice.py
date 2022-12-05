@@ -7,6 +7,7 @@ from .fabric_network import NetworkBuilder, FabricNetwork
 from .fabric_node import FabricNode, NodeBuilder
 from .fabric_provider import FabricProvider
 from ...util.constants import Constants
+from .fabric_constants import *
 
 
 # noinspection PyUnresolvedReferences
@@ -62,6 +63,7 @@ class FabricSlice:
     def _add_network(self, resource: dict):
         label = resource.get(Constants.LABEL)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+        net_type = resource.get(Constants.RES_TYPE)
         network_builder = NetworkBuilder(label, self.slice_object, name_prefix, resource)
         network_builder.handle_facility_port()
         assert util.has_resolved_internal_dependencies(resource=resource, attribute='interface')
@@ -72,8 +74,9 @@ class FabricSlice:
             interfaces.append(node.get_interfaces()[0])
 
         assert len(interfaces) > 0
-        # network_builder.handle_l2network(interfaces)  # This throws an exception in network_service.py
-        network_builder.handle_l3network(interfaces)
+        network_builder.handle_l2network(interfaces)
+        if net_type == Constants.RES_NET_LAYER3:
+            network_builder.handle_l3network(interfaces)
         net = network_builder.build()
         self.provider.networks.append(net)
 
@@ -163,6 +166,24 @@ class FabricSlice:
             # self.logger.error(f"Exception occurred: {e}")
             raise e
 
+    def _setup_networks(self, node):
+        v4_net = self.slice_object.get_network(name=f"{node.name}-{FABRIC_IPV4_NET_NAME}")
+        v4_net_available_ips = v4_net.get_available_ips()
+        v6_net = self.slice_object.get_network(name=f"{node.name}-{FABRIC_IPV6_NET_NAME}")
+        v6_net_available_ips = v6_net.get_available_ips()
+
+        iface_v4 = node.get_interface(network_name=f"{node.name}-{FABRIC_IPV4_NET_NAME}")
+        iface_v6 = node.get_interface(network_name=f"{node.name}-{FABRIC_IPV6_NET_NAME}")
+
+        addr_v4 = v4_net_available_ips.pop(0)
+        addr_v6 = v6_net_available_ips.pop(0)
+
+        iface_v4.ip_addr_add(addr=addr_v4, subnet=v4_net.get_subnet())
+        iface_v6.ip_addr_add(addr=addr_v6, subnet=v6_net.get_subnet())
+
+        node.add_route(subnet=FABRIC_PRIVATE_IPV4_SUBNET, gateway=v4_net.get_gateway())
+        node.add_route(subnet=FABRIC_PUBLIC_IPV6_SUBNET, gateway=v6_net.get_gateway())
+
     def create_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
 
@@ -192,7 +213,7 @@ class FabricSlice:
             self.logger.warning(f"still have pending {len(self.pending)} resources")
             return
 
-        self._submit_and_wait()
+        #self._submit_and_wait()
         self.slice_created = True
 
         for attempt in range(self.retry):
@@ -227,7 +248,10 @@ class FabricSlice:
 
         for node in self.nodes:
             delegate = self.slice_object.get_node(node.name)
-            temp.append(FabricNode(label=node.label, delegate=delegate))
+            # Setup FABnetv4/v6 nets
+            n = FabricNode(label=node.label, delegate=delegate)
+            self._setup_networks(n)
+            temp.append(n)
 
         self.provider._nodes = temp
 

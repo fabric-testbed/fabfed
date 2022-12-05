@@ -31,7 +31,8 @@ class Constants:
     RES_NET_GATEWAY = "gateway"
     RES_NET_STITCH_PROVS = "stitch_providers"
     RES_NET_CALLBACK = "callback"
-    RES_SUBNET = 'subnet'
+    RES_NET_LAYER3 = "layer3"
+    RES_SUBNET = "subnet"
 
     LOGGING = "logging"
     PROPERTY_CONF_LOG_FILE = 'log-file'
