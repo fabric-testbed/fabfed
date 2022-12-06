@@ -1,0 +1,12 @@
+---
+- debug: msg="{{ url }} {{ username }} {{ password }} {{ token }} {{ node }} {{ name }}"
+
+- name: Remove Janus endpoint
+  ansible.builtin.uri:
+    url: "{{ url }}/api/janus/controller/nodes/{{ name }}"
+    user: "{{ username }}"
+    password: "{{ password }}"
+    method: DELETE
+    force_basic_auth: yes
+    status_code: 204
+    validate_certs: false

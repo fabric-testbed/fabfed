@@ -172,7 +172,7 @@ class AnsibleHelper:
         """
         self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
 
-    def run_playbook(self, playbook_path: str):
+    def run_playbook(self, playbook_path: str, tags: list = []):
         """
         Run a playbook
         @param playbook_path path for the playbook
@@ -181,7 +181,7 @@ class AnsibleHelper:
         if not os.path.exists(playbook_path):
             raise PlaybookException("Playbook not found")
 
-        context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False, listhosts=False,
+        context.CLIARGS = ImmutableDict(connection='smart', tags=tags, listtags=False, listtasks=False, listhosts=False,
                                         syntax=False,
                                         module_path=None, forks=100, private_key_file=None,
                                         ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no',

@@ -167,13 +167,13 @@ class FabricSlice:
             raise e
 
     def _setup_networks(self, node):
-        v4_net = self.slice_object.get_network(name=f"{node.name}-{FABRIC_IPV4_NET_NAME}")
+        v4_net = self.slice_object.get_network(name=node.v4net_name)
         v4_net_available_ips = v4_net.get_available_ips()
-        v6_net = self.slice_object.get_network(name=f"{node.name}-{FABRIC_IPV6_NET_NAME}")
+        v6_net = self.slice_object.get_network(name=node.v6net_name)
         v6_net_available_ips = v6_net.get_available_ips()
 
-        iface_v4 = node.get_interface(network_name=f"{node.name}-{FABRIC_IPV4_NET_NAME}")
-        iface_v6 = node.get_interface(network_name=f"{node.name}-{FABRIC_IPV6_NET_NAME}")
+        iface_v4 = node.get_interface(network_name=node.v4net_name)
+        iface_v6 = node.get_interface(network_name=node.v6net_name)
 
         addr_v4 = v4_net_available_ips.pop(0)
         addr_v6 = v6_net_available_ips.pop(0)

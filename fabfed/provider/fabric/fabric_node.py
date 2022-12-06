@@ -29,6 +29,12 @@ class FabricNode(Node):
         self.jump_user = self._delegate.get_fablib_manager().get_bastion_username()
         self.jump_host = self._delegate.get_fablib_manager().get_bastion_public_addr()
         self.jump_keyfile = self._delegate.get_fablib_manager().get_bastion_key_filename()
+        self.dataplane_ipv4 = self._delegate.get_slice().get_network(name=self.v4net_name).get_available_ips()
+        self.dataplane_ipv6 = self._delegate.get_slice().get_network(name=self.v6net_name).get_available_ips()
+        if self.dataplane_ipv4:
+            self.dataplane_ipv4 = str(self.dataplane_ipv4.pop(0))
+        if self.dataplane_ipv6:
+            self.dataplane_ipv6 = str(self.dataplane_ipv6.pop(0))
 
         if self.state:
             self.state = self.state.lower()
@@ -48,6 +54,14 @@ class FabricNode(Node):
 
         for component in delegate.get_components():
             self.components.append(dict(name=component.get_name(), model=component.get_model()))
+
+    @property
+    def v4net_name(self):
+        return f"{self.name}-{FABRIC_IPV4_NET_NAME}"
+
+    @property
+    def v6net_name(self):
+        return f"{self.name}-{FABRIC_IPV6_NET_NAME}"
 
     def get_interfaces(self):
         return self._delegate.get_interfaces()
@@ -75,6 +89,14 @@ class FabricNode(Node):
 
     def get_management_ip(self) -> str:
         return self._delegate.get_management_ip()
+
+    def get_dataplane_address(self, network=None, interface=None, af=Constants.IPv4):
+        if af == Constants.IPv4:
+            return self.dataplane_ipv4
+        elif af == Constants.IPv6:
+            return self.dataplane_ipv6
+        else:
+            return None
 
     def get_reservation_id(self) -> str:
         return self._delegate.get_reservation_id()

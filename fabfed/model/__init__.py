@@ -89,6 +89,14 @@ class Node(Resource,SSHNode):
     def get_reservation_id(self) -> str:
         pass
 
+    @abstractmethod
+    def add_route(self, subnet, gateway):
+        pass
+
+    @abstractmethod
+    def get_dataplane_address(self, network=None, interface=None, af=None):
+        pass
+
     def write_ansible(self, friendly_name):
         SSHNode.write_ansible(self, friendly_name)
 
