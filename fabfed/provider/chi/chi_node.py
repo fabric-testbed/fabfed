@@ -226,5 +226,8 @@ class ChiNode(Node):
             finally:
                 helper.close_quietly()
 
+    def get_dataplane_address(self, network=None, interface=None, af=Constants.IPv4):
+        return self.mgmt_ip
+
     def add_route(self, subnet, gateway):
         pass
