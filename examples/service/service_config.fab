@@ -15,7 +15,11 @@ provider:
          profile: chi
   - janus:
     - janus_provider:
-       - url: https://192.168.1.1:5000
+       #- url: https://janus-ctrl.duckdns.org:5000
+       - url: https://10.133.132.2:5000
+         username: admin
+         password: admin
+         token:
 
 resource:
 #  - network:
@@ -29,9 +33,17 @@ resource:
 #            interface: '{{ node.fabric_node }}'
 
   - node:
-      - fabric_node:
-          - provider:  '{{ fabric.fabric_provider }}'
-            site: '{{ var.fabric_site }}'
+      - tacc_node:
+          - provider: '{{ fabric.fabric_provider }}'
+            site: 'TACC'
+            count: 1
+            image: default_rocky_8
+            nic_model: NIC_ConnectX_5
+
+  - node:
+      - dall_node:
+          - provider: '{{ fabric.fabric_provider }}'
+            site: 'DALL'
             count: 1
             image: default_rocky_8
             nic_model: NIC_ConnectX_5
@@ -48,7 +60,6 @@ resource:
       - dtn_service:
            - provider: '{{ janus.janus_provider }}'
 #             node: [ '{{ node.fabric_node }}', '{{ node.chi_node }}' ]
-             node: '{{ node.fabric_node }}'
-             count: 1
+             node: [ '{{ node.tacc_node }}', '{{ node.dall_node }}' ]
              image: dtnaas/tools
              profile: default

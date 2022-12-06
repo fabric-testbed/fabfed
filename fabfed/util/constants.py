@@ -1,4 +1,6 @@
 class Constants:
+    IPv4 = "ipv4"
+    IPv6 = "ipv6"
     FAB_EXTENSION = '.fab'
     CREDENTIAL_FILE = 'credential_file'
     PROFILE = 'profile'
