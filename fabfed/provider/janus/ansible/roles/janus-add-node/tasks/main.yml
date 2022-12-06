@@ -1,0 +1,20 @@
+---
+- debug: msg="{{ url }} {{ username }} {{ password }} {{ token }} {{ node }} {{ name }}"
+
+- name: Add Janus endpoint
+  vars:
+    - janus_body: {
+        'name': "{{ name }}",
+        'url': "tcp://{{ node }}:9001",
+        'type': 1
+      }
+  ansible.builtin.uri:
+    url: "{{ url }}/api/janus/controller/nodes"
+    user: "{{ username }}"
+    password: "{{ password }}"
+    method: POST
+    body: "{{ janus_body }}"
+    force_basic_auth: yes
+    status_code: 204
+    body_format: json
+    validate_certs: false
