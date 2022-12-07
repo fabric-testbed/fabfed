@@ -22,6 +22,7 @@ The provider class supports two types as of this writing.
 The resource class support three types:
 - [ ] node
 - [ ] network
+- [ ] service
 
 The workflow model allows us to tie resources (nodes or networks) to a provide and to express dependencies among resources. This is explained in more details below. We recommend you read on but under the <i>config directory</i>, you can find several templates to quickly get started.
 
@@ -100,6 +101,26 @@ resource: # Class
           - provider: '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}'
             name: my_network
+```
+# <a name="services"></a>Services
+A <i>service<i> <b>must</b> refer to a provider. Here it refers to a Janus provider for container management.
+ 
+ 
+```
+provider:                                                                                                                                                   - janus:                                                                                                                                  
+    - janus_provider:                                                                                                                       
+       - url: https://janus-ctrl.duckdns.org:5000                                                                                                  
+         username: admin                                                                                                                    
+         password: admin                                                                                                                    
+         token:              
+ 
+resource: # Class
+   - service:  # Type can be node or network
+      - dtn_service: # Label can be any string
+          - provider: '{{ janus.janus_provider }}'
+            snode: [ '{{ node.my_node0 }}', '{{ node.my_node1 }}' ] # can be a list of nodes to apply the service to
+            image: [Optional]
+            profile: [Optional]
 ```
  
 # <a name="dependencies"></a>Dependencies
