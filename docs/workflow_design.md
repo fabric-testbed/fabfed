@@ -76,7 +76,7 @@ A resource consists of a <i>type</i>, a <i>label</i> and a dictionary specifying
 As of now we support the followiing types: <i>node</i>, and <i>network</i>. The <i>label</i> can be any string and is used as the name of the resource if the <i>name</i> attribute is not present. Resources are declaed under their own class named <i>resource<i>. 
  
 # <a name="nodes"></a>Nodes
-A <i>node<i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
+A <i>node</i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
  
 A <i>node</i> or a <i>network</i> would refer to this node using its type and label like so: ```'{{ node.fabric_node }}'```
  
@@ -90,7 +90,7 @@ resource: # Class
             image: default_rocky_8                                  
 ```
 # <a name="networks"></a>Networks
-A <i>network<i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
+A <i>network</i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
  
 A <i>node</i> or a <i>network</i> would refer to this network using its type and label like so: ```'{{ network.fabric_network }}'```
  
@@ -103,7 +103,7 @@ resource: # Class
             name: my_network
 ```
 # <a name="services"></a>Services
-A <i>service<i> <b>must</b> refer to a provider. Here it refers to a Janus provider for container management.
+A <i>service</i> <b>must</b> refer to a provider. Here it refers to a Janus provider for container management.
  
  
 ```
@@ -118,7 +118,7 @@ resource: # Class
    - service:  # Type can be node or network
       - dtn_service: # Label can be any string
           - provider: '{{ janus.janus_provider }}'
-            snode: [ '{{ node.my_node0 }}', '{{ node.my_node1 }}' ] # can be a list of nodes to apply the service to
+            node: [ '{{ node.my_node0 }}', '{{ node.my_node1 }}' ] # can be a list of nodes to apply the service to
             image: [Optional]
             profile: [Optional]
 ```
