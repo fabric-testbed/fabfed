@@ -13,6 +13,10 @@ class ResourceTypeNotSupported(FabfedException):
     pass
 
 
+class ConfigTypeNotSupported(FabfedException):
+    pass
+
+
 class StateException(FabfedException):
     pass
 

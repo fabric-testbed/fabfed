@@ -119,17 +119,9 @@ class FabricSlice:
                         self.resource_listener.on_added(source=self, provider=self, resource=node)
             elif rtype == Constants.RES_TYPE_NETWORK.lower():
                 delegates = self.slice_object.get_network_services()
-                # noinspection PyTypeChecker
-                from ipaddress import IPv4Address, IPv4Network
+                layer3 = resource.get(Constants.RES_LAYER3)
+                net = FabricNetwork(label=label, delegate=delegates[0], layer3=layer3)
 
-                subnet = IPv4Network(resource.get(Constants.RES_SUBNET))
-                pool_start = IPv4Address(resource.get(Constants.RES_NET_POOL_START))
-                pool_end = IPv4Address(resource.get(Constants.RES_NET_POOL_END))
-                net = FabricNetwork(label=label,
-                                    delegate=delegates[0],
-                                    subnet=subnet,
-                                    pool_start=pool_start,
-                                    pool_end=pool_end)
                 self.provider.networks.append(net)
 
                 if self.resource_listener:
@@ -259,13 +251,12 @@ class FabricSlice:
 
         for net in self.provider.networks:
             delegate = self.slice_object.get_network(net.name)
-            from ipaddress import IPv4Address, IPv4Network
+            from fabfed.util.parser import Config
 
             fabric_network = FabricNetwork(label=net.label,
                                            delegate=delegate,
-                                           subnet=IPv4Network(net.subnet),
-                                           pool_start=IPv4Address(net.pool_start),
-                                           pool_end=IPv4Address(net.pool_end))
+                                           layer3=net.layer3)
+
             temp.append(fabric_network)
 
         self.provider._networks = temp
