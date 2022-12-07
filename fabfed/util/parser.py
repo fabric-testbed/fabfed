@@ -1,9 +1,9 @@
 from collections import namedtuple
 from types import SimpleNamespace
 from typing import List, Tuple, Dict, Set, Any
-from .constants import Constants
 
 from fabfed.exceptions import ParseConfigException
+from .constants import Constants
 
 
 class Variable:
@@ -76,11 +76,16 @@ DependencyInfo = namedtuple("DependencyInfo", "resource  attribute")
 Dependency = namedtuple("Dependency", "key resource  attribute, is_external")
 
 
+class Config(BaseConfig):
+    def __init__(self, type: str, name: str, attrs: Dict):
+        super().__init__(type, name, attrs)
+
+
 class ResourceConfig(BaseConfig):
     def __init__(self, type: str, name: str, attrs:  Dict, provider: ProviderConfig):
         super().__init__(type, name, attrs)
         assert provider, f"provider is required for {name}"
-        assert isinstance(provider, ProviderConfig), f"expected SliceConfig for {name}"
+        assert isinstance(provider, ProviderConfig), f"expected ProviderConfig for {name}"
         self._provider = provider
         self._resource_dependencies = set()
 
@@ -115,7 +120,7 @@ def resource_from_basic_config(basic_config, providers) -> ResourceConfig:
     attrs = basic_config.attributes.copy()
 
     if 'provider' not in attrs:
-        raise ParseConfigException(f"resource missing provider {basic_config.var_name}")
+        raise ParseConfigException(f"resource {basic_config.var_name} missing provider")
 
     provider = attrs.pop('provider')
 
@@ -131,9 +136,11 @@ def resource_from_basic_config(basic_config, providers) -> ResourceConfig:
 
 
 class VariableEvaluator:
-    def __init__(self, variables: List[Variable], providers: List[ProviderConfig], resources: List[BaseConfig]):
+    def __init__(self, *, variables: List[Variable], providers: List[ProviderConfig], configs: List[Config],
+                 resources: List[BaseConfig]):
         self.variables = variables
         self.providers = providers
+        self.configs = configs
         self.resources = resources
 
     def find_variable(self, path: str) -> BaseConfig or Dependency:
@@ -177,9 +184,10 @@ class VariableEvaluator:
         else:
             return value
 
-    def evaluate(self) -> Tuple[List[ProviderConfig], List[BaseConfig]]:
+    def evaluate(self) -> Tuple[List[ProviderConfig], List[Config], List[BaseConfig]]:
         config_entries: List[BaseConfig] = []
         config_entries.extend(self.providers)
+        config_entries.extend(self.configs)
         config_entries.extend(self.resources)
 
         for config_resource_entry in config_entries:
@@ -190,27 +198,35 @@ class VariableEvaluator:
 
             config_resource_entry.attributes = attrs
 
-        return self.providers, self.resources
+        return self.providers, self.configs, self.resources
 
 
 class Evaluator:
-    def __init__(self, providers: List[ProviderConfig], resources: List[BaseConfig]):
+    def __init__(self, *, providers: List[ProviderConfig], configs: List[Config], resources: List[BaseConfig]):
         self.providers = providers
+        self.configs = configs
         self.resources = resources
 
     def find_object(self, path: str) -> BaseConfig or Dependency:
         parts = path.split('.')
         config_entries: List[BaseConfig] = []
         config_entries.extend(self.providers)
+        config_entries.extend(self.configs)
         config_entries.extend(self.resources)
 
         if len(parts) < 2:
             raise ParseConfigException(f"bad dependency {path}")
 
+        temp = [Config.__name__, ProviderConfig.__name__]
+
         for config_entry in config_entries:
-            # TODO CHECK IF THIS IS A PROVIDER CONFIG INSTEAD ...
+            # print("***** BEGIN *********")
+            # print(temp, config_entry.__class__.__name__, isinstance(config_entry, Config))
+            # print(config_entry, config_entry.__class__ not in temp)
+            # print("****** END ******")
+            # if config_entry.__class__ not in temp \
             if config_entry.type == parts[0] and config_entry.var_name == parts[1]:
-                if config_entry.type in Constants.RES_SUPPORTED_TYPES:
+                if config_entry.__class__.__name__ not in temp and config_entry.type in Constants.RES_SUPPORTED_TYPES:
                     return DependencyInfo(resource=config_entry, attribute='.'.join(parts[2:]))
 
                 return config_entry
@@ -244,7 +260,7 @@ class Evaluator:
         else:
             return value
 
-    def evaluate(self) -> Tuple[List[ProviderConfig], List[BaseConfig]]:
+    def evaluate(self) -> Tuple[List[ProviderConfig], List[Config], List[BaseConfig]]:
         for config_resource_entry in self.resources:
             attrs = {}
 
@@ -253,11 +269,10 @@ class Evaluator:
 
             config_resource_entry.attributes = attrs
 
-        return self.providers, self.resources
+        return self.providers, self.configs, self.resources
 
 
 class ResourceDependencyEvaluator:
-    # AES
     def __init__(self, resources: List[ResourceConfig], providers: List[ProviderConfig]):
         self.resources = resources
         self.providers = providers
@@ -358,7 +373,7 @@ def parse_pair(obj: SimpleNamespace) -> Tuple[str, Dict]:
         raise ParseConfigException(f" exception occurred while parsing pair {obj}") from e
 
 
-def parse_triplet(obj: SimpleNamespace) -> Tuple[str, str, Dict]:
+def parse_triplet(obj: SimpleNamespace) -> List[Tuple[str, str, Dict]]:
     def extract_label(lst):
         return next(label for label in lst if not label.startswith("__"))
 
@@ -367,18 +382,22 @@ def parse_triplet(obj: SimpleNamespace) -> Tuple[str, str, Dict]:
 
     try:
         type = extract_label(dir(obj))
-        value = obj.__getattribute__(type)[0]
-        name = extract_label(dir(value))
+        triplets = []
 
-        if len(obj.__getattribute__(type)) > 1:
-            raise ParseConfigException(f"did not expect a block after {name} of type {type}")
+        for v in obj.__getattribute__(type):
+            name = extract_label(dir(v))
 
-        attrs = value.__getattribute__(name)[0].__dict__
+            if isinstance(v.__getattribute__(name), list):
+                attrs = v.__getattribute__(name)[0].__dict__
 
-        if len(value.__getattribute__(name)) > 1:
-            raise ParseConfigException(f"did not expect a block after {attrs} under {name} of type {type}")
+                if len(v.__getattribute__(name)) > 1:
+                    raise ParseConfigException(f"did not expect a block after {attrs} under {name} of type {type}")
+            else:
+                attrs = v.__getattribute__(name).__dict__
 
-        return type, name, attrs
+            triplets.append((type, name, attrs))
+
+        return triplets
     except ParseConfigException as e:
         raise e
     except Exception as e:
@@ -395,14 +414,16 @@ class Parser:
         return Variable(name, attributes.get('default', None))
 
     @staticmethod
-    def _parse_resource(obj) -> BaseConfig:
-        type, name, attributes = parse_triplet(obj)
-        return BaseConfig(type, name, attributes)
+    def _parse_provider(obj) -> List[ProviderConfig]:
+        return [ProviderConfig(type, name, attributes) for type, name, attributes in parse_triplet(obj)]
 
     @staticmethod
-    def _parse_provider(obj) -> ProviderConfig:
-        type, name, attributes = parse_triplet(obj)
-        return ProviderConfig(type, name, attributes)
+    def _parse_config(obj) -> List[Config]:
+        return [Config(type, name, attributes) for type, name, attributes in parse_triplet(obj)]
+
+    @staticmethod
+    def _parse_resource_base_config(obj) -> List[BaseConfig]:
+        return [BaseConfig(type, name, attributes) for type, name, attributes in parse_triplet(obj)]
 
     @staticmethod
     def _filter_resources(base_configs, providers) -> List[ResourceConfig]:
@@ -435,6 +456,14 @@ class Parser:
         for provider in providers:
             if provider.type not in Constants.PROVIDER_CLASSES:
                 raise ProviderTypeNotSupported(provider.type)
+
+    @staticmethod
+    def _validate_configs(configs: List[Config]):
+        from fabfed.exceptions import ConfigTypeNotSupported
+
+        for config in configs:
+            if config.type not in Constants.CONFIG_SUPPORTED_TYPES:
+                raise ConfigTypeNotSupported(config.type)
 
     @staticmethod
     def _validate_resources(resources: List[ResourceConfig]):
@@ -477,6 +506,7 @@ class Parser:
         for ns in ns_list:
             if hasattr(ns, 'provider') and ns.provider:
                 temp_providers = [Parser._parse_provider(provider) for provider in ns.provider]
+                temp_providers = sum(temp_providers, [])
                 providers.extend(temp_providers)
 
         Parser._validate_providers(providers)
@@ -484,12 +514,26 @@ class Parser:
         return providers
 
     @staticmethod
+    def parse_configs(ns_list: List[SimpleNamespace]) -> List[Config]:
+        configs = []
+
+        for ns in ns_list:
+            if hasattr(ns, 'config') and ns.config:
+                temp_configs = [Parser._parse_config(config) for config in ns.config]
+                temp_configs = sum(temp_configs, [])
+                configs.extend(temp_configs)
+
+        Parser._validate_configs(configs)
+        return configs
+
+    @staticmethod
     def parse_resource_base_configs(ns_list: List[SimpleNamespace]) -> List[BaseConfig]:
         resource_base_configs = []
 
         for ns in ns_list:
             if hasattr(ns, 'resource') and ns.resource:
-                temp_resource_base_configs = [Parser._parse_resource(resource) for resource in ns.resource]
+                temp_resource_base_configs = [Parser._parse_resource_base_config(resource) for resource in ns.resource]
+                temp_resource_base_configs = sum(temp_resource_base_configs, [])
                 resource_base_configs.extend(temp_resource_base_configs)
 
         return resource_base_configs
@@ -503,16 +547,30 @@ class Parser:
 
         ns_list = load_as_ns_from_yaml(dir_path=dir_path, content=content)
         variables = Parser.parse_variables(ns_list, var_dict)
+
         providers = Parser.parse_providers(ns_list)
+        configs = Parser.parse_configs(ns_list)
+        #
+        # for config in configs:
+        #     print(config, config.type, config.attributes)
 
         resource_base_configs = Parser.parse_resource_base_configs(ns_list)
+        variable_evaluator = VariableEvaluator(variables=variables, providers=providers, configs=configs,
+                                               resources=resource_base_configs)
+        providers, configs, resource_configs = variable_evaluator.evaluate()
 
-        variable_evaluator = VariableEvaluator(variables, providers, resource_base_configs)
-        providers, resource_configs = variable_evaluator.evaluate()
+        evaluator = Evaluator(providers=providers, configs=configs, resources=resource_configs)
 
-        evaluator = Evaluator(providers, resource_base_configs)
-        providers, resource_configs = evaluator.evaluate()
+        providers, configs, resource_configs = evaluator.evaluate()
         resources = Parser._filter_resources(resource_configs, providers)
+
+        # print(providers)
+        # print(configs)
+        # print(resources)
+        #
+        # for resource in resources:
+        #     print(resource.attributes)
+
         Parser._validate_resources(resources)
 
         dependency_evaluator = ResourceDependencyEvaluator(resources, providers)
