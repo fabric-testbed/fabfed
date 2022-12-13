@@ -27,12 +27,12 @@ class SenseNetwork(Network):
             self.__setattr__(key, instance_dict.get(key))
 
         # try:
-        #     status = sense_util.instance_operate(si_uuid=si_uuid)
+        #     status = sense_utils.instance_operate(si_uuid=si_uuid)
         #     self.logger.info(f"Already created {self.name}: status={status}")
         # except Exception as e:
         #     self.logger.error(f"Operate failed {e}")
         #
-        # instance_dict = sense_util.service_instance_details(si_uuid=si_uuid)
+        # instance_dict = sense_utils.service_instance_details(si_uuid=si_uuid)
         #
         # for key in SERVICE_INSTANCE_KEYS:
         #     self.__setattr__(key, instance_dict.get(key))

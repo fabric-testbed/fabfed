@@ -20,6 +20,7 @@ class Constants:
     RES_TYPE_NETWORK = "network"
     RES_TYPE_SERVICE = "service"
     RES_SUPPORTED_TYPES = [RES_TYPE_NODE, RES_TYPE_NETWORK, RES_TYPE_SERVICE]
+    CONFIG_SUPPORTED_TYPES = ["network", "layer3", "peering"]
 
     RES_TYPE_VM = "VM"
     RES_TYPE_BM = "Baremetal"
@@ -33,8 +34,10 @@ class Constants:
     RES_NET_GATEWAY = "gateway"
     RES_NET_STITCH_PROVS = "stitch_providers"
     RES_NET_CALLBACK = "callback"
-    RES_NET_LAYER3 = "layer3"
-    RES_SUBNET = "subnet"
+    RES_SUBNET = 'subnet'
+    RES_LAYER3 = 'layer3'
+    RES_LAYER3_DHCP_START = 'dhcp_start'
+    RES_LAYER3_DHCP_END = 'dhcp_end'
 
     LOGGING = "logging"
     PROPERTY_CONF_LOG_FILE = 'log-file'

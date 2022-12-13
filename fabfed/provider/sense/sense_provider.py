@@ -37,6 +37,9 @@ class SenseProvider(Provider):
 
         from .sense_network import SenseNetwork
 
+        import sys
+
+        print("MyName is:", self.name)
         net = SenseNetwork(label=label, name=net_name, profile_uuid=profile_uuid, edit=edit,
                            logger=self.logger)
 
@@ -76,10 +79,12 @@ class SenseProvider(Provider):
 
         from .sense_network import SenseNetwork
 
+        # TODO Check if it exists ....
+
         net = SenseNetwork(label=label, name=net_name, profile_uuid=profile_uuid, edit=edit,
                            logger=self.logger)
         net.delete()
         self.logger.info(f"Deleted network: {net_name}")
 
         if self.resource_listener:
-            self.resource_listener.on_delete(source=self, provider=self, resource=net)
+            self.resource_listener.on_deleted(source=self, provider=self, resource=net)
