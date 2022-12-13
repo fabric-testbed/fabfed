@@ -7,6 +7,7 @@ from sense.client.workflow_combined_api import WorkflowCombinedApi
 
 from .sense_client import SENSE_CLIENT
 from .sense_constants import SENSE_PROFILE_UID
+import sys
 
 
 def describe_profile(*, client, uuid: str):
@@ -37,26 +38,54 @@ def create_instance(*, client=None, profile_uuid, alias, edit: dict):
     intent = {SENSE_PROFILE_UID: profile_uuid, "alias": alias}
     profile_details = describe_profile(client=client, uuid=profile_uuid)
 
+    print(edit, type(edit))
+
+    # sys.exit(1)
     if edit and hasattr(profile_details, "edit"):
         paths = [ns.path for ns in profile_details.edit]
+
+        # data.connections[0].bandwidth.capacity: "500"
+        for path in paths:
+            print("PATH:", path)
+
         options = []
 
-        for key, value in edit.items():
-            if key not in paths:
-                raise Exception(f"Trying to edit a path that is not editable {key} ")
+        print(edit, type(edit))
+        print(edit['connections'])
 
-            options.append({key: value})
+        # sys.exit(1)
+        for i, con in enumerate(edit['connections']):
+            print(i, "KKKK:", con, type(con))
 
+            for key, value in con.items():
+                if key == "bandwidth":
+                    options.append({f"data.connections[{i}].bandwidth.capacity": value})
+                elif key == "ip_start":
+                    options.append({f"data.connections[{i}].suggest_ip_range[0].start": value})
+                elif key == "ip_end":
+                    options.append({f"data.connections[{i}].suggest_ip_range[0].end": value})
+
+        # options = []
+        #
+        # for key, value in edit.items():
+        #     if key not in paths:
+        #         raise Exception(f"Trying to edit a path that is not editable {key} ")
+        #
+        #     options.append({key: value})
+        #
         query = dict([("ask", "edit"), ("options", options)])
         intent["queries"] = [query]
 
-    # print("CREATE INTENT=", json.dumps(intent))
+    print("CREATE INTENT=", json.dumps(intent))
+
+
+    sys.exit(1)
     response = workflow_api.instance_create(json.dumps(intent))  # service_uuid, intent_uuid, queries, model
     # print(json.dumps(json.loads(response), indent=2))
 
     temp = json.loads(response)
 
-    if False:
+    if True:
         workflow_api.instance_operate('provision', sync='true')
         status = workflow_api.instance_get_status()
         # print("Status=", status)

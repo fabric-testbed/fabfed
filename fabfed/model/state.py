@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import yaml
 
-from fabfed.util.parser import DependencyInfo, ResourceConfig, ProviderConfig, BaseConfig, Dependency
+from fabfed.util.parser import DependencyInfo, ResourceConfig, ProviderConfig, BaseConfig, Config, Dependency
 from fabfed.model import ResolvedDependency
 
 
@@ -88,6 +88,17 @@ def base_config_representer(dumper: yaml.SafeDumper, base_config: BaseConfig) ->
         "attrs": base_config.attributes
     })
 
+def config_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> Config:
+    return Config(**loader.construct_mapping(node))
+
+
+def config_representer(dumper: yaml.SafeDumper, config: Config) -> yaml.nodes.MappingNode:
+    return dumper.represent_mapping("!Config", {
+        "type": config.type,
+        "name": config.name,
+        "attrs": config.attributes
+    })
+
 
 def provider_config_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ProviderConfig:
     return ProviderConfig(**loader.construct_mapping(node))
@@ -156,6 +167,7 @@ def get_loader():
     loader.add_constructor("!ResourceConfig", resource_config_constructor)
     loader.add_constructor("!ProviderConfig", provider_config_constructor)
     loader.add_constructor("!BaseConfig", base_config_constructor)
+    loader.add_constructor("!Config", config_constructor)
     return loader
 
 
@@ -167,6 +179,7 @@ def get_dumper():
     safe_dumper.add_representer(ServiceState, service_representer)
     safe_dumper.add_representer(ResourceConfig, resource_config_representer)
     safe_dumper.add_representer(ProviderConfig, provider_config_representer)
+    safe_dumper.add_representer(Config, config_representer)
     safe_dumper.add_representer(BaseConfig, base_config_representer)
     safe_dumper.yaml_multi_representers[tuple] = named_tuple
     return safe_dumper

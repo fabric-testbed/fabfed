@@ -5,7 +5,7 @@ from fabfed.controller.provider_factory import default_provider_factory
 from fabfed.exceptions import ControllerException
 from fabfed.util import utils
 from fabfed.util import state as sutil
-from fabfed.util.config import Config
+from fabfed.util.config import WorkflowConfig
 
 
 def manage_workflow(args):
@@ -15,14 +15,15 @@ def manage_workflow(args):
 
     if args.validate:
         try:
-            Config(dir_path=args.config_dir, var_dict=var_dict)
+            WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
             logger.info("config looks ok")
         except Exception as e:
             logger.error(f"Validation failed .... {type(e)} {e}")
+            logger.error(e, exc_info=True)
             sys.exit(1)
 
     if args.apply:
-        config = Config(dir_path=args.config_dir, var_dict=var_dict)
+        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
 
         try:
             controller = Controller(config=config, logger=logger)
@@ -65,7 +66,7 @@ def manage_workflow(args):
         return
 
     if args.plan:
-        config = Config(dir_path=args.config_dir, var_dict=var_dict)
+        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger)
         controller.init(session=args.session, provider_factory=default_provider_factory)
 
@@ -105,7 +106,7 @@ def manage_workflow(args):
 
         try:
             if states:
-                config = Config(dir_path=args.config_dir, var_dict=var_dict)
+                config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
                 controller = Controller(config=config, logger=logger)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)

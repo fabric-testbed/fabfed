@@ -3,14 +3,14 @@ from typing import List
 
 from fabfed.exceptions import ControllerException
 from fabfed.model.state import ProviderState
-from fabfed.util.config import Config
-from .helper import ControllerResourceListener
+from fabfed.util.config import WorkflowConfig
+from .helper import ControllerResourceListener, partition_layer3_config
 from .provider_factory import ProviderFactory
 from ..util.constants import Constants
 
 
 class Controller:
-    def __init__(self, *, config: Config, logger: logging.Logger):
+    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger):
         self.config = config
         self.logger = logger
         self.provider_factory = None
@@ -32,7 +32,7 @@ class Controller:
         for provider in providers:
             provider.set_resource_listener(resource_listener)
 
-        resources = self.config.get_resource_config()
+        resources = self.config.get_resource_configs()
 
         for resource in resources:
             resource_dict = resource.attributes
@@ -61,8 +61,22 @@ class Controller:
                     if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
                         dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
 
+        layer3_to_network_mapping = {}
+
+        for network in [resource for resource in resources if resource.is_network]:
+            layer3 = network.attributes.get(Constants.RES_LAYER3)
+
+            if layer3:
+                if layer3.label in layer3_to_network_mapping:
+                    layer3_to_network_mapping.get(layer3.label).append(network)
+                else:
+                    layer3_to_network_mapping[layer3.label] = [network]
+
+        for networks in layer3_to_network_mapping.values():
+            partition_layer3_config(networks=networks)
+
     def plan(self):
-        resources = self.config.get_resource_config()
+        resources = self.config.get_resource_configs()
         self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
 
         exceptions = []
@@ -80,7 +94,7 @@ class Controller:
             raise ControllerException(exceptions)
 
     def create(self):
-        resources = self.config.get_resource_config()
+        resources = self.config.get_resource_configs()
         exceptions = []
 
         self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
@@ -116,7 +130,7 @@ class Controller:
             key = provider_state.label
             provider_resource_map[key] = list()
 
-        temp = self.config.get_resource_config()
+        temp = self.config.get_resource_configs()
         temp.reverse()
 
         for resource in temp:

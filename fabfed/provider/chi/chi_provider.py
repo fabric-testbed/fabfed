@@ -74,10 +74,7 @@ class ChiProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
 
         if rtype == Constants.RES_TYPE_NETWORK.lower():
-            subnet = resource.get(Constants.RES_SUBNET)
-            pool_start = resource.get(Constants.RES_NET_POOL_START, None)
-            pool_end = resource.get(Constants.RES_NET_POOL_END, None)
-            gateway = resource.get(Constants.RES_NET_GATEWAY, None)
+            layer3 = resource.get(Constants.RES_LAYER3)
             stitch_providers = resource.get(Constants.RES_NET_STITCH_PROVS, list())
             assert stitch_providers
 
@@ -85,8 +82,7 @@ class ChiProvider(Provider):
             from fabfed.provider.chi.chi_network import ChiNetwork
 
             net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
-                             subnet=subnet, pool_start=pool_start, pool_end=pool_end,
-                             gateway=gateway, stitch_provider=stitch_providers[0],
+                             layer3=layer3, stitch_provider=stitch_providers[0],
                              project_name=project_name)
             self._networks.append(net)
 
@@ -158,11 +154,12 @@ class ChiProvider(Provider):
             net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
             self.logger.debug(f"Deleting network: {net_name} at site {site}")
             from fabfed.provider.chi.chi_network import ChiNetwork
+            from fabfed.util.parser import Config
+
+            layer3 = Config("", "", {})
 
             net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
-                             subnet=None, pool_start=None, pool_end=None,
-                             gateway=None, stitch_provider=None,
-                             project_name=project_name)
+                             layer3=layer3, stitch_provider=None, project_name=project_name)
             net.delete()
             self.logger.info(f"Deleted network: {net_name} at site {site}")
 

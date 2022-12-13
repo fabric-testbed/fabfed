@@ -1,8 +1,8 @@
 import logging
 
 from fabfed.controller.controller import Controller
-from fabfed.util import utils
-from fabfed.util.config import Config
+from fabfed.util import state as sutil
+from fabfed.util.config import WorkflowConfig
 from typing import List
 from fabfed.controller.provider_factory import default_provider_factory
 
@@ -23,25 +23,25 @@ def get_stats(*, states: List[ProviderState]):
 
 
 def run_apply_workflow(*, session, config_str) -> List[ProviderState]:
-    config = Config(content=config_str)
+    config = WorkflowConfig(content=config_str)
     logger = logging.getLogger(__name__)
     controller = Controller(config=config, logger=logger)
     controller.init(session=session, provider_factory=default_provider_factory)
     controller.plan()
     controller.create()
     states = controller.get_states()
-    utils.save_states(states, session)
+    sutil.save_states(states, session)
     return states
 
 
 def run_destroy_workflow(*, session, config_str) -> List[ProviderState]:
-    config = Config(content=config_str)
+    config = WorkflowConfig(content=config_str)
     logger = logging.getLogger(__name__)
     controller = Controller(config=config, logger=logger)
     controller.init(session=session, provider_factory=default_provider_factory)
-    states = utils.load_states(session)
+    states = sutil.load_states(session)
     controller.delete(provider_states=states)
-    utils.save_states(states, session)
+    sutil.save_states(states, session)
     return states
 
 

@@ -11,8 +11,7 @@ resource:
       - my_node:
           - provider: '{{ fabric.my_provider }}'
             count: 2
-      - my_node2:
-          - provider: '{{ fabric.my_provider }}'
+          - extra:
             count: 2
 provider:
   - fabric:
@@ -22,6 +21,35 @@ provider:
 
     with pytest.raises(ParseConfigException):
         Parser.parse(content=yaml_str)
+
+def test_resources():
+    yaml_str = '''
+resource:
+  - node:
+      - my_node:
+          - provider: '{{ fabric.my_provider }}'
+            count: 2
+      - my_node2:
+          - provider: '{{ fabric.my_provider }}'
+            count: 2
+  - node:
+      - my_node3:
+          - provider: '{{ fabric.my_provider }}'
+            count: 2
+      - my_node4:
+          - provider: '{{ fabric.my_provider }}'
+            count: 2
+provider:
+  - fabric:
+    - my_provider:
+       - user: user1
+    - my_other_provider:
+       - user: user1
+    '''
+
+    providers, ordered_resources = Parser.parse(content=yaml_str)
+    assert len(providers) == 2
+    assert len(ordered_resources) == 4
 
 
 def test_no_nodes_and_no_networks():
@@ -133,7 +161,7 @@ provider:
         Parser.parse(content=yaml_str)
 
 
-def test_duplicate_networks_across_slices():
+def test_duplicate_networks_across_providers():
     yaml_str = '''
 resource:
   - network:
