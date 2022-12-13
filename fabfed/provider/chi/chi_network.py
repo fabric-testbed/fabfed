@@ -8,20 +8,19 @@ import chi.server
 
 from fabfed.model import Network
 from .chi_util import LeaseHelper
+from ...util.parser import Config
+from ...util.constants import Constants
 
 
 class ChiNetwork(Network):
     def __init__(self, *, label, name: str, site: str, project_name: str,
-                 logger: logging.Logger, subnet: str, pool_start: str,
-                 pool_end: str, gateway: str, stitch_provider: str):
+                 logger: logging.Logger, layer3: Config, stitch_provider: str):
         super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
-        # self.slice_name = slice_name
-        self.subnet = subnet
-        self.pool_start = pool_start
-        self.pool_end = pool_end
-        self.gateway = gateway
-        # TODO assert stitch_provider, "expecting a stitch provider"
+        self.subnet = layer3.attributes.get(Constants.RES_SUBNET)
+        self.pool_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
+        self.pool_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
+        self.gateway = layer3.attributes.get(Constants.RES_NET_GATEWAY, None)
         self.stitch_provider = stitch_provider
         self._retry = 10
         self.lease_name = f'{name}-lease'
