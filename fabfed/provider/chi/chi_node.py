@@ -31,6 +31,7 @@ import chi.server
 
 from fabfed.model import Node
 import fabfed.provider.chi.chi_util as util
+from fabfed.util.constants import Constants
 
 
 class ChiNode(Node):
