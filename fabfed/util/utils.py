@@ -1,6 +1,5 @@
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from typing import List
 
 from fabfed.util.constants import Constants
 
@@ -135,21 +134,23 @@ def load_vars(var_file):
         return yaml.load(stream, Loader=yaml.FullLoader)
 
 
-def get_base_dir():
+def get_base_dir(friendly_name):
     from pathlib import Path
     import os
 
-    base_dir = os.path.join(str(Path.home()), '.fabfed', 'sessions')
+    base_dir = os.path.join(str(Path.home()), '.fabfed', 'sessions', friendly_name)
     os.makedirs(base_dir, exist_ok=True)
     return base_dir
 
 
 def dump_sessions(to_json: bool):
+    from pathlib import Path
     import os
     import sys
 
-    base_dir = get_base_dir()
-    sessions = [s[:-4] for s in os.listdir(base_dir) if s.endswith('.yml')]
+    base_dir = os.path.join(str(Path.home()), '.fabfed', 'sessions')
+    os.makedirs(base_dir, exist_ok=True)
+    sessions = os.listdir(base_dir)
 
     if to_json:
         import json
@@ -161,5 +162,3 @@ def dump_sessions(to_json: bool):
         sys.stdout.write(yaml.dump(sessions))
 
     return sessions
-
-

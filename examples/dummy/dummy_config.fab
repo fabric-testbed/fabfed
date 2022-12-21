@@ -1,17 +1,11 @@
-variable:
-  - fabric_site:
-      - default: TACC
-  - slice_name:
-      - default:
-
 provider:
   - dummy:
     - dummy_provider:
-      - profile: fabric
+      - profile: 
 
 resource:
   - node:
-      - node:
+      - some_node:
           - provider: '{{ dummy.dummy_provider }}'
             count: 1
             image: default_rocky_8
@@ -19,6 +13,6 @@ resource:
   - service:
       - dtn_service:
            - provider: '{{ dummy.dummy_provider }}'
-             node: '{{ node.node }}'
+             node: '{{ node.some_node }}'
              image: dtnaas/tools
              profile: default

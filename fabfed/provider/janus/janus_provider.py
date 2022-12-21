@@ -21,7 +21,7 @@ class JanusService(Service):
         friendly_name = self._provider.name
         label = self._node.label
         name = self._node.name
-        host_file = os.path.join(get_base_dir(), f"{friendly_name}-{label}-{name}-inventory.ini")
+        host_file = os.path.join(get_base_dir(friendly_name), f"{friendly_name}-{label}-{name}-inventory.ini")
         script_dir = os.path.dirname(__file__)
         helper = AnsibleHelper(host_file, self.logger)
         janus_vars = self._provider.config
