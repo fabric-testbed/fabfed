@@ -55,6 +55,15 @@ class DummyNode(Node, SSHNode):
     def get_reservation_state(self):
         pass
 
+    def add_route(self, subnet, gateway):
+        pass
+
+    def get_dataplane_address(self, network=None, interface=None, af=None):
+        pass
+
+    def write_ansible(self, friendly_name):
+        pass
+
 class DummyService(Service):
     def __init__(self, *, label, name: str, image, x=None, logger: logging.Logger):
         super().__init__(label=label, name=name)

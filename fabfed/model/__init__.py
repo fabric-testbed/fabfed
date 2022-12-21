@@ -42,7 +42,7 @@ class SSHNode():
 
     def write_ansible(self, friendly_name):
         import os
-        file_path = os.path.join(get_base_dir(), f"{friendly_name}-{self.label}-{self.name}-inventory.ini")
+        file_path = os.path.join(get_base_dir(friendly_name), f"{friendly_name}-{self.label}-{self.name}-inventory.ini")
         hosts =f"""[fab_nodes]
 {self.host}
 [fab_nodes:vars]
