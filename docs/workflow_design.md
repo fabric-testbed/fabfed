@@ -38,7 +38,7 @@ uses the <i>default</i> attribute signifying that it can be overriden at runtime
 ```
 variable: # Class 
   - fabric_site:  # Name
-      - default: STAR. # Default value
+      default: STAR. # Default value
   - node_name:     # Default for this variable is None
  
 ```
@@ -61,7 +61,7 @@ A <i>resource</i> would refer to this provider using its type and its label like
 provider: # Class 
   - fabric: # Type: Can be fabric or chi
     - fabric_provider: # Label: Can be any string
-       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         credential_file: ~/.fabfed/fabfed_credentials.yml
          profile: fabric # This can be any string provided it is present in the credential file
 ```
  
@@ -83,7 +83,7 @@ A <i>node</i> or a <i>network</i> would refer to this node using its type and la
 resource: # Class
   - node:  # Type can be node or network
       - fabric_node:  # Label can be any string
-          - provider: '{{ fabric.fabric_provider }}'
+            provider: '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}'
             count: 1
             image: default_rocky_8                                  
@@ -97,7 +97,7 @@ A <i>node</i> or a <i>network</i> would refer to this network using its type and
 resource: # Class
    - network:  # Type can be node or network
       - fabric_network: # Label can be any string
-          - provider: '{{ fabric.fabric_provider }}'
+            provider: '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}'
             name: my_network
 ```
@@ -110,13 +110,13 @@ A resource can depend on another resource before it can be created. In the examp
  resource:
    - network:
       - chi_network:
-          - provider: '{{ chi.chi_provider }}'
+            provider: '{{ chi.chi_provider }}'
             name: stitch_net
             vlans: []
 
   - network:
       - fabric_network:
-          - provider: '{{ fabric.fabric_provider }}'
+            provider: '{{ fabric.fabric_provider }}'
             vlan: '{{ network.chi_network.vlans }}'
 ```
  # <a name="breaking"></a>Breaking The Configuration

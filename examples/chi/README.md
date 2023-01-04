@@ -16,7 +16,7 @@ Fabfed does not care about how the files are named. It loads all the files match
 
 
 ```
-cd examples/stitch
+cd examples/chi
 fabfed workflow --help
 ## validate config
 fabfed workflow --session <session> -validate
