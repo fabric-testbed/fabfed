@@ -1,18 +1,18 @@
 provider:
   - dummy:
     - dummy_provider:
-      - profile: 
+        profile: 
 
 resource:
   - node:
       - some_node:
-          - provider: '{{ dummy.dummy_provider }}'
-            count: 1
-            image: default_rocky_8
-            nic_model: NIC_ConnectX_5
+          provider: '{{ dummy.dummy_provider }}'
+          count: 1
+          image: default_rocky_8
+          nic_model: NIC_ConnectX_5
+
   - service:
       - dtn_service:
-           - provider: '{{ dummy.dummy_provider }}'
-             node: '{{ node.some_node }}'
-             image: dtnaas/tools
-             profile: default
+          provider: '{{ dummy.dummy_provider }}'
+          node: '{{ node.some_node }}'
+          image: dtnaas/tools

@@ -361,16 +361,19 @@ def parse_pair(obj: SimpleNamespace) -> Tuple[str, Dict]:
         if not obj.__getattribute__(name):
             return name, {}
 
-        attrs = obj.__getattribute__(name)[0].__dict__
+        if isinstance(obj.__getattribute__(name), list):
+            attrs = obj.__getattribute__(name)[0].__dict__
 
-        if len(obj.__getattribute__(name)) > 1:
-            raise ParseConfigException(f"did not expect a block after{attrs} under {name}")
+            if len(obj.__getattribute__(name)) > 1:
+                raise ParseConfigException(f"did not expect a block after {attrs} under {name} of type {type}")
+        else:
+            attrs = obj.__getattribute__(name).__dict__
 
         return name, attrs
     except ParseConfigException as e:
         raise e
-    except Exception as e:
-        raise ParseConfigException(f" exception occurred while parsing pair {obj}") from e
+    # except Exception as e:
+    #     raise ParseConfigException(f" exception occurred while parsing pair {obj}") from e
 
 
 def parse_triplet(obj: SimpleNamespace) -> List[Tuple[str, str, Dict]]:
