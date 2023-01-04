@@ -19,14 +19,14 @@ The example below showcases network stitching across providers, a [chi](https://
   2
   3   - network:
   4       - chi_network:
-  5           - provider: '{{ chi.chi_provider }}'
+  5             provider: '{{ chi.chi_provider }}'
   6             site: CHI@UC
   7             vlans: []
   8   - network:
   9       - fabric_network:
- 10          - provider: '{{ fabric.fabric_provider }}'
- 11             site: 'STAR'
- 12             vlan: '{{ network.chi_network.vlans}}'
+ 10            provider: '{{ fabric.fabric_provider }}'
+ 11            site: 'STAR'
+ 12            vlan: '{{ network.chi_network.vlans}}'
 ```
 
 # <a name="install"></a>Installation
