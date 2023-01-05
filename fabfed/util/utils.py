@@ -53,27 +53,45 @@ def build_parser(*, manage_workflow, manage_sessions):
     return parser
 
 
-def init_logger(log_level=logging.INFO):
+def get_log_level():
+    import os
+    return os.environ.get('FABFED_LOG_LEVEL', "INFO")
+
+
+def get_log_location():
+    import os
+    return os.environ.get('FABFED_LOG_LOCATION', "./fabfed.log")
+
+
+def get_formatter():
+    fmt = "%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s"
+    return logging.Formatter(fmt)
+
+
+def init_logger():
     from logging.handlers import RotatingFileHandler
 
-    log_config = {'log-file': './fabfed.log',
-                  'log-level': 'INFO',
+    log_config = {'log-file': get_log_location(),
+                  'log-level': get_log_level(),
                   'log-retain': 5,
                   'log-size': 5000000,
                   'logger': 'fabfed'}
 
     logger = logging.getLogger(str(log_config.get(Constants.PROPERTY_CONF_LOGGER, __name__)))
-
-    log_level = log_config.get(Constants.PROPERTY_CONF_LOG_LEVEL, log_level)
+    log_level = log_config.get(Constants.PROPERTY_CONF_LOG_LEVEL, "INFO")
     logger.setLevel(log_level)
 
+    formatter = get_formatter()
     file_handler = RotatingFileHandler(log_config.get(Constants.PROPERTY_CONF_LOG_FILE),
                                        backupCount=int(log_config.get(Constants.PROPERTY_CONF_LOG_RETAIN)),
                                        maxBytes=int(log_config.get(Constants.PROPERTY_CONF_LOG_SIZE)))
-    # noinspection PyArgumentList
-    logging.basicConfig(level=log_level,
-                        format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
-                        handlers=[logging.StreamHandler(), file_handler], force=True)
+
+    file_handler.setFormatter(formatter)
+    logger.propagate = False
+    logger.addHandler(file_handler)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
     return logger
 
 
