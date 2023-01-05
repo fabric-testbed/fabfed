@@ -15,6 +15,7 @@ class Constants:
     RES_NIC_MODEL = "nic_model"
     RES_NETWORK = "network"
     RES_NAME_PREFIX = "name_prefix"
+    RES_BANDWIDTH = "bandwidth"
 
     RES_TYPE_NODE = "node"
     RES_TYPE_NETWORK = "network"
@@ -36,8 +37,11 @@ class Constants:
     RES_NET_CALLBACK = "callback"
     RES_SUBNET = 'subnet'
     RES_LAYER3 = 'layer3'
-    RES_LAYER3_DHCP_START = 'dhcp_start'
-    RES_LAYER3_DHCP_END = 'dhcp_end'
+    RES_LAYER3_DHCP_START = 'ip_start'
+    RES_LAYER3_DHCP_END = 'ip_end'
+    RES_INTERFACES = 'interfaces'
+    RES_BANDWIDTH = "bandwidth"
+    RES_PROFILE = "profile"
 
     LOGGING = "logging"
     PROPERTY_CONF_LOG_FILE = 'log-file'
@@ -51,6 +55,8 @@ class Constants:
 
     INTERNAL_DEPENDENCIES = "internal_dependencies"
     RESOLVED_INTERNAL_DEPENDENCIES = "resolved_internal_dependencies"
+
+    EXTERNAL_DEPENDENCY_STATES = "external_dependency_states"
 
     PROVIDER_CLASSES = {
         "fabric": "fabfed.provider.fabric.fabric_provider.FabricProvider",

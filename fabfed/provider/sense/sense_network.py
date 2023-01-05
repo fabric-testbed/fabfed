@@ -6,18 +6,21 @@ from . import sense_utils
 
 
 class SenseNetwork(Network):
-    def __init__(self, *, label, name: str, profile_uuid, edit: dict, logger: logging.Logger):
+    def __init__(self, *, label, name: str, bandwidth, profile, layer3, interfaces, logger: logging.Logger):
         super().__init__(label=label, name=name, site="no_site")
         self.logger = logger
-        self.profile_uuid = profile_uuid
-        self.edit = edit
+        self.profile = profile
+        self.layer3 = layer3
+        self.interfaces = interfaces
+        self.bandwidth = bandwidth
 
     def create(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.name)
 
         if not si_uuid:
             self.logger.info(f"Creating {self.name}")
-            si_uuid = sense_utils.create_instance(profile_uuid=self.profile_uuid, alias=self.name, edit=self.edit)
+            si_uuid = sense_utils.create_instance(profile=self.profile, bandwidth=self.bandwidth, alias=self.name,
+                                                  layer3=self.layer3, interfaces=self.interfaces)
         else:
             self.logger.info(f"Already created {self.name}")
 
@@ -25,17 +28,6 @@ class SenseNetwork(Network):
 
         for key in SERVICE_INSTANCE_KEYS:
             self.__setattr__(key, instance_dict.get(key))
-
-        # try:
-        #     status = sense_utils.instance_operate(si_uuid=si_uuid)
-        #     self.logger.info(f"Already created {self.name}: status={status}")
-        # except Exception as e:
-        #     self.logger.error(f"Operate failed {e}")
-        #
-        # instance_dict = sense_utils.service_instance_details(si_uuid=si_uuid)
-        #
-        # for key in SERVICE_INSTANCE_KEYS:
-        #     self.__setattr__(key, instance_dict.get(key))
 
     def delete(self):
         from . import sense_utils

@@ -22,7 +22,7 @@ def load_states(friendly_name) -> List[ProviderState]:
     import os
     from fabfed.model.state import get_loader
 
-    file_path = os.path.join(get_base_dir(), friendly_name + '.yml')
+    file_path = os.path.join(get_base_dir(friendly_name), friendly_name + '.yml')
 
     if os.path.exists(file_path):
         with open(file_path, 'r') as stream:
@@ -41,7 +41,7 @@ def save_states(states: List[ProviderState], friendly_name):
     import os
     from fabfed.model.state import get_dumper
 
-    file_path = os.path.join(get_base_dir(), friendly_name + '.yml')
+    file_path = os.path.join(get_base_dir(friendly_name), friendly_name + '.yml')
 
     with open(file_path, "w") as stream:
         try:

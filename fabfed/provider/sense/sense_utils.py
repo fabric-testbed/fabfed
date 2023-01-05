@@ -1,13 +1,14 @@
 import json
 from types import SimpleNamespace
+import re
 
 from sense.client.discover_api import DiscoverApi
 from sense.client.profile_api import ProfileApi
 from sense.client.workflow_combined_api import WorkflowCombinedApi
+from fabfed.util.constants import Constants
 
 from .sense_client import SENSE_CLIENT
-from .sense_constants import SENSE_PROFILE_UID
-import sys
+from .sense_constants import SENSE_PROFILE_UID, SENSE_URI, SENSE_ID, SENSE_PATH, SENSE_VLAN_TAG
 
 
 def describe_profile(*, client, uuid: str):
@@ -31,56 +32,94 @@ def describe_profile(*, client, uuid: str):
 # data.connections[0].terminals[0].vlan_tag
 # data.connections[0].terminals[1].vlan_tag
 # data.connections[0].bandwidth.capacity
-def create_instance(*, client=None, profile_uuid, alias, edit: dict):
+def create_instance(*, client=None, bandwidth, profile, alias, layer3, interfaces):
     client = client or SENSE_CLIENT
+    profiles = list_profiles(client=client)
+    profile_uuid = profile
+
+    for p in profiles:
+        if p.name == profile:
+            profile_uuid = p.uuid
+            break
+
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
     workflow_api.instance_new()
     intent = {SENSE_PROFILE_UID: profile_uuid, "alias": alias}
+
     profile_details = describe_profile(client=client, uuid=profile_uuid)
+    edit_entries = []
 
-    print(edit, type(edit))
+    if hasattr(profile_details, "edit"):
+        edit_entries = profile_details.edit
 
-    # sys.exit(1)
-    if edit and hasattr(profile_details, "edit"):
-        paths = [ns.path for ns in profile_details.edit]
+    edit_uri_entries = [e for e in edit_entries if e.path.endswith(SENSE_URI)]
 
-        # data.connections[0].bandwidth.capacity: "500"
-        for path in paths:
-            print("PATH:", path)
+    options = []
 
-        options = []
+    if interfaces:
+        for interface in interfaces:
+            name = interface[SENSE_ID]
+            interface[SENSE_PATH] = None
 
-        print(edit, type(edit))
-        print(edit['connections'])
+            for edit_uri_entry in edit_uri_entries:
+                if edit_uri_entry.valid != ".*":
+                    pattern = re.compile(edit_uri_entry.valid)
+                    matched = pattern.match(name)
 
-        # sys.exit(1)
-        for i, con in enumerate(edit['connections']):
-            print(i, "KKKK:", con, type(con))
+                    if matched:
+                        path = interface[SENSE_PATH] = edit_uri_entry.path
+                        options.append({edit_uri_entry.path: name})
+                        vlan_range = interface.get("vlan_range", None)
 
-            for key, value in con.items():
-                if key == "bandwidth":
-                    options.append({f"data.connections[{i}].bandwidth.capacity": value})
-                elif key == "ip_start":
-                    options.append({f"data.connections[{i}].suggest_ip_range[0].start": value})
-                elif key == "ip_end":
-                    options.append({f"data.connections[{i}].suggest_ip_range[0].end": value})
+                        if vlan_range:
+                            vlan_path = path[0: -len(SENSE_URI)] + SENSE_VLAN_TAG
+                            vlan_range_str = str(vlan_range).replace(" ", "").replace(",", "-")
+                            options.append({vlan_path: vlan_range_str[1:-1]})
 
-        # options = []
-        #
-        # for key, value in edit.items():
-        #     if key not in paths:
-        #         raise Exception(f"Trying to edit a path that is not editable {key} ")
-        #
-        #     options.append({key: value})
-        #
+        for interface in interfaces:
+            name = interface[SENSE_ID]
+
+            if interface[SENSE_PATH]:
+                continue
+
+            for edit_uri_entry in edit_uri_entries:
+                if edit_uri_entry.valid == ".*":
+                    pattern = re.compile(edit_uri_entry.valid)
+                    matched = pattern.match(name)
+
+                    if matched:
+                        path = interface[SENSE_PATH] = edit_uri_entry.path
+                        options.append({edit_uri_entry.path: name})
+                        vlan_range = interface.get("vlan_range", None)
+
+                        if vlan_range:
+                            vlan_path = path[0: -len(SENSE_URI)] + SENSE_VLAN_TAG
+                            vlan_range_str = str(vlan_range).replace(" ", "").replace(",", "-")
+                            options.append({vlan_path: vlan_range_str[1:-1]})
+
+    if bandwidth:
+        options.append({f"data.connections[{0}].bandwidth.capacity": bandwidth})
+
+    if layer3:
+        ip_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
+
+        if ip_start:
+            options.append({f"data.connections[{0}].suggest_ip_range[0].start": ip_start})
+
+        ip_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
+
+        if ip_end:
+            options.append({f"data.connections[{0}].suggest_ip_range[0].start": ip_end})
+
+    if options:
         query = dict([("ask", "edit"), ("options", options)])
         intent["queries"] = [query]
 
-    print("CREATE INTENT=", json.dumps(intent))
+    # print(intent)
 
-
-    sys.exit(1)
-    response = workflow_api.instance_create(json.dumps(intent))  # service_uuid, intent_uuid, queries, model
+    intent = json.dumps(intent)
+    response = workflow_api.instance_create(intent)  # service_uuid, intent_uuid, queries, model
+    # TODO HTML BAD ERROR SOMETIMES
     # print(json.dumps(json.loads(response), indent=2))
 
     temp = json.loads(response)
@@ -88,10 +127,9 @@ def create_instance(*, client=None, profile_uuid, alias, edit: dict):
     if True:
         workflow_api.instance_operate('provision', sync='true')
         status = workflow_api.instance_get_status()
-        # print("Status=", status)
+        print("Status=", status)
 
     return temp['service_uuid']
-
 
 # data.connections[0].terminals[0].uri
 # data.connections[0].terminals[1].uri
