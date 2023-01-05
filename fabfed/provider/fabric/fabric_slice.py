@@ -22,6 +22,20 @@ class FabricSlice:
 
     def init(self):
         from fabrictestbed_extensions.fablib.fablib import fablib
+        from fabfed.util.utils import get_log_level, get_log_location
+
+        location = get_log_location()
+
+        if fablib.get_default_fablib_manager().get_log_file() != location:
+            self.logger.debug("Initializing fablib extensions logging ...")
+            fablib.get_default_fablib_manager().set_log_file(location)
+            fablib.get_default_fablib_manager().set_log_level(get_log_level())
+
+            for handler in logging.root.handlers.copy():
+                logging.root.removeHandler(handler)
+
+            for handler in self.logger.handlers:
+                logging.root.addHandler(handler)
 
         # noinspection PyBroadException
         try:
