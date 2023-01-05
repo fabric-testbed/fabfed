@@ -1,17 +1,17 @@
 variable:
   - fabric_site:
-      - default: STAR
+      default: STAR
 
 provider:
   - fabric:
     - fabric_provider:
-       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         credential_file: ~/.fabfed/fabfed_credentials.yml
          profile: fabric
 
 resource:
   - node:
       - fabric_node:
-          - provider:  '{{ fabric.fabric_provider }}'
+            provider:  '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}' 
             count: 1
             image: default_rocky_8

@@ -2,8 +2,6 @@ import logging
 
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
-from .sense_constants import SENSE_EDIT
-from .sense_constants import SENSE_PROFILE_UID
 from fabfed.exceptions import ResourceTypeNotSupported
 
 
@@ -29,18 +27,24 @@ class SenseProvider(Provider):
         if rtype != Constants.RES_TYPE_NETWORK.lower():
             raise ResourceTypeNotSupported(f"{rtype} for {label}")
 
-        label = resource.get(Constants.LABEL)
+        interfaces = resource.get(Constants.RES_INTERFACES)
+
+        if interfaces:
+            for interface in interfaces:
+
+                if not interface.get(Constants.RES_BANDWIDTH):
+                    interface[Constants.RES_BANDWIDTH] = resource.get(Constants.RES_BANDWIDTH)
+
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         net_name = f'{self.name}-{name_prefix}'
-        profile_uuid = resource.get(SENSE_PROFILE_UID)
-        edit = resource.get(SENSE_EDIT, dict())
+        profile = resource.get(Constants.RES_PROFILE)
+        layer3 = resource.get(Constants.RES_LAYER3)
+        bandwidth = resource.get(Constants.RES_BANDWIDTH)
 
         from .sense_network import SenseNetwork
 
-        import sys
-
-        print("MyName is:", self.name)
-        net = SenseNetwork(label=label, name=net_name, profile_uuid=profile_uuid, edit=edit,
+        net = SenseNetwork(label=label, name=net_name, profile=profile,
+                           bandwidth=bandwidth, layer3=layer3, interfaces=interfaces,
                            logger=self.logger)
 
         self._networks.append(net)
@@ -74,15 +78,14 @@ class SenseProvider(Provider):
 
         self.logger.debug(f"Deleting network: {net_name}")
         label = resource.get(Constants.LABEL)
-        profile_uuid = resource.get(SENSE_PROFILE_UID)
-        edit = resource.get(SENSE_EDIT, dict())
 
         from .sense_network import SenseNetwork
 
         # TODO Check if it exists ....
 
-        net = SenseNetwork(label=label, name=net_name, profile_uuid=profile_uuid, edit=edit,
+        net = SenseNetwork(label=label, name=net_name, bandwidth=None, profile=None, layer3=None, interfaces=None,
                            logger=self.logger)
+
         net.delete()
         self.logger.info(f"Deleted network: {net_name}")
 
