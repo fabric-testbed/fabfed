@@ -136,20 +136,33 @@ class Controller:
         for resource in temp:
             if resource.label in resource_state_map:
                 key = resource.provider.label
+                external_dependencies = resource.attributes.get(Constants.EXTERNAL_DEPENDENCIES, [])
+                external_states = [resource_state_map[ed.resource.label] for ed in external_dependencies]
+                resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = external_states
                 provider_resource_map[key].append(resource)
 
         remaining_resources = list()
+        skip_resources = set()
 
-        for key, slice_resources in provider_resource_map.items():
+        for key, resources in provider_resource_map.items():
             provider_label = key
             provider = self.provider_factory.get_provider(label=provider_label)
 
-            for resource in slice_resources:
+            for resource in resources:
+                external_states = resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES]
+
+                if resource.label in skip_resources:
+                    self.logger.warning(f"Skipping deleting resource: {resource} with {provider_label}")
+                    remaining_resources.append(resource)
+                    skip_resources.update([external_state.label for external_state in external_states])
+                    continue
+
                 try:
                     provider.delete_resource(resource=resource.attributes)
                 except Exception as e:
                     self.logger.warning(f"Exception occurred while deleting resource: {e} using {provider_label}")
                     remaining_resources.append(resource)
+                    skip_resources.update([external_state.label for external_state in external_states])
                     exceptions.append(e)
 
         provider_states_copy = provider_states.copy()
