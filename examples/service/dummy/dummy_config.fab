@@ -1,0 +1,34 @@
+provider:
+  - dummy:
+    - dummy_provider:
+        profile:
+
+  - janus:
+    - janus_provider:
+       #- url: https://janus-ctrl.duckdns.org:5000
+       - url: https://10.133.132.2:5000
+         username: admin
+         password: admin
+         token:
+
+resource:
+  - node:
+      - dummy_node_a:
+          - provider: '{{ dummy.dummy_provider }}'
+            count: 1
+            image: default_rocky_8
+            nic_model: NIC_ConnectX_5
+
+  - node:
+      - dummy_node_b:
+          - provider: '{{ dummy.dummy_provider }}'
+            count: 2
+            image: default_rocky_8
+            nic_model: NIC_ConnectX_5
+
+  - service:
+      - dtn_service:
+           - provider: '{{ janus.janus_provider }}'
+             node: [ '{{ node.dummy_node_a }}', '{{ node.dummy_node_b }}' ]
+             image: dtnaas/tools
+             profile: default
