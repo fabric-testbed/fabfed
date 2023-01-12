@@ -2,32 +2,27 @@ import os
 import json
 import logging
 
-from fabfed.model import Service, Resource
+from fabfed.model import Service, Resource, Node
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
-from fabfed.util.utils import get_base_dir
+from fabfed.util.utils import get_inventory_dir
 from fabfed.provider.janus.util.ansible_helper import AnsibleHelper
 
 
 class JanusService(Service):
-    def __init__(self, *, label, name: str, image, node=None, provider=None, logger: logging.Logger):
+    def __init__(self, *, label, name: str, image, nodes, provider, logger: logging.Logger):
         super().__init__(label=label, name=name)
         self.logger = logger
         self.image = image
-        self._node = node[0] if isinstance(node, tuple) else node
+        self._nodes = nodes
         self._provider = provider
 
     def _do_ansible(self, delete=False):
         friendly_name = self._provider.name
-        label = self._node.label
-        name = self._node.name
-        host_file = os.path.join(get_base_dir(friendly_name), f"{friendly_name}-{label}-{name}-inventory.ini")
+        host_file = get_inventory_dir(friendly_name)
         script_dir = os.path.dirname(__file__)
         helper = AnsibleHelper(host_file, self.logger)
         janus_vars = self._provider.config
-        if not delete:
-            janus_vars.update({"node": self._node.get_dataplane_address(),
-                               "name": f"{friendly_name}-{name}"})
         helper.set_extra_vars(janus_vars)
         if delete:
             helper.run_playbook(os.path.join(script_dir, "ansible/janus.yml"), tags=["janus-del"])
@@ -37,11 +32,11 @@ class JanusService(Service):
 
     def create(self):
         self._do_ansible()
-        self.logger.info(f" Service {self.name} created. service_node={self._node}")
+        self.logger.info(f" Service {self.name} created. service_nodes={[n.name for n in self._nodes]}")
 
     def delete(self):
         self._do_ansible(delete=True)
-        self.logger.info(f" Service {self.name} deleted")
+        self.logger.info(f" Service {self.name} deleted. service_nodes={self._nodes}")
 
 
 class JanusProvider(Provider):
@@ -81,13 +76,12 @@ class JanusProvider(Provider):
         label = resource.get(Constants.LABEL)
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
 
-        for n in range(0, len(nodes)):
-            service_name = f"{self.name}-{service_name_prefix}{n}"
-            service = JanusService(label=label, name=service_name, image=image,
-                                   node=nodes[n].value, provider=self, logger=self.logger)
-
-            self._services.append(service)
-            self.resource_listener.on_added(source=self, provider=self, resource=service)
+        service_nodes = [n for i in nodes for n in i.value]
+        service_name = f"{self.name}-{service_name_prefix}"
+        service = JanusService(label=label, name=service_name, image=image,
+                               nodes=service_nodes, provider=self, logger=self.logger)
+        self._services.append(service)
+        self.resource_listener.on_added(source=self, provider=self, resource=service)
 
     def do_create_resource(self, *, resource: dict):
         """
@@ -108,13 +102,11 @@ class JanusProvider(Provider):
         self.logger.info(f"Deleting resource={resource} using {self.label}")
 
         image = resource.get(Constants.RES_IMAGE)
-        nodes = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
-                 if rd.attr == 'node']
+        nodes = [rd for rd in resource[Constants.EXTERNAL_DEPENDENCY_STATES]]
+        service_nodes = [n.attributes.get('name') for n in nodes]
         label = resource.get(Constants.LABEL)
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-
-        for n in range(0, len(nodes)):
-            service_name = f"{self.name}-{service_name_prefix}{n}"
-            service = JanusService(label=label, name=service_name, image=image,
-                                   node=nodes[n].value, provider=self, logger=self.logger)
-            service.delete()
+        service_name = f"{self.name}-{service_name_prefix}"
+        service = JanusService(label=label, name=service_name, image=image,
+                               nodes=service_nodes, provider=self, logger=self.logger)
+        service.delete()

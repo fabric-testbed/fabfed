@@ -170,6 +170,12 @@ def get_base_dir(friendly_name):
     os.makedirs(base_dir, exist_ok=True)
     return base_dir
 
+def get_inventory_dir(friendly_name):
+    from pathlib import Path
+    import os
+    inv_dir = os.path.join(get_base_dir(friendly_name), "inventory")
+    os.makedirs(inv_dir, exist_ok=True)
+    return inv_dir
 
 def dump_sessions(to_json: bool):
     from pathlib import Path
