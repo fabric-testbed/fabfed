@@ -208,7 +208,7 @@ class Evaluator:
         self.resources = resources
 
     def find_object(self, path: str) -> BaseConfig or Dependency:
-        parts = path.split('.')
+        parts = path.lower().split('.')
         config_entries: List[BaseConfig] = []
         config_entries.extend(self.providers)
         config_entries.extend(self.configs)

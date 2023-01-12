@@ -38,9 +38,10 @@ class DummyNode(Node, SSHNode):
         self.logger = logger
 
     def create(self):
+        import random
         self.logger.info(f" Node {self.name} created.")
         self.user = "dummy_user"
-        self.host = "localhost"
+        self.host = f"localhost{random.randint(0,20)}"
         self.keyfile = "~/.ssh/dummy_key"
         #self.jump_user = "dummy_jump_user"
         self.jump_host = "dummy.jumphost.net"
@@ -59,10 +60,7 @@ class DummyNode(Node, SSHNode):
         pass
 
     def get_dataplane_address(self, network=None, interface=None, af=None):
-        pass
-
-    def write_ansible(self, friendly_name):
-        pass
+        return "192.168.1.10"
 
 class DummyService(Service):
     def __init__(self, *, label, name: str, image, x=None, logger: logging.Logger):
