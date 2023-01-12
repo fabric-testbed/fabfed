@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from fabfed.util.utils import get_base_dir
+from fabfed.util.utils import get_inventory_dir
 
 class Resource(ABC):
     def __init__(self, label, name: str):
@@ -42,14 +42,16 @@ class SSHNode():
 
     def write_ansible(self, friendly_name):
         import os
-        file_path = os.path.join(get_base_dir(friendly_name), f"{friendly_name}-{self.label}-{self.name}-inventory.ini")
-        hosts =f"""[fab_nodes]
+        file_path = os.path.join(get_inventory_dir(friendly_name), f"{friendly_name}-{self.label}-{self.name}")
+        hosts =f"""[{self.name}]
 {self.host}
-[fab_nodes:vars]
+[{self.name}:vars]
 ansible_connection=ssh
 ansible_ssh_common_args={self.proxyjump_str if self.proxyjump_str else ""}
 ansible_ssh_private_key_file={self.keyfile}
 ansible_user={self.user}
+node={self.get_dataplane_address()}
+name={friendly_name}-{self.name}
 """
 
         with open(file_path, "w") as stream:
