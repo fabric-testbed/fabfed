@@ -39,9 +39,20 @@ class Constants:
     RES_LAYER3 = 'layer3'
     RES_LAYER3_DHCP_START = 'ip_start'
     RES_LAYER3_DHCP_END = 'ip_end'
+
     RES_INTERFACES = 'interfaces'
     RES_BANDWIDTH = "bandwidth"
+    RES_INDEX = 'index'
+
     RES_PROFILE = "profile"
+
+    RES_PEERING = 'peering'
+    RES_ID = "id"
+    RES_LOCAL_ASN = "local_asn"
+    RES_LOCAL_ADDRESS = "local_address"
+    RES_REMOTE_ASN = "remote_asn"
+    RES_REMOTE_ADDRESS = "remote_address"
+    RES_SECURITY = "password"
 
     LOGGING = "logging"
     PROPERTY_CONF_LOG_FILE = 'log-file'
