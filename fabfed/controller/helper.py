@@ -24,6 +24,17 @@ def partition_layer3_config(*, networks: list):
     from ..util.constants import Constants
     from ..util.parser import Config
 
+    if len(networks) <= 1:
+        return
+
+    layer3 = networks[0].attributes.get(Constants.RES_LAYER3)
+
+    if "/" in layer3.attributes.get(Constants.RES_LAYER3_DHCP_START):
+        return
+
+    if "/" in layer3.attributes.get(Constants.RES_LAYER3_DHCP_END):
+        return
+
     layer3 = networks[0].attributes.get(Constants.RES_LAYER3)
     dhcp_start = int(IPv4Address(layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)))
     last = dhcp_end = int(IPv4Address(layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)))
