@@ -6,11 +6,12 @@ from . import sense_utils
 
 
 class SenseNetwork(Network):
-    def __init__(self, *, label, name: str, bandwidth, profile, layer3, interfaces, logger: logging.Logger):
+    def __init__(self, *, label, name: str, bandwidth, profile, layer3, peering, interfaces, logger: logging.Logger):
         super().__init__(label=label, name=name, site="no_site")
         self.logger = logger
         self.profile = profile
         self.layer3 = layer3
+        self.peering = peering
         self.interfaces = interfaces
         self.bandwidth = bandwidth
 
@@ -20,12 +21,17 @@ class SenseNetwork(Network):
         if not si_uuid:
             self.logger.info(f"Creating {self.name}")
             si_uuid = sense_utils.create_instance(profile=self.profile, bandwidth=self.bandwidth, alias=self.name,
-                                                  layer3=self.layer3, interfaces=self.interfaces)
+                                                  layer3=self.layer3, peering=self.peering, interfaces=self.interfaces)
         else:
             self.logger.info(f"Already created {self.name}")
 
         instance_dict = sense_utils.service_instance_details(si_uuid=si_uuid)
 
+        print("************* BEGIN DETAISL *********")
+        import json
+
+        print(json.dumps(instance_dict, indent=2))
+        print("************** END DETAILS*******")
         for key in SERVICE_INSTANCE_KEYS:
             self.__setattr__(key, instance_dict.get(key))
 

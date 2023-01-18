@@ -39,12 +39,13 @@ class SenseProvider(Provider):
         net_name = f'{self.name}-{name_prefix}'
         profile = resource.get(Constants.RES_PROFILE)
         layer3 = resource.get(Constants.RES_LAYER3)
+        peering = resource.get(Constants.RES_PEERING)
         bandwidth = resource.get(Constants.RES_BANDWIDTH)
 
         from .sense_network import SenseNetwork
 
         net = SenseNetwork(label=label, name=net_name, profile=profile,
-                           bandwidth=bandwidth, layer3=layer3, interfaces=interfaces,
+                           bandwidth=bandwidth, layer3=layer3, peering=peering, interfaces=interfaces,
                            logger=self.logger)
 
         self._networks.append(net)
@@ -84,7 +85,7 @@ class SenseProvider(Provider):
         # TODO Check if it exists ....
 
         net = SenseNetwork(label=label, name=net_name, bandwidth=None, profile=None, layer3=None, interfaces=None,
-                           logger=self.logger)
+                           peering=None, logger=self.logger)
 
         net.delete()
         self.logger.info(f"Deleted network: {net_name}")
