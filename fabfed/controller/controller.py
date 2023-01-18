@@ -118,14 +118,13 @@ class Controller:
         provider_resource_map = dict()
 
         for provider_state in provider_states:
-            for network_state in provider_state.network_states:
-                resource_state_map[network_state.label] = network_state
+            temp_list = provider_state.network_states + provider_state.node_states + provider_state.service_states
 
-            for node_state in provider_state.node_states:
-                resource_state_map[node_state.label] = node_state
-
-            for service_state in provider_state.service_states:
-                resource_state_map[service_state.label] = service_state
+            for state in temp_list:
+                if state.label in resource_state_map:
+                    resource_state_map[state.label].append(state)
+                else:
+                    resource_state_map[state.label] = [state]
 
             key = provider_state.label
             provider_resource_map[key] = list()
@@ -138,32 +137,30 @@ class Controller:
                 key = resource.provider.label
                 external_dependencies = resource.attributes.get(Constants.EXTERNAL_DEPENDENCIES, [])
                 external_states = [resource_state_map[ed.resource.label] for ed in external_dependencies]
-                resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = external_states
+                resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = sum(external_states, [])
                 provider_resource_map[key].append(resource)
 
         remaining_resources = list()
         skip_resources = set()
 
-        for key, resources in provider_resource_map.items():
-            provider_label = key
+        for resource in temp:
+            provider_label = resource.provider.label
             provider = self.provider_factory.get_provider(label=provider_label)
+            external_states = resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES]
 
-            for resource in resources:
-                external_states = resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES]
+            if resource.label in skip_resources:
+                self.logger.warning(f"Skipping deleting resource: {resource} with {provider_label}")
+                remaining_resources.append(resource)
+                skip_resources.update([external_state.label for external_state in external_states])
+                continue
 
-                if resource.label in skip_resources:
-                    self.logger.warning(f"Skipping deleting resource: {resource} with {provider_label}")
-                    remaining_resources.append(resource)
-                    skip_resources.update([external_state.label for external_state in external_states])
-                    continue
-
-                try:
-                    provider.delete_resource(resource=resource.attributes)
-                except Exception as e:
-                    self.logger.warning(f"Exception occurred while deleting resource: {e} using {provider_label}")
-                    remaining_resources.append(resource)
-                    skip_resources.update([external_state.label for external_state in external_states])
-                    exceptions.append(e)
+            try:
+                provider.delete_resource(resource=resource.attributes)
+            except Exception as e:
+                self.logger.warning(f"Exception occurred while deleting resource: {e} using {provider_label}")
+                remaining_resources.append(resource)
+                skip_resources.update([external_state.label for external_state in external_states])
+                exceptions.append(e)
 
         provider_states_copy = provider_states.copy()
         provider_states.clear()

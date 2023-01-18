@@ -2,16 +2,16 @@ provider:
   - dummy:
     - my_provider:
          url: https://some_url:5000
-         name: prov1 
+         # name: prov1 
 
   - dummy:
     - my_provider2:
          url: https://some_other_url:5000
-         name: prov2 
+         # name: prov2 
 
   - dummy:
     - my_provider3:
-       - url: https://some_other_url:5000
+         url: https://some_other_url:5000
 
 resource:
   - service:
@@ -28,10 +28,10 @@ resource:
       - dtn2:
          provider: '{{ dummy.my_provider2 }}'
          image: ubuntu
-         count: 2                                         # Note that count can be > 0. If you set the count 0. The dtn1 service will be in pending .... 
+         count: 1                                         # Note that count can be > 0. If you set the count 0. The dtn1 service will be in pending .... 
 
   - service:
       - dtn3:
          provider: '{{ dummy.my_provider3 }}'
          image: ubuntu
-         count: 3                                         
+         count: 2                                         
