@@ -177,11 +177,11 @@ class Controller:
 
                 if remaining_resource.provider.label == provider_state.label:
                     if remaining_resource.is_network:
-                        provider_state.network_states.append(resource_state)
+                        provider_state.network_states.extend(resource_state)
                     elif remaining_resource.is_node:
-                        provider_state.node_states.append(resource_state)
+                        provider_state.node_states.extend(resource_state)
                     elif remaining_resource.is_service:
-                        provider_state.service_states.append(resource_state)
+                        provider_state.service_states.extend(resource_state)
 
             if provider_state.node_states or provider_state.network_states or provider_state.service_states:
                 provider_states.append(provider_state)
