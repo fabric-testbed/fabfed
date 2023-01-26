@@ -1,0 +1,19 @@
+{
+  "Switch Ports": [
+    {
+      "Port": "?terminal?",
+      "Vlan": "?vlan?",
+      "sparql": "SELECT ?vlan_port  ?vlan  WHERE { ?subnet a mrs:SwitchingSubnet. ?subnet nml:hasBidirectionalPort ?vlan_port. ?vlan_port nml:hasLabel ?vlan_l. ?vlan_l nml:value ?vlan. }",
+      "sparql-ext": "SELECT ?terminal  WHERE { ?terminal a nml:BidirectionalPort. ?terminal nml:hasBidirectionalPort ?vlan_port.}",
+      "required": "true",
+      "With Host": [
+        {
+          "Interface": "?host_port?",
+          "IP Address": "?ipv4?",
+          "sparql": "SELECT ?peer_port ?host_port ?ipv4 WHERE { ?vlan_port nml:isAlias ?peer_port. ?host_port nml:hasBidirectionalPort ?peer_port. ?peer_port mrs:hasNetworkAddress  ?ipv4na. ?ipv4na mrs:type \"ipv4-address\". ?ipv4na mrs:value ?ipv4. }",
+          "required": "false"
+        }
+      ]
+    }
+  ]
+}

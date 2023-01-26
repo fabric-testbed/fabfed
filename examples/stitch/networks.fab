@@ -1,7 +1,7 @@
 resource:
   - network:
       - chi_network:
-          - provider: '{{ chi.chi_provider }}'
+            provider: '{{ chi.chi_provider }}'
             site: CHI@UC
             name: stitch_net
             subnet: "192.168.100.0/24"
@@ -12,7 +12,7 @@ resource:
 
   - network:
       - fabric_network:
-          - provider: '{{ fabric.fabric_provider }}'
+            provider: '{{ fabric.fabric_provider }}'
             site: 'STAR'
             subnet: "192.168.100.0/24"
             pool_start: 192.168.100.200
