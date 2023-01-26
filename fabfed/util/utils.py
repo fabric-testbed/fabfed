@@ -3,7 +3,6 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 from fabfed.util.constants import Constants
 
-
 def create_parser(usage='%(prog)s [options]',
                   description='',
                   formatter_class=None):
@@ -68,6 +67,13 @@ def get_formatter():
     return logging.Formatter(fmt)
 
 
+_LOGGER = None
+
+
+def get_logger():
+    return _LOGGER
+
+
 def init_logger():
     from logging.handlers import RotatingFileHandler
 
@@ -92,6 +98,10 @@ def init_logger():
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
+
+    global _LOGGER
+
+    _LOGGER = logger
     return logger
 
 

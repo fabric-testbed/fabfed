@@ -44,11 +44,14 @@ class FabricNode(Node):
         self.addr_list = []
 
         if delegate.get_management_ip():
-            for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
-                ifname = ip_addr['ifname']
+            try:
+                for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
+                    ifname = ip_addr['ifname']
 
-                for addr_info in ip_addr['addr_info']:
-                    self.addr_list.append(dict(ifname=ifname, addr_info=addr_info['local']))
+                    for addr_info in ip_addr['addr_info']:
+                        self.addr_list.append(dict(ifname=ifname, addr_info=addr_info['local']))
+            except:
+                pass # TODO LOG IT
 
         self.components: List[Dict[str, str]] = []
 

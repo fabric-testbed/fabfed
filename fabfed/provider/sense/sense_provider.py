@@ -1,13 +1,16 @@
-import logging
-
+from fabfed.exceptions import ResourceTypeNotSupported
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
-from fabfed.exceptions import ResourceTypeNotSupported
+from fabfed.util.utils import get_logger
+from . import sense_utils
+
+logger = get_logger()
 
 
 class SenseProvider(Provider):
-    def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
+    def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
+        self.supported_resources = [Constants.RES_TYPE_NETWORK.lower(),  Constants.RES_TYPE_NODE.lower()]
 
     def setup_environment(self):
         from fabfed.util import utils
@@ -24,8 +27,29 @@ class SenseProvider(Provider):
         label = resource.get(Constants.LABEL)
         rtype = resource.get(Constants.RES_TYPE)
 
-        if rtype != Constants.RES_TYPE_NETWORK.lower():
+        if rtype not in self.supported_resources:
             raise ResourceTypeNotSupported(f"{rtype} for {label}")
+
+        name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            from .sense_node import SenseNode
+            import fabfed.provider.api.dependency_util as util
+
+            assert util.has_resolved_internal_dependencies(resource=resource, attribute='network')
+            net = util.get_single_value_for_dependency(resource=resource, attribute='network')
+            profile_uuid = sense_utils.get_profile_uuid(profile=net.profile)
+            vms = sense_utils.get_vms_specs_from_profile(profile_uuid=profile_uuid)
+            node_name = f'{self.name}-{name_prefix}'
+
+            for idx, vm in enumerate(vms):
+                node = SenseNode(label=label, name=f'{node_name}-{idx}', network=net.name, spec=vm)
+                self._nodes.append(node)
+
+                if self.resource_listener:
+                    self.resource_listener.on_added(source=self, provider=self, resource=node)
+
+            return
 
         interfaces = resource.get(Constants.RES_INTERFACES)
 
@@ -35,7 +59,6 @@ class SenseProvider(Provider):
                 if not interface.get(Constants.RES_BANDWIDTH):
                     interface[Constants.RES_BANDWIDTH] = resource.get(Constants.RES_BANDWIDTH)
 
-        name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         net_name = f'{self.name}-{name_prefix}'
         profile = resource.get(Constants.RES_PROFILE)
         layer3 = resource.get(Constants.RES_LAYER3)
@@ -45,8 +68,7 @@ class SenseProvider(Provider):
         from .sense_network import SenseNetwork
 
         net = SenseNetwork(label=label, name=net_name, profile=profile,
-                           bandwidth=bandwidth, layer3=layer3, peering=peering, interfaces=interfaces,
-                           logger=self.logger)
+                           bandwidth=bandwidth, layer3=layer3, peering=peering, interfaces=interfaces)
 
         self._networks.append(net)
 
@@ -55,12 +77,23 @@ class SenseProvider(Provider):
 
     def do_create_resource(self, *, resource: dict):
         rtype = resource.get(Constants.RES_TYPE)
-        assert rtype == Constants.RES_TYPE_NETWORK.lower()
+        assert rtype in self.supported_resources
 
         label = resource.get(Constants.LABEL)
-        temp = [net for net in self._networks if net.label == label]
 
-        for net in temp:
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            for node in [node for node in self._nodes if node.label == label]:
+                self.logger.debug(f"Creating node: {vars(node)}")
+                node.create()
+
+                if self.resource_listener:
+                    self.resource_listener.on_created(source=self, provider=self, resource=node)
+
+                self.logger.debug(f"Created node: {vars(node)}")
+
+            return
+
+        for net in [net for net in self._networks if net.label == label]:
             self.logger.debug(f"Creating network: {vars(net)}")
             net.create()
 
@@ -71,24 +104,24 @@ class SenseProvider(Provider):
 
     def do_delete_resource(self, *, resource: dict):
         rtype = resource.get(Constants.RES_TYPE)
+        assert rtype in self.supported_resources
+        label = resource.get(Constants.LABEL)
 
-        if rtype != Constants.RES_TYPE_NETWORK.lower():
-            raise Exception(f"Unknown resource {rtype}")
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            # DO NOTHING
+            return
 
         net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
 
-        self.logger.debug(f"Deleting network: {net_name}")
-        label = resource.get(Constants.LABEL)
+        logger.debug(f"Deleting network: {net_name}")
 
         from .sense_network import SenseNetwork
 
-        # TODO Check if it exists ....
-
         net = SenseNetwork(label=label, name=net_name, bandwidth=None, profile=None, layer3=None, interfaces=None,
-                           peering=None, logger=self.logger)
+                           peering=None)
 
         net.delete()
-        self.logger.info(f"Deleted network: {net_name}")
+        logger.debug(f"Done Deleting network: {net_name}")
 
         if self.resource_listener:
             self.resource_listener.on_deleted(source=self, provider=self, resource=net)

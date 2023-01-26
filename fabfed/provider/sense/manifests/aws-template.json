@@ -1,0 +1,12 @@
+{
+  "Nodes": [
+    {
+      "Node Name": "?vm_name?",
+      "Public IP": "?vm_public_ip?",
+      "Key Pair": "?vm_keyname?",
+      "Image": "?vm_image?",
+      "sparql": "SELECT DISTINCT ?vm_name ?vm_public_ip ?vm_keyname ?vm_image  WHERE {?ec2 mrs:providesVM ?vm. ?vm mrs:hasNetworkAddress ?vm_public_na.?vm_public_na mrs:type \"ipv4:public\".  ?vm_public_na mrs:value ?vm_public_ip.  ?vm nml:name ?vm_name. OPTIONAL { ?vm mrs:type ?vm_keyname. FILTER (regex(?vm_keyname,'^keypair.+$')) } OPTIONAL { ?vm mrs:type ?vm_image. FILTER (regex(?vm_image,'^image.+$')) }}",
+      "required": "true"
+    }
+  ]
+}
