@@ -80,17 +80,15 @@ class FabricSlice:
         net_type = resource.get(Constants.RES_TYPE)
         network_builder = NetworkBuilder(label, self.slice_object, name_prefix, resource)
         network_builder.handle_facility_port()
-        assert util.has_resolved_internal_dependencies(resource=resource, attribute='interface')
         interfaces = []
-        temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
-        for node in temp:
-            interfaces.append(node.get_interfaces()[0])
+        if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
+            temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
-        assert len(interfaces) > 0
+            for node in temp:
+                interfaces.append(node.get_interfaces()[0])
+
         network_builder.handle_l2network(interfaces)
-        if net_type == Constants.RES_NET_LAYER3:
-            network_builder.handle_l3network(interfaces)
         net = network_builder.build()
         self.provider.networks.append(net)
 
@@ -181,11 +179,14 @@ class FabricSlice:
         iface_v4 = node.get_interface(network_name=node.v4net_name)
         iface_v6 = node.get_interface(network_name=node.v6net_name)
 
-        addr_v4 = v4_net_available_ips.pop(0)
-        addr_v6 = v6_net_available_ips.pop(0)
+        # TODO ADD WARNINGS ....
+        if v4_net_available_ips:
+            addr_v4 = v4_net_available_ips.pop(0)
+            iface_v4.ip_addr_add(addr=addr_v4, subnet=v4_net.get_subnet())
 
-        iface_v4.ip_addr_add(addr=addr_v4, subnet=v4_net.get_subnet())
-        iface_v6.ip_addr_add(addr=addr_v6, subnet=v6_net.get_subnet())
+        if v6_net_available_ips:
+            addr_v6 = v6_net_available_ips.pop(0)
+            iface_v6.ip_addr_add(addr=addr_v6, subnet=v6_net.get_subnet())
 
         node.add_route(subnet=FABRIC_PRIVATE_IPV4_SUBNET, gateway=v4_net.get_gateway())
         node.add_route(subnet=FABRIC_PUBLIC_IPV6_SUBNET, gateway=v6_net.get_gateway())
@@ -212,7 +213,6 @@ class FabricSlice:
                     self.resource_listener.on_created(source=self, provider=self, resource=net)
 
                 self.notified_create = True
-
             return
 
         if self.pending:
@@ -221,7 +221,7 @@ class FabricSlice:
 
         self._submit_and_wait()
         self.slice_created = True
-
+        self.logger.info(f"will check for management ips ...: {self.name}")
         for attempt in range(self.retry):
             mngmt_ips = []
             from fabrictestbed_extensions.fablib.fablib import fablib

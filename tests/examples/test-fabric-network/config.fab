@@ -1,0 +1,33 @@
+variable:
+  - fabric_site:
+      default: STAR
+
+provider:
+  - fabric:
+    - fabric_provider:
+         credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: fabric
+config:
+  - layer3:
+     - my_layer:
+         subnet: 192.168.100.0/24
+         gateway: 192.168.100.1
+         ip_start: 192.168.100.150
+         ip_end: 192.168.100.250
+
+resource:
+  - network:
+       - fabric_network:
+           provider: '{{ fabric.fabric_provider }}'
+           site: '{{ var.fabric_site }}'
+           layer3: "{{ layer3.my_layer }}"
+           interface: '{{ node.fabric_node }}'
+           vlan: 3307
+
+  - node:
+      - fabric_node:
+            provider: '{{ fabric.fabric_provider }}'
+            site: '{{ var.fabric_site }}'
+            count: 1
+            image: default_rocky_8
+            nic_model: NIC_ConnectX_5

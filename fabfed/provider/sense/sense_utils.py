@@ -8,8 +8,12 @@ from sense.client.workflow_combined_api import WorkflowCombinedApi
 from .sense_client import SENSE_CLIENT
 from .sense_constants import *
 
+from fabfed.util.utils import get_logger
 
-def describe_profile(*, client, uuid: str):
+logger = get_logger()
+
+
+def describe_profile(*, client=None, uuid: str):
     client = client or SENSE_CLIENT
     profile_api = ProfileApi(req_wrapper=client)
     profile_details = profile_api.profile_describe(uuid)
@@ -65,15 +69,31 @@ def populate_options_using_interfaces(options, interfaces, edit_uri_entries):
             options.append({vlan_path: vlan_range_str[1:-1]})
 
 
-def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, interfaces):
+def get_profile_uuid(*, client=None, profile):
     client = client or SENSE_CLIENT
     profiles = list_profiles(client=client)
+
     profile_uuid = profile
 
     for p in profiles:
         if p.name == profile:
             profile_uuid = p.uuid
             break
+
+    return profile_uuid
+
+
+def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, interfaces):
+    client = client or SENSE_CLIENT
+    # profiles = list_profiles(client=client)
+    # profile_uuid = profile
+    #
+    # for p in profiles:
+    #     if p.name == profile:
+    #         profile_uuid = p.uuid
+    #         break
+
+    profile_uuid = get_profile_uuid(client=client, profile=profile)
 
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
     workflow_api.instance_new()
@@ -85,9 +105,7 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
     if hasattr(profile_details, "edit"):
         edit_entries = profile_details.edit
         temp_entries = [e.__dict__ for e in edit_entries]
-        print("**************** BEGIN EDIT ENTRIES ******************")
-        print(json.dumps(temp_entries, indent=2))
-        print("**************** END EDIT ENTRIES ******************")
+        logger.info(f'Edit Entries: {json.dumps(temp_entries, indent=2)}')
 
     edit_uri_entries = [e for e in edit_entries if e.path.endswith(SENSE_URI)]
     options = []
@@ -124,9 +142,7 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
         query = dict([("ask", "edit"), ("options", options)])
         intent["queries"] = [query]
 
-    print("**************** BEGIN INTENT ******************")
-    print(json.dumps(intent, indent=2))
-    print("**************** END INTENT ******************")
+    logger.info(f'Intent: {json.dumps(intent, indent=2)}')
 
     intent = json.dumps(intent)
 
@@ -136,37 +152,44 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
     #     sys.exit(1)
 
     response = workflow_api.instance_create(intent)  # service_uuid, intent_uuid, queries, model
-    # TODO HTML BAD ERROR SOMETIMES
-    # print(json.dumps(json.loads(response), indent=2))
 
-    temp = json.loads(response)
+    try:
+        temp = json.loads(response)
+    except:
+        raise Exception(f"did not receive json ....{response}")
 
-    if True:
-        # TODO Think about async  use max number of tries ...
-        workflow_api.instance_operate('provision', sync='true')
-        status = workflow_api.instance_get_status()
-        print("Status=", status)
-
-    return temp['service_uuid']
-
-
-'''
-Operate failed Returned code 500 with 
-  error '{'message': 
-  'WFLYJPA0060: Transaction is required to perform this operation 
-  (either use a transaction or extended persistence context)', 
-    'type': 'net.maxgigapop.mrs.exception.InstanceWorkflowException'}'
-'''
+    status = workflow_api.instance_get_status()
+    return temp['service_uuid'], status
 
 
 def instance_operate(*, client=None, si_uuid):
-    # print("OPERATE USING RETURNING:", si_uuid)
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
-    workflow_api.instance_operate('provision', si_uuid=si_uuid, sync='true')
+
+    import time
+
+    status = workflow_api.instance_get_status(si_uuid=si_uuid)
+
+    if "CREATE - COMMITTING" not in status:
+        workflow_api.instance_operate('provision', si_uuid=si_uuid, sync='false')
+
+    for attempt in range(25):
+        status = workflow_api.instance_get_status(si_uuid=si_uuid)
+        print("LOOPING:PROVISION:Status=", status, ":attempt=", attempt)
+
+        if 'CREATE - READY' in status:
+            break
+
+        if 'FAILED' in status:
+            break
+
+        time.sleep(30)
+
     return workflow_api.instance_get_status(si_uuid=si_uuid)
 
 
 def delete_instance(*, client=None, si_uuid):
+    import time
+
     client = client or SENSE_CLIENT
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
 
@@ -175,22 +198,46 @@ def delete_instance(*, client=None, si_uuid):
     if 'error' in status:
         raise Exception("error deleting got " + status)
 
-    if "CREATE - COMPILED" in status or "CREATE - FAILED" in status:
+    if "CREATE - COMPILED" in status or "FAILED" in status:
         workflow_api.instance_delete(si_uuid=si_uuid)
         return
 
-    if 'CREATE' not in status and 'REINSTATE' not in status and 'MODIFY' not in status:
-        raise ValueError(f"cannot cancel an instance in '{status}' status...")
-    elif 'READY' not in status:
-        workflow_api.instance_operate('cancel', si_uuid=si_uuid, sync='true', force='true')
-    else:
-        workflow_api.instance_operate('cancel', si_uuid=si_uuid, sync='true')
+    if "CANCEL" not in status:
+        if 'CREATE' not in status and 'REINSTATE' not in status and 'MODIFY' not in status:
+            raise ValueError(f"cannot cancel an instance in '{status}' status...")
+
+        if 'READY' not in status:
+            workflow_api.instance_operate('cancel', si_uuid=si_uuid, sync='false', force='true')
+        else:
+            workflow_api.instance_operate('cancel', si_uuid=si_uuid, sync='false')
+
+    for attempt in range(25):
+        time.sleep(30)  # This sleep is here to workaround issue where CANCEL-READY shows up prematurely.
+
+        status = workflow_api.instance_get_status(si_uuid=si_uuid)
+        print("LOOPING:DELETE:Status=", status, "attempt=", attempt)
+
+        if 'CANCEL - READY' in status:  # This got triggered very quickly ...
+            break
+
+        if 'FAILED' in status:
+            break
+
+        # time.sleep(30)
+
     status = workflow_api.instance_get_status(si_uuid=si_uuid)
+
     print(f'cancel status={status}')
+
     if 'CANCEL - READY' in status:
         workflow_api.instance_delete(si_uuid=si_uuid)
     else:
-        print(f'cancel operation disrupted - instance not deleted - contact admin')
+        raise Exception(f'cancel operation disrupted - instance not deleted - contact admin. {status}')
+
+
+def instance_get_status(*, client=None, si_uuid):
+    workflow_api = WorkflowCombinedApi(req_wrapper=client)
+    return workflow_api.instance_get_status(si_uuid=si_uuid)
 
 
 def service_instance_details(*, client=None, si_uuid):
@@ -256,3 +303,38 @@ def find_instance_by_alias(*, alias):
             return instance['referenceUUID']
 
     return None
+
+
+def get_vms_specs_from_profile(*, client=None, profile_uuid):
+    client = client or SENSE_CLIENT
+    profile_details = describe_profile(client=client, uuid=profile_uuid)
+    all_vms = []
+
+    if hasattr(profile_details, "intent"):
+        for subnet in profile_details.intent.data.subnets:
+            vms = [vars(vm) for vm in subnet.vms]
+            all_vms.extend(vms)
+
+    return all_vms
+
+def manifest_create(*, client=None, template_file=None, alias=None, si_uuid=None):
+    import os
+
+    client = client or SENSE_CLIENT
+    si_uuid = si_uuid or find_instance_by_alias(alias=alias)
+    workflow_api = WorkflowCombinedApi(req_wrapper=client)
+    template_file = os.path.join(os.path.dirname(__file__), 'manifests', template_file)
+
+    with open(template_file, 'r') as fp:
+        template = json.load(fp)
+
+    template = json.dumps(template)
+    response = workflow_api.manifest_create(template, si_uuid=si_uuid)
+    response = json.loads(response, object_hook=lambda dct: SimpleNamespace(**dct))
+    details = json.loads(response.jsonTemplate)
+    return details
+
+    # if details.get("Switch Ports", []):
+    #     return details.get("Switch Ports")
+    #
+    # return details.get("Nodes", [])

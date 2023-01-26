@@ -50,7 +50,7 @@ class Controller:
                 else:
                     resource_dict[Constants.INTERNAL_DEPENDENCIES].append(dependency)
 
-            if resource.is_network:
+            if resource.is_network and not resource.attributes.get(Constants.RES_NET_STITCH_PROVS):
                 resource.attributes[Constants.RES_NET_STITCH_PROVS] = list()
 
         for network in [resource for resource in resources if resource.is_network]:
@@ -59,7 +59,8 @@ class Controller:
                     stitch_provider = network.provider.type
 
                     if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
-                        dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
+                        if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
+                            dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
 
         layer3_to_network_mapping = {}
 
@@ -144,6 +145,9 @@ class Controller:
         skip_resources = set()
 
         for resource in temp:
+            if resource.label not in resource_state_map:
+                continue
+
             provider_label = resource.provider.label
             provider = self.provider_factory.get_provider(label=provider_label)
             external_states = resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES]
