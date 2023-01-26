@@ -22,6 +22,7 @@ The provider class supports two types as of this writing.
 The resource class support three types:
 - [ ] node
 - [ ] network
+- [ ] service
 
 The workflow model allows us to tie resources (nodes or networks) to a provide and to express dependencies among resources. This is explained in more details below. We recommend you read on but under the <i>config directory</i>, you can find several templates to quickly get started.
 
@@ -75,7 +76,7 @@ A resource consists of a <i>type</i>, a <i>label</i> and a dictionary specifying
 As of now we support the followiing types: <i>node</i>, and <i>network</i>. The <i>label</i> can be any string and is used as the name of the resource if the <i>name</i> attribute is not present. Resources are declaed under their own class named <i>resource<i>. 
  
 # <a name="nodes"></a>Nodes
-A <i>node<i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
+A <i>node</i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
  
 A <i>node</i> or a <i>network</i> would refer to this node using its type and label like so: ```'{{ node.fabric_node }}'```
  
@@ -89,7 +90,7 @@ resource: # Class
             image: default_rocky_8                                  
 ```
 # <a name="networks"></a>Networks
-A <i>network<i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
+A <i>network</i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
  
 A <i>node</i> or a <i>network</i> would refer to this network using its type and label like so: ```'{{ network.fabric_network }}'```
  
@@ -100,6 +101,26 @@ resource: # Class
             provider: '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}'
             name: my_network
+```
+# <a name="services"></a>Services
+A <i>service</i> <b>must</b> refer to a provider. Here it refers to a Janus provider for container management.
+ 
+ 
+```
+provider:                                                                                                                                                   - janus:                                                                                                                                  
+    - janus_provider:                                                                                                                       
+       - url: https://janus-ctrl.duckdns.org:5000                                                                                                  
+         username: admin                                                                                                                    
+         password: admin                                                                                                                    
+         token:              
+ 
+resource: # Class
+   - service:  # Type can be node or network
+      - dtn_service: # Label can be any string
+          - provider: '{{ janus.janus_provider }}'
+            node: [ '{{ node.my_node0 }}', '{{ node.my_node1 }}' ] # can be a list of nodes to apply the service to
+            image: [Optional]
+            profile: [Optional]
 ```
  
 # <a name="dependencies"></a>Dependencies

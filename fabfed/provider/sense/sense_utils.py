@@ -145,6 +145,12 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
     logger.info(f'Intent: {json.dumps(intent, indent=2)}')
 
     intent = json.dumps(intent)
+
+    # if True:
+    #     import sys
+    #
+    #     sys.exit(1)
+
     response = workflow_api.instance_create(intent)  # service_uuid, intent_uuid, queries, model
 
     try:
