@@ -1,9 +1,9 @@
 provider:
   - fabric:
     - fabric_provider:
-       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         credential_file: ~/.fabfed/fabfed_credentials.yml
          profile: fabric
   - chi:
     - chi_provider:
-        - credential_file: ~/.fabfed/fabfed_credentials.yml
+          credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: chi
