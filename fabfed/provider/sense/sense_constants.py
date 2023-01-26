@@ -28,3 +28,17 @@ SENSE_AWS_PEERING_MAPPING = {
 
     Constants.RES_ID: SENSE_TO_HOSTED_CONN,
 }
+
+# This is what we get from node_details from manifest for AWS ...
+# 'Public IP': '18.215.246.8', 'Node Name': 'VM-1',
+# 'Key Pair': 'keypair+kp-sense', 'Image': 'image+ami-052efd3df9dad4825'}
+
+# ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20220609
+# ami-052efd3df9dad4825
+# ami-052efd3df9dad4825
+# Canonical, Ubuntu, 22.04 LTS, amd64 jammy image build on 2022-06-09
+
+SENSE_AWS_KEYPAIR = 'Key Pair'
+SENSE_AWS_PUBLIC_IP = 'Public IP'
+SENSE_AWS_NODE_NAME = 'Node Name'
+SENSE_AWS_IMAGE = 'Image'

@@ -18,8 +18,8 @@ class ChiNetwork(Network):
         super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
         self.subnet = layer3.attributes.get(Constants.RES_SUBNET)
-        self.pool_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
-        self.pool_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
+        self.ip_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
+        self.ip_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
         self.gateway = layer3.attributes.get(Constants.RES_NET_GATEWAY, None)
         self.stitch_provider = stitch_provider
         self._retry = 10
@@ -31,7 +31,7 @@ class ChiNetwork(Network):
             "network_name": self.name,
             "network_properties": "",
             "resource_properties": json.dumps(
-                ["==", "$stitch_provider", self.stitch_provider]
+                ["==", "$stitch_provider", self.stitch_provider] # "fabric"
             ),
         }]
         self.vlans = list()
@@ -77,8 +77,8 @@ class ChiNetwork(Network):
         if not chameleon_subnet:
             chameleon_subnet = chi.network.create_subnet(self.subnet_name, chameleon_network_id,
                                                          cidr=self.subnet,
-                                                         allocation_pool_start=self.pool_start,
-                                                         allocation_pool_end=self.pool_end,
+                                                         allocation_pool_start=self.ip_start,
+                                                         allocation_pool_end=self.ip_end,
                                                          gateway_ip=self.gateway)
             self.logger.info(f'Created subnet {self.subnet_name}')
 
