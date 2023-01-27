@@ -74,5 +74,6 @@ class Constants:
         "chi": "fabfed.provider.chi.chi_provider.ChiProvider",
         "sense": "fabfed.provider.sense.sense_provider.SenseProvider",
         "janus": "fabfed.provider.janus.janus_provider.JanusProvider",
+        "cloudlab": "fabfed.provider.cloudlab.cloudlab_provider.CloudlabProvider",
         "dummy": "fabfed.provider.dummy.dummy_provider.DummyProvider"
     }

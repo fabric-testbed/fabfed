@@ -38,7 +38,10 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 with open("requirements.txt", "r") as fh:
-    requirements = fh.read()
+    requirements = []
+    for line in fh.readlines():
+        if not line.startswith("git+http"):
+            requirements.append(line)
 
 setup(
     name="fabfed-py",
@@ -65,4 +68,5 @@ setup(
               'fabfed = tools.fabfed:main',
        ]
     },
+    dependency_links=['https://gitlab.flux.utah.edu/stoller/portal-tools.git#egg=portal-tools']
 )

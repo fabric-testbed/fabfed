@@ -1,0 +1,25 @@
+variable:
+  - cloudlab_profile:
+      default: fabfed-stitch
+  - cloudlab_site:
+      default: UTAH
+
+provider:
+  - cloudlab:
+    - cloudlab_provider:
+         credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: cloudlab
+
+resource:
+  - node:
+      - cloudlab_node:
+            provider:  '{{ cloudlab.cloudlab_provider }}'
+            site: '{{ var.cloudlab_site }}'
+            profile_id: '{{ var.cloudlab_profile }}'
+            count: 1
+
+  - network:
+      - cloudlab_net:
+            provider: '{{cloudlab.cloudlab_provider }}'
+            profile_id: '{{ var.cloudlab_profile }}'
+            vlan: 2096

@@ -1,0 +1,2 @@
+CLOUDLAB_PROJECT = "project"
+CLOUDLAB_CERTIFICATE = "certificate"
