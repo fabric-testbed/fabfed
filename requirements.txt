@@ -2,3 +2,5 @@ fabrictestbed-extensions==1.4.0
 python-chi
 sense-o-api==1.26
 ansible
+portal-tools
+git+https://gitlab.flux.utah.edu/stoller/portal-tools.git#egg=portal-tools
