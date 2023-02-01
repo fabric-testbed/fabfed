@@ -52,7 +52,15 @@ class DependencyResolver:
 
             if dependency.resource.label == resource_dict[Constants.LABEL]:
                 try:
-                    value = from_resource if not dependency.attribute else resource_dict.get(dependency.attribute)
+                    if not dependency.attribute:
+                        value = from_resource
+                    elif "[" in dependency.attribute:
+                        idx1 = dependency.attribute.find("[")
+                        idx2 = dependency.attribute.find("]")
+                        value = resource_dict.get(dependency.attribute[0:idx1])
+                        value = value[int(dependency.attribute[idx1 + 1: idx2])]
+                    else:
+                        value = resource_dict.get(dependency.attribute)
 
                     if value and isinstance(value, list):
                         value = tuple(value)

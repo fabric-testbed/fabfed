@@ -1,21 +1,22 @@
+config:
+  - layer3:
+     - my_layer:
+         subnet: 192.168.100.0/24
+         gateway: 192.168.100.1
+         ip_start: 192.168.100.100
+         ip_end: 192.168.100.250
+
 resource:
   - network:
       - chi_network:
-            provider: '{{ chi.chi_provider }}'
-            site: CHI@UC
-            name: stitch_net
-            subnet: "192.168.100.0/24"
-            pool_start: 192.168.100.100
-            pool_end: 192.168.100.150
-            gateway: 192.168.100.1
-            vlans: []
+          provider: '{{ chi.chi_provider }}'
+          site: '{{ var.chi_site }}'
+          name: stitch_net
+          layer3: "{{ layer3.my_layer }}"
 
-  - network:
       - fabric_network:
-            provider: '{{ fabric.fabric_provider }}'
-            site: 'STAR'
-            subnet: "192.168.100.0/24"
-            pool_start: 192.168.100.200
-            pool_end: 192.168.100.250
-            vlan: '{{ network.chi_network }}'
-            interface: '{{ node.fabric_node }}'
+          provider: '{{ fabric.fabric_provider }}'
+          site: '{{ var.fabric_site }}'
+          stitch_interface: '{{ network.chi_network }}'
+          interface: '{{ node.fabric_node }}'
+          layer3: "{{ layer3.my_layer }}"

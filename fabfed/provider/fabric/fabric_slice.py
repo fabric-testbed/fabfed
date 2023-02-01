@@ -78,17 +78,20 @@ class FabricSlice:
         label = resource.get(Constants.LABEL)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         net_type = resource.get(Constants.RES_TYPE)
+        net_count = resource.get(Constants.RES_COUNT, 1)
+
+        if net_count > 1:
+            raise Exception(f"Count {net_count} > 1 is not supported for {net_type} {name_prefix}")
+
         network_builder = NetworkBuilder(label, self.slice_object, name_prefix, resource)
         network_builder.handle_facility_port()
-        interfaces = []
+
+        temp = []
 
         if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
             temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
-            for node in temp:
-                interfaces.append(node.get_interfaces()[0])
-
-        network_builder.handle_l2network(interfaces)
+        network_builder.handle_l2network(temp)
         net = network_builder.build()
         self.provider.networks.append(net)
 
@@ -112,9 +115,10 @@ class FabricSlice:
                 self.resource_listener.on_added(source=self, provider=self, resource=node)
 
     def add_resource(self, *, resource: dict):
-        # TODO we need to handle modified config after slice has been created. now exception will be thrown
+        # TODO we need to handle modified config after slice has been created
+        rtype = resource.get(Constants.RES_TYPE)
+
         if self.slice_created:
-            rtype = resource.get(Constants.RES_TYPE)
             label = resource.get(Constants.LABEL)
 
             if rtype == Constants.RES_TYPE_NODE.lower():
@@ -124,15 +128,25 @@ class FabricSlice:
                 for i in range(node_count):
                     name = f"{name_prefix}{i}"
                     delegate = self.slice_object.get_node(name)
+
+                    if delegate is None:
+                        raise Exception(f"Did not find node named {name}")
+
                     node = FabricNode(label=label, delegate=delegate)
                     self.nodes.append(node)
 
                     if self.resource_listener:
                         self.resource_listener.on_added(source=self, provider=self, resource=node)
             elif rtype == Constants.RES_TYPE_NETWORK.lower():
-                delegates = self.slice_object.get_network_services()
+                name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+                delegate = self.slice_object.get_network(name_prefix)
+
+                if delegate is None:
+                    raise Exception(f"Did not find network named {name_prefix}")
+
+
                 layer3 = resource.get(Constants.RES_LAYER3)
-                net = FabricNetwork(label=label, delegate=delegates[0], layer3=layer3)
+                net = FabricNetwork(label=label, delegate=delegate, layer3=layer3)
 
                 self.provider.networks.append(net)
 
@@ -142,7 +156,6 @@ class FabricSlice:
                 raise Exception("Unknown resource ....")
             return
 
-        rtype = resource.get(Constants.RES_TYPE)
         if rtype == Constants.RES_TYPE_NETWORK.lower():
             self._add_network(resource)
         elif rtype == Constants.RES_TYPE_NODE.lower():
@@ -152,7 +165,6 @@ class FabricSlice:
 
     def _submit_and_wait(self) -> str or None:
         try:
-            # TODO Check if the slice has more than one site then add a layer2 network
             self.logger.info(f"Submitting request for slice {self.name}")
             slice_id = self.slice_object.submit(wait=False)
             self.logger.info(f"Waiting for slice {self.name} to be stable")

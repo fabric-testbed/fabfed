@@ -7,6 +7,10 @@ from fabfed.model import Network
 from fabfed.util.constants import Constants
 from ...util.parser import Config
 
+from fabfed.util.utils import get_logger
+
+logger = get_logger()
+
 
 class FabricNetwork(Network):
     def __init__(self, *, label, delegate: NetworkService, layer3: Config):
@@ -21,13 +25,20 @@ class FabricNetwork(Network):
         self.subnet = layer3.attributes.get(Constants.RES_SUBNET)
         self.ip_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
         self.ip_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
-        self.vlans = []
-
         ns = self._delegate.get_fim_network_service()
+        self.interface = []
 
-        for _, iface in ns.interfaces.items():
+        for key, iface in ns.interfaces.items():
+            vlans = []
+
             if hasattr(iface.labels, "vlan") and iface.labels.vlan:
-                self.vlans.append(iface.labels.vlan)
+                # self.vlans.append(iface.labels.vlan)
+                vlans.append(iface.labels.vlan)
+
+            self.interface.append(dict(id=key, vlan=vlans))
+
+        self.id = self._delegate.get_reservation_id()
+        self.state = self._delegate.get_reservation_state()
 
     def available_ips(self):
         available_ips = []
@@ -43,20 +54,38 @@ class FabricNetwork(Network):
         self._delegate.get_reservation_id()
 
     def get_site(self):
-        return self._delegate.get_name()
+        return self._delegate.get_site()
 
 
 class NetworkBuilder:
     def __init__(self, label, slice_object: Slice, name, resource: dict):
         self.slice_object = slice_object
-        self.vlan = resource.get('vlan')  # facility port vlan
+        self.vlan = None # facility port vlan
+        prop = 'stitch_interface'
+
+        if isinstance(resource.get(prop), dict):   # This is just to simplify testing ....
+            self.vlan = resource.get(prop)
+            self.vlan = self.vlan['vlan']
 
         if not self.vlan:
             import fabfed.provider.api.dependency_util as util
 
-            if util.has_resolved_external_dependencies(resource=resource, attribute='vlan'):
-                net = util.get_single_value_for_dependency(resource=resource, attribute='vlan')
-                self.vlan = net.vlans[0]
+            # TDO MODIFY Chameleon
+            # if util.has_resolved_external_dependencies(resource=resource, attribute=prop):
+            #     net = util.get_single_value_for_dependency(resource=resource, attribute=prop)
+            #     self.vlan = net.vlans[0]
+
+            if util.has_resolved_external_dependencies(resource=resource, attribute=prop):
+                net = util.get_single_value_for_dependency(resource=resource, attribute=prop)
+
+                if isinstance(net, Network):
+                    net = net.interface
+
+                if isinstance(net, list):
+                    net = net[0]
+
+                if isinstance(net, dict):
+                    self.vlan = net['vlan']
 
         self.interfaces = []
         self.net_name = name  # f'net_facility_port'
@@ -66,24 +95,38 @@ class NetworkBuilder:
         self.label = label
         self.net = None
 
+        if self.vlan:
+            logger.info(f"Network {self.net_name}: Got vlan {self.vlan} which will be used for facility port")
+        else:
+            logger.warning(f"Network {self.net_name} has no vlan ...")
+
     def handle_facility_port(self):
         if not self.vlan:
+            logger.warning(f"Network {self.net_name} has no vlan so no facility port will be added ")
             return
+
+        # self.vlan = 3307
         facility_port = self.slice_object.add_facility_port(name=self.facility_port, site=self.facility_port_site,
                                                             vlan=str(self.vlan))
         facility_port_interface = facility_port.get_interfaces()[0]
         self.interfaces.append(facility_port_interface)
 
-    def handle_l2network(self, interfaces):
-        self.interfaces.extend(interfaces)
-        self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=self.interfaces)
+    def handle_l2network(self, nodes):
+        interfaces = [self.interfaces[0]]
 
-    def handle_l3network(self, interfaces):
-        self.interfaces.extend(interfaces)
-        self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name, interfaces=self.interfaces)
+        for node in nodes:
+            node_interfaces = [i for i in node.get_interfaces() if not i.get_network()]
+
+            if node_interfaces:
+                logger.info(f"Node {node.name} has interface for stitching {node_interfaces[0].get_name()} ")
+                interfaces.append(node_interfaces[0])
+            else:
+                logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
+
+        self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
+                                                                   interfaces=interfaces)
 
     def build(self) -> FabricNetwork:
         assert self.net
         assert self.layer3
-
         return FabricNetwork(label=self.label, delegate=self.net, layer3=self.layer3)

@@ -1,11 +1,12 @@
-from typing import List, Dict
-
 from fabrictestbed_extensions.fablib.node import Node as Delegate
 from fabrictestbed_extensions.fablib.slice import Slice
 
 from fabfed.model import Node
 from fabfed.util.constants import Constants
+from fabfed.util.utils import get_logger
 from .fabric_constants import *
+
+logger = get_logger()
 
 
 class FabricNode(Node):
@@ -13,50 +14,65 @@ class FabricNode(Node):
         flavor = {'cores': delegate.get_cores(), 'ram': delegate.get_ram(), 'disk': delegate.get_disk()}
         super().__init__(label=label, name=delegate.get_name(), image=delegate.get_image(), site=delegate.get_site(),
                          flavor=str(flavor))
-
+        logger.info(f" Node {self.name} construtor called ... ")
         self._delegate = delegate
-        self.slice_name = delegate.get_slice().get_name()
+        slice_object = delegate.get_slice()
+        self.slice_name = slice_object.get_name()
         self.mgmt_ip = delegate.get_management_ip()
-
-        if self.mgmt_ip:
-            self.mgmt_ip = str(self.mgmt_ip)
-
+        self.mgmt_ip = str(self.mgmt_ip) if self.mgmt_ip else None
         self.username = delegate.get_username()
-        self.state = delegate.get_reservation_state()
         self.user = self.username
+        self.state = delegate.get_reservation_state()
+        self.state = self.state.lower() if self.state else None
         self.host = self.mgmt_ip
         self.keyfile = self._delegate.get_private_key_file()
         self.jump_user = self._delegate.get_fablib_manager().get_bastion_username()
         self.jump_host = self._delegate.get_fablib_manager().get_bastion_public_addr()
         self.jump_keyfile = self._delegate.get_fablib_manager().get_bastion_key_filename()
-        self.dataplane_ipv4 = self._delegate.get_slice().get_network(name=self.v4net_name).get_available_ips()
-        self.dataplane_ipv6 = self._delegate.get_slice().get_network(name=self.v6net_name).get_available_ips()
-        if self.dataplane_ipv4:
-            self.dataplane_ipv4 = str(self.dataplane_ipv4.pop(0))
-        if self.dataplane_ipv6:
-            self.dataplane_ipv6 = str(self.dataplane_ipv6.pop(0))
-
-        if self.state:
-            self.state = self.state.lower()
-
+        self.dataplane_ipv4 = None
+        self.dataplane_ipv6 = None
         self.id = delegate.get_reservation_id()
+        self.components = [dict(name=c.get_name(), model=c.get_model()) for c in delegate.get_components()]
+        self.addr_list = {}
 
-        self.addr_list = []
+        if not self.mgmt_ip:
+            logger.warning(f" Node {self.name} has no management ip ")
+            return
 
-        if delegate.get_management_ip():
-            try:
-                for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
-                    ifname = ip_addr['ifname']
+        v4_net = slice_object.get_network(name=self.v4net_name)
+        v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net else None
+        logger.info(f" Node {self.name} has v4 device={v4_dev}")
 
-                    for addr_info in ip_addr['addr_info']:
-                        self.addr_list.append(dict(ifname=ifname, addr_info=addr_info['local']))
-            except:
-                pass # TODO LOG IT
+        v6_net = slice_object.get_network(name=self.v6net_name)
+        v6_dev = v6_net.get_interfaces()[0].get_device_name() if v6_net else None
+        logger.info(f" Node {self.name} has v6 device={v6_dev}")
 
-        self.components: List[Dict[str, str]] = []
+        for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
+            ifname = ip_addr['ifname']
+            self.addr_list[ifname] = []
 
-        for component in delegate.get_components():
-            self.components.append(dict(name=component.get_name(), model=component.get_model()))
+            for addr_info in ip_addr['addr_info']:
+                self.addr_list[ifname].append(addr_info['local'])
+
+                if v4_dev == ifname and addr_info['family'] == 'inet':
+                    self.dataplane_ipv4 = addr_info['local']
+
+                if v6_dev == ifname and addr_info['family'] == 'inet6':
+                    self.dataplane_ipv6 = addr_info['local']
+        # print("""""""""""""""""""""""""""""""""""""""""""")
+        # print("Interfaces:")
+        # for iface in delegate.get_interfaces():
+        #     print(iface)
+        #
+        # print()
+        # print("Components:")
+        # for component in delegate.get_components():
+        #     print(component)
+        #
+        # print()
+        # print("IPV4", self.dataplane_ipv4)
+        # print("IPV6", self.dataplane_ipv6)
+        # print("""""""""""""""""""""""""""""""""""""""""""")
 
     @property
     def v4net_name(self):
@@ -70,6 +86,7 @@ class FabricNode(Node):
         return self._delegate.get_interfaces()
 
     def get_interface(self, *, network_name):
+        assert network_name
         return self._delegate.get_interface(network_name=network_name)
 
     def upload_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):

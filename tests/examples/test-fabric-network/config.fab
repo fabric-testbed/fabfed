@@ -22,12 +22,16 @@ resource:
            site: '{{ var.fabric_site }}'
            layer3: "{{ layer3.my_layer }}"
            interface: '{{ node.fabric_node }}'
-           vlan: 3307
+           #stitch_interface: 3307
+           stitch_interface:
+              id:
+              vlan: 3307
+           count: 1 
 
   - node:
       - fabric_node:
             provider: '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}'
-            count: 1
+            count: 1 
             image: default_rocky_8
             nic_model: NIC_ConnectX_5

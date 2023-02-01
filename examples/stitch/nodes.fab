@@ -1,17 +1,16 @@
 resource:
   - node:
       - fabric_node:
-            provider: '{{ fabric.fabric_provider }}'
-            site: 'STAR'
-            count: 1
-            image: default_rocky_8
-            nic_model: NIC_ConnectX_5
+          provider: '{{ fabric.fabric_provider }}'
+          site: '{{ var.fabric_site }}'
+          count: 1 
+          image: default_rocky_8
+          nic_model: NIC_ConnectX_5
 
-  - node:
       - chi_node:
-            provider: '{{ chi.chi_provider }}'
-            site: CHI@UC
-            image: CC-Ubuntu20.04
-            network: '{{ network.chi_network }}'
-            count: 2
-            flavor: m1.medium
+          provider: '{{ chi.chi_provider }}'
+          site: '{{ var.chi_site }}'
+          image: CC-Ubuntu20.04
+          network: '{{ network.chi_network }}'
+          count: 1
+          flavor: m1.medium
