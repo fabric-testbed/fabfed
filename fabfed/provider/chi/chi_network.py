@@ -35,6 +35,7 @@ class ChiNetwork(Network):
             ),
         }]
         self.vlans = list()
+        self.interface = list()
         self.logger = logger
         self._lease_helper = LeaseHelper(lease_name=self.lease_name, logger=self.logger)
 
@@ -52,6 +53,7 @@ class ChiNetwork(Network):
         self.logger.info(f"Using active lease {self.lease_name}")
 
         self.vlans = []
+        self.interface = []
         network_vlan = None
         chameleon_network_id = None
 
@@ -66,6 +68,9 @@ class ChiNetwork(Network):
 
         self.logger.info(f'Got network. network_name: {self.name}, network_vlan: {network_vlan}')
         self.vlans.append(network_vlan)
+
+        for vlan in self.vlans:
+            self.interface.append(dict(id='', provider="chi", vlan=vlan))
 
         try:
             chameleon_subnet = chi.network.get_subnet(self.subnet_name)
