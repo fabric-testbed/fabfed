@@ -87,6 +87,9 @@ class NetworkBuilder:
                 if isinstance(net, dict):
                     self.vlan = net['vlan']
 
+        if isinstance(self.vlan, list):
+            self.vlan = self.vlan[0]
+
         self.interfaces = []
         self.net_name = name  # f'net_facility_port'
         self.facility_port = 'Chameleon-StarLight'
