@@ -1,0 +1,37 @@
+provider:
+  - sense:
+    - sense_provider:
+       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: sense
+
+config:
+  - layer3:
+     - my_layer:
+         subnet: "10.0.0.0/24"                           # subnet.cidr
+
+  - peering:
+     - my_peering:
+         id: "FabFed-L3-Cloud-T3"                        # to_hosted_conn   # This can be generated
+         local_asn: "64512"                              # amazon_asn 
+         local_address: "192.168.1.1/30"                 # amazon_ip
+         remote_asn: "55038"                             # customer_asn 
+         remote_address: "192.168.1.2/30"                # customer_ip
+         
+         password: "REPLACE_ME"                          # authkey
+         
+
+resource:
+  # The name of the vm is editable 
+  - node:
+      - node1:
+          - provider: '{{ sense.sense_provider }}'
+            name: aws-node
+            network: "{{ network.net1 }}"
+            service: 
+  - network:
+      - net1:
+          - provider: '{{ sense.sense_provider }}'
+            profile: FABRIC-AWS-DX-VGW
+            name: aws-net
+            layer3: "{{ layer3.my_layer }}"
+            peering: "{{ peering.my_peering }}"

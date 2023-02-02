@@ -29,13 +29,8 @@ class FabricNetwork(Network):
         self.interface = []
 
         for key, iface in ns.interfaces.items():
-            vlans = []
-
             if hasattr(iface.labels, "vlan") and iface.labels.vlan:
-                # self.vlans.append(iface.labels.vlan)
-                vlans.append(iface.labels.vlan)
-
-            self.interface.append(dict(id=key, vlan=vlans))
+                self.interface.append(dict(id=key, vlan=iface.labels.vlan))
 
         self.id = self._delegate.get_reservation_id()
         self.state = self._delegate.get_reservation_state()
@@ -92,7 +87,7 @@ class NetworkBuilder:
 
         self.interfaces = []
         self.net_name = name  # f'net_facility_port'
-        self.facility_port = 'Chameleon-StarLight'
+        self.facility_port = 'Chameleon-StarLight' # TODO Use configuration file .... Or Even allow user to provide this ???
         self.facility_port_site = resource.get(Constants.RES_SITE)
         self.layer3 = resource.get(Constants.RES_LAYER3)
         self.label = label

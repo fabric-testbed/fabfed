@@ -94,7 +94,9 @@ def manage_workflow(args):
                 props = ['mgmt_ip', 'username', 'site', 'state', 'id']
 
                 for prop in props:
-                    attributes[prop] = node_state.attributes[prop]
+                    if prop in node_state.attributes:
+                        attributes[prop] = node_state.attributes[prop]
+
                 node_state.attributes = attributes
                 temp.append(node_state)
 
