@@ -269,6 +269,11 @@ class FabricSlice:
             # Setup FABnetv4/v6 nets
             n = FabricNode(label=node.label, delegate=delegate)
             self._setup_networks(n)
+            from fabrictestbed_extensions.fablib.fablib import fablib
+
+            self.slice_object = fablib.get_slice(name=self.provider.name)
+            delegate = self.slice_object.get_node(node.name)
+            n = FabricNode(label=node.label, delegate=delegate)
             temp.append(n)
 
         self.provider._nodes = temp
