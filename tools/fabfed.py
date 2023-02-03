@@ -94,9 +94,22 @@ def manage_workflow(args):
                 props = ['mgmt_ip', 'username', 'site', 'state', 'id']
 
                 for prop in props:
-                    attributes[prop] = node_state.attributes[prop]
+                    if prop in node_state.attributes:
+                        attributes[prop] = node_state.attributes[prop]
+
                 node_state.attributes = attributes
                 temp.append(node_state)
+
+            for network_state in provider_state.network_states:
+                attributes = dict()
+                props = ['id','name', 'interface', 'site', 'state', 'profile']
+
+                for prop in props:
+                    if prop in network_state.attributes:
+                        attributes[prop] = network_state.attributes[prop]
+
+                network_state.attributes = attributes
+                temp.append(network_state)
 
         sutil.dump_states(temp, args.json)
         return

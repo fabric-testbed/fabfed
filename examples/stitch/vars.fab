@@ -1,0 +1,5 @@
+variable:
+  - fabric_site:
+      default: STAR
+  - chi_site:
+      default: CHI@UC
