@@ -40,7 +40,7 @@ class Constants:
     RES_LAYER3_DHCP_START = 'ip_start'
     RES_LAYER3_DHCP_END = 'ip_end'
 
-    RES_INTERFACES = 'interfaces'
+    RES_INTERFACES = 'interface'
     RES_BANDWIDTH = "bandwidth"
     RES_INDEX = 'index'
 
