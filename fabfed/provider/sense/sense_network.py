@@ -12,9 +12,10 @@ class SenseNetwork(Network):
         self.profile = profile
         self.layer3 = layer3
         self.peering = peering
-        self.interfaces = interfaces
+        self.interface = interfaces
         self.bandwidth = bandwidth
         self.switch_ports = []
+        self.id = ''
 
         # CREATE - COMPILED, CREATE - COMMITTING, CREATE - COMMITTED, CREATE - READY
     def create(self):
@@ -25,7 +26,7 @@ class SenseNetwork(Network):
             si_uuid, status = sense_utils.create_instance(profile=self.profile, bandwidth=self.bandwidth,
                                                           alias=self.name,
                                                           layer3=self.layer3, peering=self.peering,
-                                                          interfaces=self.interfaces)
+                                                          interfaces=self.interface)
         else:
             logger.debug(f"Found {self.name} {si_uuid}")
             assert si_uuid
@@ -38,7 +39,7 @@ class SenseNetwork(Network):
             si_uuid, status = sense_utils.create_instance(profile=self.profile, bandwidth=self.bandwidth,
                                                           alias=self.name,
                                                           layer3=self.layer3, peering=self.peering,
-                                                          interfaces=self.interfaces)
+                                                          interfaces=self.interface)
 
         if 'FAILED' not in status and 'CREATE - READY' not in status:
             logger.debug(f"Provisioning {self.name}")
@@ -54,6 +55,8 @@ class SenseNetwork(Network):
         for key in SERVICE_INSTANCE_KEYS:
             self.__setattr__(key, instance_dict.get(key))
 
+        self.id = self.referenceUUID
+
         if 'CREATE - READY' not in status:
             raise Exception(f"Creation failed for {si_uuid} {status}")
 
@@ -64,6 +67,11 @@ class SenseNetwork(Network):
                 self.switch_ports = details.get("Switch Ports", [])
             except:
                 pass
+
+        if self.switch_ports:
+            temp = [dict(id=self.switch_ports[0]["Port"], provider="sense", vlan=self.switch_ports[0]["Vlan"]),
+                    dict(id=self.switch_ports[1]["Port"], provider="sense", vlan=self.switch_ports[1]["Vlan"])]
+            self.interface = temp
 
     def delete(self):
         from . import sense_utils
