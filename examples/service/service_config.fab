@@ -14,7 +14,7 @@ provider:
   - janus:
     - janus_provider:
        #- url: https://janus-ctrl.duckdns.org:5000
-       - url: https://10.133.132.2:5000
+       - url: https://10.133.131.2:5000
          username: admin
          password: admin
          token:
