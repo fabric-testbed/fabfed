@@ -1,0 +1,15 @@
+provider:
+  - fabric:
+    - fabric_provider:
+         credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: beta_fabric 
+
+  - sense:
+    - sense_provider:
+       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: sense
+
+  - janus:
+    - janus_provider:
+       - credential_file: ~/.fabfed/fabfed_credentials.yml
+         profile: janus
