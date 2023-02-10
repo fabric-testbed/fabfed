@@ -38,8 +38,10 @@ class DependencyResolver:
                     ok = False
                     break
 
+            self.logger.info(f"Checking if all dependencies are resolved for {label} using {self.label}:ret={ok}")
             return ok
 
+        self.logger.info(f"Checking if all dependencies are resolved for {label} using {self.label}:ret=false")
         return False
 
     def resolve_dependency(self, *, resource: dict, from_resource):

@@ -8,6 +8,9 @@ SENSE_URI = 'uri'
 SENSE_PATH = 'path'
 SENSE_VLAN_TAG = 'vlan_tag'
 
+SENSE_DTN = 'With Host'
+SENSE_DTN_IP = 'IP Address'
+
 SERVICE_INSTANCE_KEYS = ['intents', 'alias', 'referenceUUID', 'state', 'owner', 'lastState', 'timestamp', 'archived']
 
 SENSE_CUSTOMER_ASN = "customer_asn"

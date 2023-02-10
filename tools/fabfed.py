@@ -91,7 +91,7 @@ def manage_workflow(args):
         for provider_state in states:
             for node_state in provider_state.node_states:
                 attributes = dict()
-                props = ['mgmt_ip', 'username', 'site', 'state', 'id']
+                props = ['mgmt_ip', 'username', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6"]
 
                 for prop in props:
                     if prop in node_state.attributes:
@@ -102,7 +102,7 @@ def manage_workflow(args):
 
             for network_state in provider_state.network_states:
                 attributes = dict()
-                props = ['id','name', 'interface', 'site', 'state', 'profile']
+                props = ['id','name', 'interface', 'site', 'state', 'profile', "dtn", 'layer3']
 
                 for prop in props:
                     if prop in network_state.attributes:
