@@ -1,7 +1,7 @@
 from fabfed.model import Network
 from fabfed.util.utils import get_logger
 from . import sense_utils
-from .sense_constants import SERVICE_INSTANCE_KEYS
+from .sense_constants import SERVICE_INSTANCE_KEYS, SENSE_DTN, SENSE_DTN_IP
 
 logger = get_logger()
 
@@ -15,6 +15,7 @@ class SenseNetwork(Network):
         self.interface = interfaces
         self.bandwidth = bandwidth
         self.switch_ports = []
+        self.dtn = []
         self.id = ''
 
         # CREATE - COMPILED, CREATE - COMMITTING, CREATE - COMMITTED, CREATE - READY
@@ -69,9 +70,22 @@ class SenseNetwork(Network):
                 pass
 
         if self.switch_ports:
-            temp = [dict(id=self.switch_ports[0]["Port"], provider="sense", vlan=self.switch_ports[0]["Vlan"]),
-                    dict(id=self.switch_ports[1]["Port"], provider="sense", vlan=self.switch_ports[1]["Vlan"])]
-            self.interface = temp
+            temp = [dict(id=sp["Port"], provider="sense", vlan=sp["Vlan"]) for sp in self.switch_ports]
+
+            for iface in self.interface:
+                for temp_iface in temp:
+                    if iface['id'] == temp_iface["id"]:
+                        self.interface = [temp_iface]
+                        break
+
+            for sp in self.switch_ports:
+                if sp.get(SENSE_DTN):
+                    dtn = sp.get(SENSE_DTN)[0].get(SENSE_DTN_IP)
+
+                    if dtn.find('/'):
+                        self.dtn = [dtn[0: dtn.find('/')]]
+                    else:
+                        self.dtn = [dtn]
 
     def delete(self):
         from . import sense_utils

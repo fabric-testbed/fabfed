@@ -100,6 +100,9 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
     intent = {SENSE_PROFILE_UID: profile_uuid, "alias": alias}
 
     profile_details = describe_profile(client=client, uuid=profile_uuid)
+
+    logger.debug(f'Profile Details: {profile_details}')
+
     edit_entries = []
 
     if hasattr(profile_details, "edit"):
@@ -123,20 +126,31 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
                 options.append({path: peering.attributes.get(k)})
 
     if layer3:
+        edit_entry_paths = [e.path for e in edit_entries]
+        subnet = layer3.attributes.get(Constants.RES_SUBNET)
+
+        if subnet:
+            from ipaddress import IPv4Network
+            subnet = IPv4Network(subnet)
+
         ip_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
 
         if ip_start:
+            if subnet:
+                ip_start = ip_start + "/" + str(subnet.prefixlen)
+
             options.append({f"data.connections[{0}].suggest_ip_range[0].start": ip_start})
 
         ip_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
 
         if ip_end:
+            if subnet:
+                ip_end = ip_end + "/" + str(subnet.prefixlen)
+
             options.append({f"data.connections[{0}].suggest_ip_range[0].end": ip_end})
 
-        subnet = layer3.attributes.get(Constants.RES_SUBNET)
-
-        if subnet:
-            options.append({f"data.subnets[0].cidr": subnet})
+        if subnet and "data.subnets[0].cidr" in edit_entry_paths:
+            options.append({f"data.subnets[0].cidr": str(subnet)})
 
     if options:
         query = dict([("ask", "edit"), ("options", options)])
@@ -145,11 +159,6 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
     logger.info(f'Intent: {json.dumps(intent, indent=2)}')
 
     intent = json.dumps(intent)
-
-    # if True:
-    #     import sys
-    #
-    #     sys.exit(1)
 
     response = workflow_api.instance_create(intent)  # service_uuid, intent_uuid, queries, model
 
@@ -174,7 +183,7 @@ def instance_operate(*, client=None, si_uuid):
 
     for attempt in range(25):
         status = workflow_api.instance_get_status(si_uuid=si_uuid)
-        print("LOOPING:PROVISION:Status=", status, ":attempt=", attempt)
+        logger.info(f"Waiting on CREATED-READY: status={status}:attempt={attempt}")
 
         if 'CREATE - READY' in status:
             break
@@ -215,7 +224,8 @@ def delete_instance(*, client=None, si_uuid):
         time.sleep(30)  # This sleep is here to workaround issue where CANCEL-READY shows up prematurely.
 
         status = workflow_api.instance_get_status(si_uuid=si_uuid)
-        print("LOOPING:DELETE:Status=", status, "attempt=", attempt)
+        # print("LOOPING:DELETE:Status=", status, "attempt=", attempt)
+        logger.info(f"Waiting on CANCEL-READY: status={status}:attempt={attempt}")
 
         if 'CANCEL - READY' in status:  # This got triggered very quickly ...
             break
@@ -225,12 +235,13 @@ def delete_instance(*, client=None, si_uuid):
 
         # time.sleep(30)
 
-    status = workflow_api.instance_get_status(si_uuid=si_uuid)
-
-    print(f'cancel status={status}')
+    # status = workflow_api.instance_get_status(si_uuid=si_uuid)
+    #
+    # print(f'cancel status={status}')
 
     if 'CANCEL - READY' in status:
         workflow_api.instance_delete(si_uuid=si_uuid)
+        logger.info(f"Deleted instance: {si_uuid}")
     else:
         raise Exception(f'cancel operation disrupted - instance not deleted - contact admin. {status}')
 

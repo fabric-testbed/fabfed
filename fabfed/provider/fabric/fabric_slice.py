@@ -182,14 +182,44 @@ class FabricSlice:
             # self.logger.error(f"Exception occurred: {e}")
             raise e
 
-    def _setup_networks(self, node):
-        v4_net = self.slice_object.get_network(name=node.v4net_name)
+    def _reload_nodes(self):
+        from fabrictestbed_extensions.fablib.fablib import fablib
+
+        temp = []
+        self.slice_object = fablib.get_slice(name=self.provider.name)
+
+        for node in self.nodes:
+            delegate = self.slice_object.get_node(node.name)
+            n = FabricNode(label=node.label, delegate=delegate)
+            temp.append(n)
+
+        self.provider._nodes = temp
+
+    def _reload_networks(self):
+        from fabrictestbed_extensions.fablib.fablib import fablib
+
+        self.slice_object = fablib.get_slice(name=self.provider.name)
+
+        temp = []
+
+        for net in self.provider.networks:
+            delegate = self.slice_object.get_network(net.name)
+            fabric_network = FabricNetwork(label=net.label,
+                                           delegate=delegate,
+                                           layer3=net.layer3)
+
+            temp.append(fabric_network)
+
+        self.provider._networks = temp
+
+    def _setup_networks(self, node, v4net_name, v6net_name):
+        v4_net = self.slice_object.get_network(name=v4net_name)
         v4_net_available_ips = v4_net.get_available_ips()
-        v6_net = self.slice_object.get_network(name=node.v6net_name)
+        v6_net = self.slice_object.get_network(name=v6net_name)
         v6_net_available_ips = v6_net.get_available_ips()
 
-        iface_v4 = node.get_interface(network_name=node.v4net_name)
-        iface_v6 = node.get_interface(network_name=node.v6net_name)
+        iface_v4 = node.get_interface(network_name=v4net_name)
+        iface_v6 = node.get_interface(network_name=v6net_name)
 
         # TODO ADD WARNINGS ....
         if v4_net_available_ips:
@@ -200,8 +230,8 @@ class FabricSlice:
             addr_v6 = v6_net_available_ips.pop(0)
             iface_v6.ip_addr_add(addr=addr_v6, subnet=v6_net.get_subnet())
 
-        node.add_route(subnet=FABRIC_PRIVATE_IPV4_SUBNET, gateway=v4_net.get_gateway())
-        node.add_route(subnet=FABRIC_PUBLIC_IPV6_SUBNET, gateway=v6_net.get_gateway())
+        node.ip_route_add(subnet=FABRIC_PRIVATE_IPV4_SUBNET, gateway=v4_net.get_gateway())
+        node.ip_route_add(subnet=FABRIC_PUBLIC_IPV6_SUBNET, gateway=v6_net.get_gateway())
 
     def create_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
@@ -262,35 +292,9 @@ class FabricSlice:
 
             time.sleep(2)
 
-        temp = []
-
         for node in self.nodes:
             delegate = self.slice_object.get_node(node.name)
-            # Setup FABnetv4/v6 nets
-            n = FabricNode(label=node.label, delegate=delegate)
-            self._setup_networks(n)
-            from fabrictestbed_extensions.fablib.fablib import fablib
-
-            self.slice_object = fablib.get_slice(name=self.provider.name)
-            delegate = self.slice_object.get_node(node.name)
-            n = FabricNode(label=node.label, delegate=delegate)
-            temp.append(n)
-
-        self.provider._nodes = temp
-
-        temp = []
-
-        for net in self.provider.networks:
-            delegate = self.slice_object.get_network(net.name)
-            from fabfed.util.parser import Config
-
-            fabric_network = FabricNetwork(label=net.label,
-                                           delegate=delegate,
-                                           layer3=net.layer3)
-
-            temp.append(fabric_network)
-
-        self.provider._networks = temp
+            self._setup_networks(delegate, node.v4net_name, node.v6net_name)
 
         if self.networks:
             from ipaddress import IPv4Network
@@ -299,9 +303,13 @@ class FabricSlice:
             net_name = self.networks[0].name
 
             for node in self.nodes:
-                iface = node.get_interface(network_name=net_name)
+                delegate = self.slice_object.get_node(node.name)
+                iface = delegate.get_interface(network_name=net_name)
                 node_addr = available_ips.pop(0)
                 iface.ip_addr_add(addr=node_addr, subnet=subnet)
+
+        self._reload_nodes()
+        self._reload_networks()
 
         if self.resource_listener:
             for node in self.nodes:

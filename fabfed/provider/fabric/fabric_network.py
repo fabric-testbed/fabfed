@@ -56,11 +56,15 @@ class NetworkBuilder:
     def __init__(self, label, slice_object: Slice, name, resource: dict):
         self.slice_object = slice_object
         self.vlan = None # facility port vlan
+        self.facility_port = 'Chameleon-StarLight'
+
         prop = 'stitch_interface'
 
         if isinstance(resource.get(prop), dict):   # This is just to simplify testing ....
             self.vlan = resource.get(prop)
             self.vlan = self.vlan['vlan']
+            if resource.get(prop).get("provider", None) == 'sense':
+                self.facility_port = 'UKY-AL2S'
 
         if not self.vlan:
             import fabfed.provider.api.dependency_util as util
@@ -82,19 +86,24 @@ class NetworkBuilder:
                 if isinstance(net, dict):
                     self.vlan = net['vlan']
 
+                    if net.get("provider", None) == 'sense':
+                        self.facility_port = 'UKY-AL2S'
+
         if isinstance(self.vlan, list):
             self.vlan = self.vlan[0]
 
         self.interfaces = []
         self.net_name = name  # f'net_facility_port'
-        self.facility_port = 'Chameleon-StarLight' # TODO Use configuration file .... Or Even allow user to provide this ???
+        # self.facility_port = 'UKY-AL2S' # 'Chameleon-StarLight' # TODO Use configuration file .... Or Even allow user to provide this ???
         self.facility_port_site = resource.get(Constants.RES_SITE)
         self.layer3 = resource.get(Constants.RES_LAYER3)
         self.label = label
         self.net = None
+        self.type = resource.get('net_type')
 
         if self.vlan:
-            logger.info(f"Network {self.net_name}: Got vlan {self.vlan} which will be used for facility port")
+            logger.info(
+                f"Network {self.net_name}: Got vlan={self.vlan},facility_port={self.facility_port},site={self.facility_port_site}")
         else:
             logger.warning(f"Network {self.net_name} has no vlan ...")
 
@@ -121,8 +130,10 @@ class NetworkBuilder:
             else:
                 logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
 
+        # type = 'L2STS' ????
+        # logger.info(f"Adding Network {self.net_name} using type={self.type}")
         self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
-                                                                   interfaces=interfaces)
+                                                                   interfaces=interfaces, type='L2STS')
 
     def build(self) -> FabricNetwork:
         assert self.net
