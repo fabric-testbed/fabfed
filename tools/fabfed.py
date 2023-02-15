@@ -111,6 +111,17 @@ def manage_workflow(args):
                 network_state.attributes = attributes
                 temp.append(network_state)
 
+            for service_state in provider_state.service_states:
+                attributes = dict()
+                props = ['name', 'image']
+
+                for prop in props:
+                    if prop in service_state.attributes:
+                        attributes[prop] = service_state.attributes[prop]
+
+                service_state.attributes = attributes
+                temp.append(service_state)
+
         sutil.dump_states(temp, args.json)
         return
 
