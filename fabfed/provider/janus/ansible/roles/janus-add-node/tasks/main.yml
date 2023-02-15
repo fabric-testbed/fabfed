@@ -1,5 +1,5 @@
 ---
-- debug: msg="{{ url }} {{ username }} {{ password }} {{ token }} {{ node }} {{ name }}"
+- debug: msg="{{ url }} {{ username }} {{ token }} {{ node }} {{ name }}"
 
 - name: Add Janus endpoint
   vars:

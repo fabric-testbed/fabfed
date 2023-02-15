@@ -45,6 +45,14 @@ class JanusProvider(Provider):
 
     def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
+        credential_file = self.config.get(Constants.CREDENTIAL_FILE)
+
+        if credential_file:
+            from fabfed.util import utils
+
+            profile = self.config.get(Constants.PROFILE)
+            config = utils.load_yaml_from_file(credential_file)
+            self.config = config[profile]
 
     def _validate_resource(self, resource: dict):
         assert resource.get(Constants.LABEL)
