@@ -78,6 +78,7 @@ class CloudlabSlice:
 		    # it is going to happen.
                     self.logger.error(response.output)
                     return
+
             status = json.loads(response.value)
             self.logger.info(status)
             #

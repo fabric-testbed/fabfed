@@ -1,16 +1,17 @@
-import logging
-
-from fabfed.model import Service, Node, SSHNode
+from fabfed.exceptions import ResourceTypeNotSupported
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
+from fabfed.util.utils import get_logger
 from .cloudlab_constants import *
+
+logger = get_logger()
 
 
 class CloudlabProvider(Provider):
 
-    def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
+    def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
-        self.slice = None
+        self.supported_resources = [Constants.RES_TYPE_NETWORK.lower(), Constants.RES_TYPE_NODE.lower()]
 
     def setup_environment(self):
         config = self.config
@@ -21,26 +22,103 @@ class CloudlabProvider(Provider):
 
             profile = config.get(Constants.PROFILE)
             config = utils.load_yaml_from_file(credential_file)
-            self.config = config = config[profile]
+            self.config = config[profile]
 
-    def _init_slice(self):
-        if not self.slice:
-            self.logger.info(f"Initializing slice {self.name}")
+    @property
+    def project(self):
+        return self.config[CLOUDLAB_PROJECT]
 
-            from fabfed.provider.cloudlab.cloudlab_slice import CloudlabSlice
+    @property
+    def cert(self):
+        return self.config[CLOUDLAB_CERTIFICATE]
 
-            temp = CloudlabSlice(provider=self, logger=self.logger)
-            temp.init()
-            self.slice = temp
+    def experiment_params(self, name):
+        exp_params = {
+            "experiment": f"{self.project},{name}",
+            "asjson": True
+        }
+
+        return exp_params
+
+    def rpc_server(self):
+        server_config = {
+            "debug": 0,
+            "impotent": 0,
+            "verify": 0,
+            "certificate": self.cert
+        }
+
+        import emulab_sslxmlrpc.xmlrpc as xmlrpc
+
+        return xmlrpc.EmulabXMLRPC(server_config)
 
     def do_add_resource(self, *, resource: dict):
-        self._init_slice()
-        self.slice.add_resource(resource=resource)
+        label = resource.get(Constants.LABEL)
+        rtype = resource.get(Constants.RES_TYPE)
+
+        if rtype not in self.supported_resources:
+            raise ResourceTypeNotSupported(f"{rtype} for {label}")
+
+        name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            from .cloudlab_node import CloudlabNode
+            import fabfed.provider.api.dependency_util as util
+
+            assert util.has_resolved_internal_dependencies(resource=resource, attribute='network')
+            net = util.get_single_value_for_dependency(resource=resource, attribute='network')
+            node_name = f'{self.name}-{name_prefix}'
+            idx = 0  # TODO
+            node = CloudlabNode(label=label, name=f'{node_name}-{idx}', provider=self, network=net)
+            self._nodes.append(node)
+            self.resource_listener.on_added(source=self, provider=self, resource=node)
+            return
+
+        from .cloudlab_network import CloudNetwork
+
+        net_name = f'{self.name}-{name_prefix}'
+        profile = resource[Constants.RES_PROFILE]
+        interfaces = resource.get(Constants.RES_INTERFACES, list())
+        net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces)
+        self._networks.append(net)
+        self.resource_listener.on_added(source=self, provider=self, resource=net)
 
     def do_create_resource(self, *, resource: dict):
-        self._init_slice()
-        self.slice.create_resource(resource=resource)
+        rtype = resource.get(Constants.RES_TYPE)
+        assert rtype in self.supported_resources
+        label = resource.get(Constants.LABEL)
+
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            for node in [node for node in self._nodes if node.label == label]:
+                self.logger.debug(f"Creating node: {vars(node)}")
+                node.create()
+                self.resource_listener.on_created(source=self, provider=self, resource=node)
+                self.logger.debug(f"Created node: {vars(node)}")
+
+            self._nodes[0].create()
+            self.resource_listener.on_created(source=self, provider=self, resource=self._nodes[0])
+            return
+
+        self._networks[0].create()
+        self.resource_listener.on_created(source=self, provider=self, resource=self._networks[0])
 
     def do_delete_resource(self, *, resource: dict):
-        self._init_slice()
-        self.slice.delete_resource(resource=resource)
+        rtype = resource.get(Constants.RES_TYPE)
+        assert rtype in self.supported_resources
+        label = resource.get(Constants.LABEL)
+
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            # DO NOTHING
+            return
+
+        net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+        logger.debug(f"Deleting network: {net_name}")
+
+        from .cloudlab_network import CloudNetwork
+
+        profile = resource.get(Constants.RES_PROFILE)
+        interfaces = resource.get(Constants.RES_INTERFACES, list())
+        net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces)
+        net.delete()
+        logger.info(f"Done Deleting network: {net_name}")
+        self.resource_listener.on_deleted(source=self, provider=self, resource=net)
