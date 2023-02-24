@@ -1,0 +1,24 @@
+variable:
+  - cloudlab_profile:
+      default: fabfed-stitch
+
+provider:
+  - cloudlab:
+      - cloudlab_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: cloudlab
+
+resource:
+  - node:
+      - cnode:
+          provider: '{{ cloudlab.cloudlab_provider }}'
+          network: "{{ network.cnet }}"
+
+  - network:
+      - cnet:
+          provider: '{{cloudlab.cloudlab_provider }}'
+          profile: '{{ var.cloudlab_profile }}'
+
+          # Use this to override 
+          interface: 
+           - vlan: 3101 
