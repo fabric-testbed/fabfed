@@ -46,13 +46,13 @@ resource:
             image: default_rocky_8
             nic_model: NIC_ConnectX_5
 
-#  - node:
-#      - chi_node:
-#          - provider: '{{ chi.chi_provider }}'
-#            site: CHI@UC
-#            image: CC-Ubuntu20.04
-#            count: 1
-#            flavor: m1.medium
+  - node:
+      - chi_node:
+          - provider: '{{ chi.chi_provider }}'
+            site: CHI@UC
+            image: CC-Ubuntu20.04
+            count: 0
+            flavor: m1.medium
 
   - service:
       - dtn_service:
