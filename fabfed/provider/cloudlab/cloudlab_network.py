@@ -1,6 +1,7 @@
 import json
 
 from fabfed.model import Network
+from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
 from .cloudlab_constants import *
 from .cloudlab_exceptions import CloudlabException
@@ -10,11 +11,12 @@ logger = get_logger()
 
 
 class CloudNetwork(Network):
-    def __init__(self, *, label, name: str, provider: CloudlabProvider, profile: str, interfaces):
+    def __init__(self, *, label, name: str, provider: CloudlabProvider, profile: str, interfaces, layer3):
         super().__init__(label=label, name=name, site="")
         self.profile = profile
         self._provider = provider
         self.interface = interfaces or []
+        self.layer3 = layer3 or {}
 
     @property
     def provider(self):
@@ -44,13 +46,23 @@ class CloudNetwork(Network):
         exitval, response = api.experimentStatus(server, exp_params).apply()
 
         if exitval == xmlrpc.RESPONSE_SEARCHFAILED:
-            logger.info(f"Network {self.name} not found, creating...")
+            logger.debug(f"Network {self.name} not found, creating...")
             params = self.params()
+            bindings = {}
 
             if self.interface:
                 vlan = self.interface[0]['vlan']
-                params['bindings'] = json.dumps(dict(vlan=str(vlan)))
+                bindings['vlan'] = str(vlan)
 
+            nodes = [n for n in self.provider.nodes if n.net == self]
+            bindings['node_count'] = str(len(nodes))
+            subnet = self.layer3.attributes.get(Constants.RES_SUBNET)
+
+            if subnet:
+                bindings['ip_subnet'] = str(subnet)
+
+            params['bindings'] = json.dumps(bindings)
+            logger.info(f"Network {self.name} not found, creating... {params}")
             exitval, response = api.startExperiment(server, params).apply()
 
             if exitval:
