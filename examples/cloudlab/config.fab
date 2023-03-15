@@ -1,6 +1,11 @@
 variable:
   - cloudlab_profile:
-      default: fabfed-stitch
+      default: fabfed-stitch-v2
+
+config:
+  - layer3:
+      - my_layer:
+          subnet: 192.168.1.0/24
 
 provider:
   - cloudlab:
@@ -13,12 +18,13 @@ resource:
       - cnode:
           provider: '{{ cloudlab.cloudlab_provider }}'
           network: "{{ network.cnet }}"
+          count: 2
 
   - network:
       - cnet:
           provider: '{{cloudlab.cloudlab_provider }}'
           profile: '{{ var.cloudlab_profile }}'
-
+          layer3: "{{ layer3.my_layer }}"
           # Use this to override 
           interface: 
            - vlan: 3101 

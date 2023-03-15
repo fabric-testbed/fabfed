@@ -36,10 +36,13 @@ class CloudlabNode(Node):
             raise CloudlabException(exitval=exitval, response=response)
 
         status = json.loads(response.value)
-        logger.debug(json.dumps(status, indent=2))
+        logger.info(f"STATUS: {json.dumps(status, indent=2)}")
         assert status['status'] == 'ready', f"status={status['status']}"
 
-        node_info = status[AGGREGATE_STATUS][NODE_URI][NODES][NODE]
+        node_info = list(status[AGGREGATE_STATUS][NODE_URI][NODES].values())[0] # [NODE]
+        logger.info(f"NODE_INFO: {node_info}")
+        logger.info(f"NODE_INFO_TYPE: {type(node_info)}")
+
         self.mgmt_ip = node_info[IPV4]
         self.host = node_info[HOSTNAME]
         exitval, response = api.experimentManifests(server, exp_params).apply()

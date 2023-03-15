@@ -67,11 +67,13 @@ class CloudlabProvider(Provider):
 
             assert util.has_resolved_internal_dependencies(resource=resource, attribute='network')
             net = util.get_single_value_for_dependency(resource=resource, attribute='network')
-            node_name = f'{self.name}-{name_prefix}'
-            idx = 0  # TODO
-            node = CloudlabNode(label=label, name=f'{node_name}-{idx}', provider=self, network=net)
-            self._nodes.append(node)
-            self.resource_listener.on_added(source=self, provider=self, resource=node)
+            node_count = resource.get(Constants.RES_COUNT, 1)
+
+            for idx in range(0, node_count):
+                node_name = f'{self.name}-{name_prefix}'
+                node = CloudlabNode(label=label, name=f'{node_name}-{idx}', provider=self, network=net)
+                self._nodes.append(node)
+                self.resource_listener.on_added(source=self, provider=self, resource=node)
             return
 
         from .cloudlab_network import CloudNetwork
@@ -79,7 +81,9 @@ class CloudlabProvider(Provider):
         net_name = f'{self.name}-{name_prefix}'
         profile = resource[Constants.RES_PROFILE]
         interfaces = resource.get(Constants.RES_INTERFACES, list())
-        net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces)
+        layer3 = resource.get(Constants.RES_LAYER3)
+        net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,
+                           layer3=layer3)
         self._networks.append(net)
         self.resource_listener.on_added(source=self, provider=self, resource=net)
 
@@ -95,7 +99,6 @@ class CloudlabProvider(Provider):
                 self.resource_listener.on_created(source=self, provider=self, resource=node)
                 self.logger.debug(f"Created node: {vars(node)}")
 
-            self._nodes[0].create()
             self.resource_listener.on_created(source=self, provider=self, resource=self._nodes[0])
             return
 
@@ -118,7 +121,9 @@ class CloudlabProvider(Provider):
 
         profile = resource.get(Constants.RES_PROFILE)
         interfaces = resource.get(Constants.RES_INTERFACES, list())
-        net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces)
+        layer3 = resource.get(Constants.RES_LAYER3)
+        net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,
+                           layer3=layer3)
         net.delete()
         logger.info(f"Done Deleting network: {net_name}")
         self.resource_listener.on_deleted(source=self, provider=self, resource=net)
