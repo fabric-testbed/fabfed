@@ -12,6 +12,7 @@ logger = get_logger()
 
 class CloudNetwork(Network):
     def __init__(self, *, label, name: str, provider: CloudlabProvider, profile: str, interfaces, layer3):
+        name = name[0:CLOUDLAB_MAX_EXPERIMENT_NAME_SIZE]
         super().__init__(label=label, name=name, site="")
         self.profile = profile
         self._provider = provider
