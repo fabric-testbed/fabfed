@@ -32,6 +32,14 @@ class CloudlabProvider(Provider):
     def cert(self):
         return self.config[CLOUDLAB_CERTIFICATE]
 
+    @property
+    def user(self):
+        return self.config[CLOUDLAB_USER]
+
+    @property
+    def private_key_file_location(self):
+        return self.config[CLOUDLAB_SLICE_PRIVATE_KEY_LOCATION]
+
     def experiment_params(self, name):
         exp_params = {
             "experiment": f"{self.project},{name}",
