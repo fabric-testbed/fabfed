@@ -1,5 +1,7 @@
 CLOUDLAB_PROJECT = "project"
 CLOUDLAB_CERTIFICATE = "certificate"
+CLOUDLAB_USER = "user"
+CLOUDLAB_SLICE_PRIVATE_KEY_LOCATION = "slice-private-key-location"
 CLOUDLAB_SLEEP_TIME = 5
 AGGREGATE_STATUS = "aggregate_status"
 NODE_URI = 'urn:publicid:IDN+emulab.net+authority+cm'

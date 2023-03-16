@@ -120,22 +120,24 @@ class CloudNetwork(Network):
 
         status = json.loads(response.value)
         logger.debug(json.dumps(status, indent=2))
+        logger.info(f"STATUS_KEYS={status.keys()}")
 
         import xmltodict
 
-        data_dict = xmltodict.parse(status['urn:publicid:IDN+stitch.geniracks.net+authority+cm'])  # TODO
+        data_dict = xmltodict.parse(status['urn:publicid:IDN+stitch.geniracks.net+authority+cm'])
+        # data_dict = xmltodict.parse(status['urn:publicid:IDN+emulab.net+authority+cm'])
+        # TODO
+
         logger.info(f"RSPEC: {json.dumps(data_dict['rspec'], indent=2)}")
         link = data_dict['rspec']['link']
-        # logger.info(f"LINK: {json.dumps(link, indent=2)}")
         self.interface = [dict(id='', provider=self.provider.type, vlan=link['@vlantag'])]
-
-        nodes = data_dict['rspec']['node']
-
-        for n in nodes:
-            if n['@component_manager_id'] != NODE_URI:
-                self.dtn = n['interface']['ip']['@address']
-                self.dtn_site = n['jacks:site']['@id']
-                break
+        all_nodes = data_dict['rspec']['node']
+        nodes = [n for n in all_nodes if n['@component_manager_id'] != NODE_URI]
+        n = nodes[0]
+        self.stich_node_ip = n['interface']['ip']['@address']
+        self.stich_site = n['jacks:site']['@id']
+        nodes = [n for n in all_nodes if n['@component_manager_id'] == NODE_URI]
+        self.site = nodes[0]['jacks:site']['@id']
 
     def delete(self):
         import emulab_sslxmlrpc.client.api as api
