@@ -76,7 +76,7 @@ class Provider(ABC):
         assert provider
 
         resource.write_ansible(provider.name)
-        resource_dict = vars(resource)
+        # resource_dict = vars(resource)
 
         for pending_resource in self.pending.copy():
             resolver = self.get_dependency_resolver()
