@@ -1,0 +1,17 @@
+{
+   "cloudlab": {
+      "UTAH": {
+         "name": "Utah-Cloudlab-Powder"
+      }
+   },
+   "sense": {
+      "UKY": {
+         "name": "UKY-AL2S"
+      }
+   },
+   "chi": {
+      "STAR": {
+         "name": "Chameleon-StarLight"
+      }
+   }
+}

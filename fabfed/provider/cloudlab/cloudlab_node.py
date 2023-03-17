@@ -16,6 +16,8 @@ class CloudlabNode(Node):
         self._net = network
         self.dataplane_ipv4 = None
         self.dataplane_ipv6 = None
+        self.keyfile = provider.private_key_file_location
+        self.user = provider.user
 
     @property
     def provider(self):
@@ -41,7 +43,6 @@ class CloudlabNode(Node):
 
         node_info = list(status[AGGREGATE_STATUS][NODE_URI][NODES].values())[0] # [NODE]
         logger.info(f"NODE_INFO: {node_info}")
-        logger.info(f"NODE_INFO_TYPE: {type(node_info)}")
 
         self.mgmt_ip = node_info[IPV4]
         self.host = node_info[HOSTNAME]
@@ -59,16 +60,16 @@ class CloudlabNode(Node):
         logger.debug(f"RSPEC: {json.dumps(data_dict['rspec'], indent=2)}")
 
         nodes = data_dict['rspec']['node']
+        nodes = [n for n in nodes if n['@component_manager_id'] == NODE_URI]
+        idx = int(self.name[self.name.rindex('-') + 1:])
+        n = nodes[idx]
 
-        for n in nodes:
-            if n['@component_manager_id'] == NODE_URI:
-                if n['interface']['ip']['@type'] == 'ipv4':
-                    self.dataplane_ipv4 = n['interface']['ip']['@address']
-                else:
-                    self.dataplane_ipv6 = n['interface']['ip']['@address']
+        if n['interface']['ip']['@type'] == 'ipv4':
+            self.dataplane_ipv4 = n['interface']['ip']['@address']
+        else:
+            self.dataplane_ipv6 = n['interface']['ip']['@address']
 
-                self.site = n['jacks:site']['@id']
-                break
+        self.site = n['jacks:site']['@id']
 
     def delete(self):
         pass
