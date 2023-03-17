@@ -37,6 +37,7 @@ class FabricNetwork(Network):
 
     def available_ips(self):
         available_ips = []
+
         pool_start = int(IPv4Address(self.ip_start))
         pool_end = int(IPv4Address(self.ip_end))
 
@@ -52,27 +53,30 @@ class FabricNetwork(Network):
         return self._delegate.get_site()
 
 
+class FabricUtil:
+    @staticmethod
+    def get_facility_ports():
+        import os
+        import json
+
+        port_file = os.path.join(os.path.dirname(__file__), 'inventory', "facility_ports.json")
+        with open(port_file, 'r') as fp:
+            ports = json.load(fp)
+        return ports
+
+
 class NetworkBuilder:
     def __init__(self, label, slice_object: Slice, name, resource: dict):
         self.slice_object = slice_object
-        self.vlan = None # facility port vlan
-        self.facility_port = 'Chameleon-StarLight'
+        self.vlan = None  # facility port vlan
+        self.site = resource.get(Constants.RES_SITE)  # facility port site
 
+        ports = FabricUtil.get_facility_ports()
         prop = 'stitch_interface'
-
-        if isinstance(resource.get(prop), dict):   # This is just to simplify testing ....
-            self.vlan = resource.get(prop)
-            self.vlan = self.vlan['vlan']
-            if resource.get(prop).get("provider", None) == 'sense':
-                self.facility_port = 'UKY-AL2S'
 
         if not self.vlan:
             import fabfed.provider.api.dependency_util as util
-
-            # TDO MODIFY Chameleon
-            # if util.has_resolved_external_dependencies(resource=resource, attribute=prop):
-            #     net = util.get_single_value_for_dependency(resource=resource, attribute=prop)
-            #     self.vlan = net.vlans[0]
+            from fabfed.exceptions import FabfedException
 
             if util.has_resolved_external_dependencies(resource=resource, attribute=prop):
                 net = util.get_single_value_for_dependency(resource=resource, attribute=prop)
@@ -85,17 +89,25 @@ class NetworkBuilder:
 
                 if isinstance(net, dict):
                     self.vlan = net['vlan']
+                    provider = net['provider']
 
-                    if net.get("provider", None) == 'sense':
-                        self.facility_port = 'UKY-AL2S'
+                    if provider not in ports or not ports[provider]:
+                        raise FabfedException(f"no facility ports for provider {provider}:available_ports={ports}")
+
+                    provider_ports = ports[provider]
+
+                    if self.site not in provider_ports:
+                        port_tuple = list(provider_ports.items())[0]
+                        self.site = port_tuple[0]
+                        self.facility_port = port_tuple[1]['name']
+                    else:
+                        self.facility_port = provider_ports[self.site]['name']
 
         if isinstance(self.vlan, list):
             self.vlan = self.vlan[0]
 
         self.interfaces = []
-        self.net_name = name  # f'net_facility_port'
-        # self.facility_port = 'UKY-AL2S' # 'Chameleon-StarLight' # TODO Use configuration file .... Or Even allow user to provide this ???
-        self.facility_port_site = resource.get(Constants.RES_SITE)
+        self.net_name = name
         self.layer3 = resource.get(Constants.RES_LAYER3)
         self.label = label
         self.net = None
@@ -103,7 +115,7 @@ class NetworkBuilder:
 
         if self.vlan:
             logger.info(
-                f"Network {self.net_name}: Got vlan={self.vlan},facility_port={self.facility_port},site={self.facility_port_site}")
+                f'Network {self.net_name}:Got vlan={self.vlan},facility_port={self.facility_port},site={self.site}')
         else:
             logger.warning(f"Network {self.net_name} has no vlan ...")
 
@@ -112,8 +124,8 @@ class NetworkBuilder:
             logger.warning(f"Network {self.net_name} has no vlan so no facility port will be added ")
             return
 
-        # self.vlan = 3307
-        facility_port = self.slice_object.add_facility_port(name=self.facility_port, site=self.facility_port_site,
+        facility_port = self.slice_object.add_facility_port(name=self.facility_port,
+                                                            site=self.site,
                                                             vlan=str(self.vlan))
         facility_port_interface = facility_port.get_interfaces()[0]
         self.interfaces.append(facility_port_interface)
@@ -130,10 +142,9 @@ class NetworkBuilder:
             else:
                 logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
 
-        # type = 'L2STS' ????
-        # logger.info(f"Adding Network {self.net_name} using type={self.type}")
-        self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
-                                                                   interfaces=interfaces, type='L2STS')
+        # self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
+        #                                                            interfaces=interfaces, type='L2STS')
+        self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=interfaces)
 
     def build(self) -> FabricNetwork:
         assert self.net
