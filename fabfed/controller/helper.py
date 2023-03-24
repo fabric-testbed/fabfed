@@ -29,6 +29,9 @@ def partition_layer3_config(*, networks: list):
 
     layer3 = networks[0].attributes.get(Constants.RES_LAYER3)
 
+    if not layer3.attributes.get(Constants.RES_LAYER3_DHCP_START):
+        return
+
     if "/" in layer3.attributes.get(Constants.RES_LAYER3_DHCP_START):
         return
 
