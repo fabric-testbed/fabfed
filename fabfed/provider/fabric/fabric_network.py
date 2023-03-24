@@ -21,10 +21,8 @@ class FabricNetwork(Network):
         self.site = delegate.get_site()
         self.slice_name = self._delegate.get_slice().get_name()
         self.type = str(delegate.get_type())
+
         self.layer3 = layer3
-        self.subnet = layer3.attributes.get(Constants.RES_SUBNET)
-        self.ip_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
-        self.ip_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
         ns = self._delegate.get_fim_network_service()
         self.interface = []
 
@@ -35,14 +33,23 @@ class FabricNetwork(Network):
         self.id = self._delegate.get_reservation_id()
         self.state = self._delegate.get_reservation_state()
 
+    @property
+    def subnet(self):
+        return self.layer3.attributes.get(Constants.RES_SUBNET) if self.layer3 else None
+
     def available_ips(self):
         available_ips = []
 
-        pool_start = int(IPv4Address(self.ip_start))
-        pool_end = int(IPv4Address(self.ip_end))
+        if self.layer3:
+            ip_start = self.layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
+            ip_end = self.layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
 
-        for ip_int in range(pool_start + 1, pool_end + 1):
-            available_ips.append(IPv4Address(ip_int))
+            if ip_start and ip_end:
+                pool_start = int(IPv4Address(ip_start))
+                pool_end = int(IPv4Address(ip_end))
+
+                for ip_int in range(pool_start + 1, pool_end + 1):
+                    available_ips.append(IPv4Address(ip_int))
 
         return available_ips
 
@@ -109,6 +116,16 @@ class NetworkBuilder:
         self.interfaces = []
         self.net_name = name
         self.layer3 = resource.get(Constants.RES_LAYER3)
+        self.peering = resource.get(Constants.RES_PEERING)
+
+        if self.peering:
+            from .plugins import Plugins
+            import traceback
+            try:
+                Plugins.load()
+            except Exception:
+                traceback.print_exc()
+
         self.label = label
         self.net = None
         self.type = resource.get('net_type')
@@ -120,33 +137,105 @@ class NetworkBuilder:
             logger.warning(f"Network {self.net_name} has no vlan ...")
 
     def handle_facility_port(self):
-        if not self.vlan:
+        from fim.slivers.capacities_labels import Labels, Capacities
+
+        if not self.vlan and not self.peering:
             logger.warning(f"Network {self.net_name} has no vlan so no facility port will be added ")
             return
 
-        facility_port = self.slice_object.add_facility_port(name=self.facility_port,
-                                                            site=self.site,
-                                                            vlan=str(self.vlan))
+        if self.peering:
+            cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
+            asn = self.peering.attributes.get(Constants.RES_REMOTE_ASN)
+            account_id = self.peering.attributes.get(Constants.RES_CLOUD_ACCOUNT)
+            subnet = self.peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
+            peer_subnet = self.peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
+            region= self.peering.attributes.get(Constants.RES_CLOUD_REGION)
+
+            if region:
+                labels = Labels(ipv4_subnet=subnet,region=region)
+            else:
+                labels = Labels(ipv4_subnet=subnet, local_name='HundredGigE0/0/0/7')
+
+            peer_labels = Labels(ipv4_subnet=peer_subnet,
+                                 asn=asn,
+                                 bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                 account_id=account_id)
+
+            logger.info(f"Creating Facility Port:Labels: {labels}")
+            logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
+
+            facility_port = self.slice_object.add_facility_port(
+                name='Cloud_Facility_' + cloud,
+                site=cloud,
+                labels=labels,
+                peer_labels=peer_labels,
+                capacities=Capacities(bw=1, mtu=9001))
+
+            logger.info("CreatedFacilityPort:" + facility_port.toJson())
+        else:
+            facility_port = self.slice_object.add_facility_port(name=self.facility_port,
+                                                                site=self.site,
+                                                                vlan=str(self.vlan))
+
         facility_port_interface = facility_port.get_interfaces()[0]
         self.interfaces.append(facility_port_interface)
 
-    def handle_l2network(self, nodes):
-        interfaces = [self.interfaces[0]]
+    def handle_network(self, nodes):
+        from fim.slivers.capacities_labels import Labels, Capacities
+
+        if not self.peering:
+            interfaces = [self.interfaces[0]]
+
+            for node in nodes:
+                node_interfaces = [i for i in node.get_interfaces() if not i.get_network()]
+
+                if node_interfaces:
+                    logger.info(f"Node {node.name} has interface for stitching NAME={node_interfaces[0].get_name()} ")
+                    interfaces.append(node_interfaces[0])
+                else:
+                    logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
+
+            # Use type='L2STS'?
+            self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=interfaces)
+            return
+
+        tech = 'AL2S'
+        net_type = 'L3VPN'
+        port_name= self.interfaces[0].get_name()
+
+        logger.info(f"Creating Network:{self.net_name}:FacilityPort:{port_name},type={net_type}:techonolgy={tech}")
+
+        self.net = self.slice_object.add_l3network(name=self.net_name,
+                                                   interfaces=self.interfaces, type=net_type,
+                                                   technology=tech)
+        interfaces = []
 
         for node in nodes:
             node_interfaces = [i for i in node.get_interfaces() if not i.get_network()]
 
             if node_interfaces:
-                logger.info(f"Node {node.name} has interface for stitching {node_interfaces[0].get_name()} ")
+                logger.info(f"Node {node.name} has interface for stitching NAME={node_interfaces[0].get_name()} ")
                 interfaces.append(node_interfaces[0])
             else:
                 logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
 
-        # self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
-        #                                                            interfaces=interfaces, type='L2STS')
-        self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=interfaces)
+        # TODO DO WE NEED REALLY THIS?
+        for iface in interfaces:
+            fim_iface1 = iface.get_fim_interface()
+
+            if self.layer3:
+                ipv4_subnet = self.layer3.attributes.get(Constants.RES_SUBNET)
+                fim_iface1.labels = Labels.update(fim_iface1.labels, ipv4_subnet=f'{ipv4_subnet}')
+
+        aux_name = self.net_name + "_aux"
+        aux_net = self.slice_object.add_l3network(name=aux_name, interfaces=interfaces, type='L3VPN')
+
+        # bw must be set to 0 and mtu 9001 for Peered Interfaces
+        self.net.fim_network_service.peer(
+            aux_net.fim_network_service,
+            labels=Labels(bgp_key='secret', ipv4_subnet='192.168.50.1/24'),
+            capacities=Capacities(mtu=9001))
 
     def build(self) -> FabricNetwork:
         assert self.net
-        assert self.layer3
         return FabricNetwork(label=self.label, delegate=self.net, layer3=self.layer3)

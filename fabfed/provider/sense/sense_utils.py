@@ -85,14 +85,6 @@ def get_profile_uuid(*, client=None, profile):
 
 def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, interfaces):
     client = client or SENSE_CLIENT
-    # profiles = list_profiles(client=client)
-    # profile_uuid = profile
-    #
-    # for p in profiles:
-    #     if p.name == profile:
-    #         profile_uuid = p.uuid
-    #         break
-
     profile_uuid = get_profile_uuid(client=client, profile=profile)
 
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
@@ -151,15 +143,14 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
 
         if subnet and "data.subnets[0].cidr" in edit_entry_paths:
             options.append({f"data.subnets[0].cidr": str(subnet)})
+            options.append({"data.cidr": "10.200.1.0/16"})  # TODO ...
 
     if options:
         query = dict([("ask", "edit"), ("options", options)])
         intent["queries"] = [query]
 
     logger.info(f'Intent: {json.dumps(intent, indent=2)}')
-
     intent = json.dumps(intent)
-
     response = workflow_api.instance_create(intent)  # service_uuid, intent_uuid, queries, model
 
     try:
@@ -232,12 +223,6 @@ def delete_instance(*, client=None, si_uuid):
 
         if 'FAILED' in status:
             break
-
-        # time.sleep(30)
-
-    # status = workflow_api.instance_get_status(si_uuid=si_uuid)
-    #
-    # print(f'cancel status={status}')
 
     if 'CANCEL - READY' in status:
         workflow_api.instance_delete(si_uuid=si_uuid)
@@ -328,6 +313,7 @@ def get_vms_specs_from_profile(*, client=None, profile_uuid):
 
     return all_vms
 
+
 def manifest_create(*, client=None, template_file=None, alias=None, si_uuid=None):
     import os
 
@@ -344,8 +330,3 @@ def manifest_create(*, client=None, template_file=None, alias=None, si_uuid=None
     response = json.loads(response, object_hook=lambda dct: SimpleNamespace(**dct))
     details = json.loads(response.jsonTemplate)
     return details
-
-    # if details.get("Switch Ports", []):
-    #     return details.get("Switch Ports")
-    #
-    # return details.get("Nodes", [])

@@ -44,6 +44,15 @@ class FabricSlice:
         except Exception:
             self.slice_object = None
 
+        if self.slice_object and self.slice_object.get_state() != "StableOK":
+            self.logger.warning(f"Destroying slice {self.name}:state={self.slice_object.get_state()}")
+            self.slice_object.delete()
+            self.slice_object = None
+
+            import time
+
+            time.sleep(5)
+
         if self.slice_object:
             self.slice_created = True
         else:
@@ -91,7 +100,7 @@ class FabricSlice:
         if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
             temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
-        network_builder.handle_l2network(temp)
+        network_builder.handle_network(temp)
         net = network_builder.build()
         self.provider.networks.append(net)
 
@@ -108,6 +117,7 @@ class FabricSlice:
             name = f"{name_prefix}{i}"
             node_builder = NodeBuilder(label, self.slice_object, name, resource)
             node_builder.add_component(model=nic_model, name="nic1")
+            self.logger.info(f"Added nic1 interface using model {nic_model} to node {name}")
             node = node_builder.build()
             self.nodes.append(node)
 
@@ -143,7 +153,6 @@ class FabricSlice:
 
                 if delegate is None:
                     raise Exception(f"Did not find network named {name_prefix}")
-
 
                 layer3 = resource.get(Constants.RES_LAYER3)
                 net = FabricNetwork(label=label, delegate=delegate, layer3=layer3)
@@ -278,6 +287,7 @@ class FabricSlice:
                     mngmt_ips.append(mgmt_ip)
 
             if len(self.nodes) == len(mngmt_ips):
+                self.logger.info(f"Got All management ips for slice {self.provider.label}")
                 break
 
             if attempt == self.retry:
@@ -292,21 +302,30 @@ class FabricSlice:
 
             time.sleep(2)
 
-        for node in self.nodes:
-            delegate = self.slice_object.get_node(node.name)
-            self._setup_networks(delegate, node.v4net_name, node.v6net_name)
+        if INCLUDE_FABNETS:
+            for node in self.nodes:
+                delegate = self.slice_object.get_node(node.name)
+                self._setup_networks(delegate, node.v4net_name, node.v6net_name)
 
         if self.networks:
             from ipaddress import IPv4Network
             available_ips = self.networks[0].available_ips()
-            subnet = IPv4Network(self.networks[0].subnet)
-            net_name = self.networks[0].name
 
-            for node in self.nodes:
-                delegate = self.slice_object.get_node(node.name)
-                iface = delegate.get_interface(network_name=net_name)
-                node_addr = available_ips.pop(0)
-                iface.ip_addr_add(addr=node_addr, subnet=subnet)
+            if available_ips and self.networks[0].subnet:
+                net_name = self.networks[0].name
+                subnet = IPv4Network(self.networks[0].subnet)
+
+                for node in self.nodes:
+                    delegate = self.slice_object.get_node(node.name)
+
+                    try:
+                        iface = delegate.get_interface(network_name=net_name)
+                        node_addr = available_ips.pop(0)
+                        iface.ip_addr_add(addr=node_addr, subnet=subnet)
+                    except:
+                        iface = delegate.get_interface(network_name=net_name + "_aux")
+                        node_addr = available_ips.pop(0)
+                        iface.ip_addr_add(addr=node_addr, subnet=subnet)
 
         self._reload_nodes()
         self._reload_networks()

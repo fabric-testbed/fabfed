@@ -39,13 +39,16 @@ class FabricNode(Node):
             logger.warning(f" Node {self.name} has no management ip ")
             return
 
-        v4_net = slice_object.get_network(name=self.v4net_name)
-        v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net else None
-        logger.info(f" Node {self.name} has v4 device={v4_dev}")
+        v6_dev = v4_dev = None
 
-        v6_net = slice_object.get_network(name=self.v6net_name)
-        v6_dev = v6_net.get_interfaces()[0].get_device_name() if v6_net else None
-        logger.info(f" Node {self.name} has v6 device={v6_dev}")
+        if INCLUDE_FABNETS:
+            v4_net = slice_object.get_network(name=self.v4net_name)
+            v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net else None
+            logger.info(f" Node {self.name} has v4 device={v4_dev}")
+
+            v6_net = slice_object.get_network(name=self.v6net_name)
+            v6_dev = v6_net.get_interfaces()[0].get_device_name() if v6_net else None
+            logger.info(f" Node {self.name} has v6 device={v6_dev}")
 
         for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
             ifname = ip_addr['ifname']
@@ -143,10 +146,12 @@ class NodeBuilder:
         self.label = label
         self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
         # Fabfed will always include two basic NICs for FabNetv4/v6
-        net_iface_v4 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV4_NET_IFACE_NAME).get_interfaces()[0]
-        net_iface_v6 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV6_NET_IFACE_NAME).get_interfaces()[0]
-        slice_object.add_l3network(name=f"{name}-{FABRIC_IPV4_NET_NAME}", interfaces=[net_iface_v4], type='IPv4')
-        slice_object.add_l3network(name=f"{name}-{FABRIC_IPV6_NET_NAME}", interfaces=[net_iface_v6], type='IPv6')
+
+        if INCLUDE_FABNETS:
+            net_iface_v4 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV4_NET_IFACE_NAME).get_interfaces()[0]
+            net_iface_v6 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV6_NET_IFACE_NAME).get_interfaces()[0]
+            slice_object.add_l3network(name=f"{name}-{FABRIC_IPV4_NET_NAME}", interfaces=[net_iface_v4], type='IPv4')
+            slice_object.add_l3network(name=f"{name}-{FABRIC_IPV6_NET_NAME}", interfaces=[net_iface_v6], type='IPv6')
 
     def add_component(self, model=None, name=None):
         self.node.add_component(model=model, name=name)
