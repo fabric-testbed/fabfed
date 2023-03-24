@@ -150,11 +150,16 @@ class NetworkBuilder:
             subnet = self.peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
             peer_subnet = self.peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
             region= self.peering.attributes.get(Constants.RES_CLOUD_REGION)
+            device = self.peering.attributes.get(Constants.RES_LOCAL_DEVICE)
+            port  = self.peering.attributes.get(Constants.RES_LOCAL_PORT)
 
+            labels = Labels(ipv4_subnet=subnet)
             if region:
-                labels = Labels(ipv4_subnet=subnet,region=region)
-            else:
-                labels = Labels(ipv4_subnet=subnet, local_name='HundredGigE0/0/0/7')
+                labels = Labels.update(labels, region=region)
+            if device: 
+                labels = Labels.update(labels, device_name=device)
+            if port: 
+                labels = Labels.update(labels, local_name=port)
 
             peer_labels = Labels(ipv4_subnet=peer_subnet,
                                  asn=asn,
