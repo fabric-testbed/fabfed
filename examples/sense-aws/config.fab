@@ -59,7 +59,7 @@ resource:
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: LBNL # LBNL # RENC
+          site: RENC
           image: default_rocky_8
           count: 1 
           nic_model: NIC_Basic

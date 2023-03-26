@@ -229,7 +229,14 @@ class NetworkBuilder:
             fim_iface1 = iface.get_fim_interface()
 
             if self.layer3:
-                ipv4_subnet = self.layer3.attributes.get(Constants.RES_SUBNET)
+                ipv4_gateway = self.layer3.attributes.get(Constants.RES_NET_GATEWAY)
+                if ipv4_gateway:
+                    ipv4_subnet = self.layer3.attributes.get(Constants.RES_SUBNET)
+                    if ipv4_subnet and '/' in ipv4_subnet:
+                        ipv4_netmask = ipv4_subnet.split('/')[1]
+                        ipv4_subnet = f'{ipv4_gateway}/{ipv4_netmask}'
+                else:
+                    ipv4_subnet = self.layer3.attributes.get(Constants.RES_SUBNET)
                 fim_iface1.labels = Labels.update(fim_iface1.labels, ipv4_subnet=f'{ipv4_subnet}')
 
         aux_name = self.net_name + "_aux"
