@@ -216,7 +216,8 @@ class FabricSlice:
             delegate = self.slice_object.get_network(net.name)
             fabric_network = FabricNetwork(label=net.label,
                                            delegate=delegate,
-                                           layer3=net.layer3)
+                                           layer3=net.layer3,
+                                           peering=net.peering)
 
             temp.append(fabric_network)
 
