@@ -143,7 +143,19 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
 
         if subnet and "data.subnets[0].cidr" in edit_entry_paths:
             options.append({f"data.subnets[0].cidr": str(subnet)})
-            options.append({"data.cidr": "10.200.1.0/16"})  # TODO ...
+            # options.append({"data.cidr": "10.200.1.0/16"})  # TODO ...
+
+            # print("******* BEGIN ********")
+            # print(subnet.prefixlen)
+            # print(subnet)
+
+            for i in [8, 4, 2, 0]:
+                if subnet.prefixlen - i > 0:
+                    vpc_subnet = subnet.supernet(i)
+                    break
+                print("******** END *******")
+
+            options.append({"data.cidr":str(vpc_subnet)})
 
     if options:
         query = dict([("ask", "edit"), ("options", options)])
