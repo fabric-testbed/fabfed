@@ -143,19 +143,14 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
 
         if subnet and "data.subnets[0].cidr" in edit_entry_paths:
             options.append({f"data.subnets[0].cidr": str(subnet)})
-            # options.append({"data.cidr": "10.200.1.0/16"})  # TODO ...
+            vpc_subnet = subnet
 
-            # print("******* BEGIN ********")
-            # print(subnet.prefixlen)
-            # print(subnet)
-
-            for i in [8, 4, 2, 0]:
+            for i in [8, 4, 2]:
                 if subnet.prefixlen - i > 0:
                     vpc_subnet = subnet.supernet(i)
                     break
-                print("******** END *******")
 
-            options.append({"data.cidr":str(vpc_subnet)})
+            options.append({"data.cidr": str(vpc_subnet)})
 
     if options:
         query = dict([("ask", "edit"), ("options", options)])
@@ -184,7 +179,7 @@ def instance_operate(*, client=None, si_uuid):
     if "CREATE - COMMITTING" not in status:
         workflow_api.instance_operate('provision', si_uuid=si_uuid, sync='false')
 
-    for attempt in range(25):
+    for attempt in range(SENSE_RETRY):
         status = workflow_api.instance_get_status(si_uuid=si_uuid)
         logger.info(f"Waiting on CREATED-READY: status={status}:attempt={attempt}")
 
@@ -223,7 +218,7 @@ def delete_instance(*, client=None, si_uuid):
         else:
             workflow_api.instance_operate('cancel', si_uuid=si_uuid, sync='false')
 
-    for attempt in range(25):
+    for attempt in range(SENSE_RETRY):
         time.sleep(30)  # This sleep is here to workaround issue where CANCEL-READY shows up prematurely.
 
         status = workflow_api.instance_get_status(si_uuid=si_uuid)
