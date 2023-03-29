@@ -13,7 +13,7 @@ logger = get_logger()
 
 
 class FabricNetwork(Network):
-    def __init__(self, *, label, delegate: NetworkService, layer3: Config):
+    def __init__(self, *, label, delegate: NetworkService, layer3: Config, peering: Config):
         self.name = delegate.get_name()
         self.site = delegate.get_site()
         super().__init__(label=label, name=self.name, site=self.site)
@@ -23,8 +23,19 @@ class FabricNetwork(Network):
         self.type = str(delegate.get_type())
 
         self.layer3 = layer3
+        self.peering = peering
         ns = self._delegate.get_fim_network_service()
         self.interface = []
+
+        if self.peering:
+            cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
+
+            if cloud != "AWS":
+                raise Exception(f"unsupported cloud {cloud}")
+
+            account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
+            key = self.slice_name + "-" + account_id
+            self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
 
         for key, iface in ns.interfaces.items():
             if hasattr(iface.labels, "vlan") and iface.labels.vlan:
@@ -32,6 +43,8 @@ class FabricNetwork(Network):
 
         self.id = self._delegate.get_reservation_id()
         self.state = self._delegate.get_reservation_state()
+
+
 
     @property
     def subnet(self):
@@ -250,4 +263,4 @@ class NetworkBuilder:
 
     def build(self) -> FabricNetwork:
         assert self.net
-        return FabricNetwork(label=self.label, delegate=self.net, layer3=self.layer3)
+        return FabricNetwork(label=self.label, delegate=self.net, layer3=self.layer3, peering=self.peering)

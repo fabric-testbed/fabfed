@@ -51,7 +51,7 @@ class SenseNetwork(Network):
 
         import json
 
-        logger.debug(f"Retrieved details {self.name} {status}: \n{ json.dumps(instance_dict, indent=2)}")
+        logger.info(f"Retrieved details {self.name} {status}: \n{ json.dumps(instance_dict, indent=2)}")
 
         for key in SERVICE_INSTANCE_KEYS:
             self.__setattr__(key, instance_dict.get(key))
