@@ -36,6 +36,7 @@ class Constants:
     RES_NET_CALLBACK = "callback"
     RES_SUBNET = 'subnet'
     RES_LAYER3 = 'layer3'
+    RES_PEER_LAYER3 = 'peer_layer3'
     RES_LAYER3_DHCP_START = 'ip_start'
     RES_LAYER3_DHCP_END = 'ip_end'
 

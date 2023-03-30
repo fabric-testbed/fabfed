@@ -63,8 +63,9 @@ class Controller:
                             dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
 
         layer3_to_network_mapping = {}
+        networks = [resource for resource in resources if resource.is_network]
 
-        for network in [resource for resource in resources if resource.is_network]:
+        for network in networks:
             layer3 = network.attributes.get(Constants.RES_LAYER3)
 
             if layer3:
@@ -73,8 +74,26 @@ class Controller:
                 else:
                     layer3_to_network_mapping[layer3.label] = [network]
 
-        for networks in layer3_to_network_mapping.values():
-            partition_layer3_config(networks=networks)
+        for networks_with_same_layer3 in layer3_to_network_mapping.values():
+            partition_layer3_config(networks=networks_with_same_layer3)
+
+        peering_to_network_mapping = {}
+
+        for network in networks:
+            network.attributes[Constants.RES_PEER_LAYER3] = []
+            peering = network.attributes.get(Constants.RES_PEERING)
+
+            if peering:
+                if peering.label in peering_to_network_mapping:
+                    peering_to_network_mapping.get(peering.label).append(network)
+                else:
+                    peering_to_network_mapping[peering.label] = [network]
+
+        for peers in peering_to_network_mapping.values():
+            for network in peers:
+                for other in [peer for peer in peers if peer.label != network.label]:
+                    network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
+
 
     def plan(self):
         resources = self.config.get_resource_configs()
