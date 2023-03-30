@@ -13,7 +13,7 @@ logger = get_logger()
 
 
 class FabricNetwork(Network):
-    def __init__(self, *, label, delegate: NetworkService, layer3: Config, peering: Config):
+    def __init__(self, *, label, delegate: NetworkService, layer3: Config, peering: Config, peer_layer3):
         self.name = delegate.get_name()
         self.site = delegate.get_site()
         super().__init__(label=label, name=self.name, site=self.site)
@@ -24,6 +24,7 @@ class FabricNetwork(Network):
 
         self.layer3 = layer3
         self.peering = peering
+        self.peer_layer3 = peer_layer3
         ns = self._delegate.get_fim_network_service()
         self.interface = []
 
@@ -44,11 +45,13 @@ class FabricNetwork(Network):
         self.id = self._delegate.get_reservation_id()
         self.state = self._delegate.get_reservation_state()
 
-
-
     @property
     def subnet(self):
         return self.layer3.attributes.get(Constants.RES_SUBNET) if self.layer3 else None
+
+    @property
+    def gateway(self):
+        return self.layer3.attributes.get(Constants.RES_NET_GATEWAY) if self.layer3 else None
 
     def available_ips(self):
         available_ips = []
@@ -130,6 +133,7 @@ class NetworkBuilder:
         self.net_name = name
         self.layer3 = resource.get(Constants.RES_LAYER3)
         self.peering = resource.get(Constants.RES_PEERING)
+        self.peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
 
         if self.peering:
             from .plugins import Plugins
@@ -263,4 +267,5 @@ class NetworkBuilder:
 
     def build(self) -> FabricNetwork:
         assert self.net
-        return FabricNetwork(label=self.label, delegate=self.net, layer3=self.layer3, peering=self.peering)
+        return FabricNetwork(label=self.label, delegate=self.net, layer3=self.layer3,
+                             peering=self.peering, peer_layer3=self.peer_layer3)

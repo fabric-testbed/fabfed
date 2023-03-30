@@ -155,8 +155,10 @@ class FabricSlice:
                     raise Exception(f"Did not find network named {name_prefix}")
 
                 layer3 = resource.get(Constants.RES_LAYER3)
+                peer_layer3 = resource.get(Constants.RES_LAYER3)
                 peering = resource.get(Constants.RES_PEERING)
-                net = FabricNetwork(label=label, delegate=delegate, layer3=layer3, peering=peering)
+                net = FabricNetwork(label=label, delegate=delegate, layer3=layer3,
+                                    peering=peering, peer_layer3=peer_layer3)
 
                 self.provider.networks.append(net)
 
@@ -217,7 +219,8 @@ class FabricSlice:
             fabric_network = FabricNetwork(label=net.label,
                                            delegate=delegate,
                                            layer3=net.layer3,
-                                           peering=net.peering)
+                                           peering=net.peering,
+                                           peer_layer3=net.peer_layer3)
 
             temp.append(fabric_network)
 
@@ -328,6 +331,35 @@ class FabricSlice:
                         iface = delegate.get_interface(network_name=net_name + "_aux")
                         node_addr = available_ips.pop(0)
                         iface.ip_addr_add(addr=node_addr, subnet=subnet)
+
+            gateway = self.networks[0].gateway
+
+            if gateway and self.networks[0].peer_layer3:
+                for peer_layer3 in self.networks[0].peer_layer3:
+                    subnet = peer_layer3.attributes.get(Constants.RES_SUBNET)
+
+                    if not subnet:
+                        continue
+
+                    from ipaddress import IPv4Network
+                    subnet = IPv4Network(subnet)
+                    vpc_subnet = subnet
+
+                    for i in [8, 4, 2]:
+                        if subnet.prefixlen - i > 0:
+                            vpc_subnet = subnet.supernet(i)
+                            break
+
+                    command = f"sudo ip route add {vpc_subnet} via {gateway}"
+
+                    for node in self.nodes:
+                        try:
+                            delegate = self.slice_object.get_node(node.name)
+                            _, _ = delegate.execute(command)
+                        except:
+                            import traceback
+
+                            traceback.print_exc()
 
         self._reload_nodes()
         self._reload_networks()
