@@ -15,7 +15,6 @@ class Constants:
     RES_NIC_MODEL = "nic_model"
     RES_NETWORK = "network"
     RES_NAME_PREFIX = "name_prefix"
-    RES_BANDWIDTH = "bandwidth"
 
     RES_TYPE_NODE = "node"
     RES_TYPE_NETWORK = "network"
@@ -37,6 +36,7 @@ class Constants:
     RES_NET_CALLBACK = "callback"
     RES_SUBNET = 'subnet'
     RES_LAYER3 = 'layer3'
+    RES_PEER_LAYER3 = 'peer_layer3'
     RES_LAYER3_DHCP_START = 'ip_start'
     RES_LAYER3_DHCP_END = 'ip_end'
 
@@ -53,6 +53,13 @@ class Constants:
     RES_REMOTE_ASN = "remote_asn"
     RES_REMOTE_ADDRESS = "remote_address"
     RES_SECURITY = "password"
+
+    RES_CLOUD_FACILITY = "cloud_facility"
+    RES_CLOUD_ACCOUNT = "cloud_account"
+    RES_CLOUD_REGION = "cloud_region"
+
+    RES_LOCAL_DEVICE = "local_device"
+    RES_LOCAL_PORT = "local_port"
 
     LOGGING = "logging"
     PROPERTY_CONF_LOG_FILE = 'log-file'
