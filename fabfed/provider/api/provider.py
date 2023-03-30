@@ -23,6 +23,7 @@ class Provider(ABC):
         self._pending = []
         self._failed = {}
         self._added = []
+        self._pending_internal = []
 
     @property
     def resources(self) -> List:
@@ -91,6 +92,19 @@ class Provider(ABC):
 
                 try:
                     self.add_resource(resource=pending_resource)
+
+                    temp = self._pending_internal
+                    self._pending_internal = []
+
+                    for internal_dependency in temp:
+                        try:
+                            internal_dependency_label = internal_dependency[Constants.LABEL]
+                            self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
+                            self.add_resource(resource=internal_dependency)
+                        except Exception as ie:
+                            self.logger.warning(
+                                f"Exception occurred while adding internal pending resource: {ie} using {self.label}")
+
                 except Exception as e:
                     self.logger.warning(
                         f"Exception occurred while adding pending resource: {e} using {self.label}")
@@ -117,10 +131,15 @@ class Provider(ABC):
 
             ok = resolver.check_if_external_dependencies_are_resolved(resource=resource)
 
-            assert ok, "Did you want put this internal in pending ..."  # TODO
-
             if ok:
                 resolver.extract_values(resource=resource)
+            else:
+                self.logger.info(f"Adding to internal_dependencies {label}")
+
+                assert resource not in self._pending_internal, f"internal pending resource {label} already added"
+                self._pending_internal.append(resource)
+
+                return
 
         try:
             self.do_add_resource(resource=resource)
