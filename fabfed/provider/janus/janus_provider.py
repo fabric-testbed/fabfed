@@ -35,7 +35,7 @@ class JanusService(Service):
 
     def create(self):
         self._do_ansible()
-        self.logger.info(f" Service {self.name} created. service_nodes={[n.name for n in self._nodes]}")
+        self.logger.info(f" Service {self.name} created. service_nodes={self._nodes}")
 
     def delete(self):
         self._do_ansible(delete=True)
@@ -101,10 +101,9 @@ class JanusProvider(Provider):
         """
         label = resource.get(Constants.LABEL)
         states = resource.get(Constants.SAVED_STATES)
-        created = True
+        created = False
         for s in states:
-            if s.attributes.get('created', False) == True:
-                created = True
+            created =  s.attributes.get('created', False)
 
         self.logger.info(f"Creating resource={resource} using {self.label}")
 
