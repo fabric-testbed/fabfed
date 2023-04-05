@@ -12,6 +12,7 @@ def manage_workflow(args):
     logger = utils.init_logger()
 
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
+    saved_states = sutil.load_states(args.session)
 
     if args.validate:
         try:
@@ -38,12 +39,12 @@ def manage_workflow(args):
             sys.exit(1)
 
         try:
-            controller.plan()
+            controller.plan(provider_states=saved_states)
         except ControllerException as e:
             logger.error(f"Exceptions while adding resources ... {e}")
 
         try:
-            controller.create()
+            controller.create(provider_states=saved_states)
         except ControllerException as e:
             logger.error(f"Exceptions while creating resources ... {e}")
 
@@ -71,7 +72,8 @@ def manage_workflow(args):
         controller.init(session=args.session, provider_factory=default_provider_factory)
 
         try:
-            controller.plan()
+            states = sutil.load_states(args.session)
+            controller.plan(provider_states=states)
         except ControllerException as e:
             logger.error(f"Exceptions while adding resources ... {e}")
 
@@ -80,15 +82,13 @@ def manage_workflow(args):
         return
 
     if args.show:
-        states = sutil.load_states(args.session)
-        sutil.dump_states(states, args.json)
+        sutil.dump_states(saved_states, args.json)
         return
 
     if args.summary:
-        states = sutil.load_states(args.session)
         temp = []
 
-        for provider_state in states:
+        for provider_state in saved_states:
             for node_state in provider_state.node_states:
                 attributes = dict()
                 props = ['mgmt_ip', 'user', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6"]
@@ -126,21 +126,19 @@ def manage_workflow(args):
         return
 
     if args.destroy:
-        states = sutil.load_states(args.session)
-
         try:
-            if states:
+            if saved_states:
                 config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
                 controller = Controller(config=config, logger=logger)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
-                controller.delete(provider_states=states)
+                controller.delete(provider_states=saved_states)
         except ControllerException as e:
             logger.error(f"Exceptions while deleting resources ...{e}")
             import traceback
 
             logger.error(traceback.format_exc())
 
-        sutil.save_states(states, args.session)
+        sutil.save_states(saved_states, args.session)
         return
 
 

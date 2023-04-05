@@ -94,13 +94,30 @@ class Controller:
                 for other in [peer for peer in peers if peer.label != network.label]:
                     network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
+    def _build_state_map(self, provider_states):
+        resource_state_map = dict()
+        for provider_state in provider_states:
+            temp_list = provider_state.network_states + provider_state.node_states + provider_state.service_states
 
-    def plan(self):
+            for state in temp_list:
+                if state.label in resource_state_map:
+                    resource_state_map[state.label].append(state)
+                else:
+                    resource_state_map[state.label] = [state]
+        return resource_state_map
+
+    def plan(self, *, provider_states: List[ProviderState]):
         resources = self.config.get_resource_configs()
+        resource_state_map = self._build_state_map(provider_states)
+
         self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
 
         exceptions = []
         for resource in resources:
+            resource.attributes[Constants.SAVED_STATES] = list()
+            if resource.label in resource_state_map:
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
+
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
 
@@ -113,13 +130,18 @@ class Controller:
         if exceptions:
             raise ControllerException(exceptions)
 
-    def create(self):
+    def create(self, *, provider_states: List[ProviderState]):
         resources = self.config.get_resource_configs()
+        resource_state_map = self._build_state_map(provider_states)
         exceptions = []
 
         self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
 
         for resource in resources:
+            resource.attributes[Constants.SAVED_STATES] = list()
+            if resource.label in resource_state_map:
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
+
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
 
@@ -134,36 +156,21 @@ class Controller:
 
     def delete(self, *, provider_states: List[ProviderState]):
         exceptions = []
-        resource_state_map = dict()
-        provider_resource_map = dict()
+        remaining_resources = list()
+        skip_resources = set()
 
-        for provider_state in provider_states:
-            temp_list = provider_state.network_states + provider_state.node_states + provider_state.service_states
+        resource_state_map = self._build_state_map(provider_states)
+        resources = self.config.get_resource_configs()
+        resources.reverse()
 
-            for state in temp_list:
-                if state.label in resource_state_map:
-                    resource_state_map[state.label].append(state)
-                else:
-                    resource_state_map[state.label] = [state]
-
-            key = provider_state.label
-            provider_resource_map[key] = list()
-
-        temp = self.config.get_resource_configs()
-        temp.reverse()
-
-        for resource in temp:
+        for resource in resources:
             if resource.label in resource_state_map:
                 key = resource.provider.label
                 external_dependencies = resource.attributes.get(Constants.EXTERNAL_DEPENDENCIES, [])
                 external_states = [resource_state_map[ed.resource.label] for ed in external_dependencies]
                 resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = sum(external_states, [])
-                provider_resource_map[key].append(resource)
 
-        remaining_resources = list()
-        skip_resources = set()
-
-        for resource in temp:
+        for resource in resources:
             if resource.label not in resource_state_map:
                 continue
 
