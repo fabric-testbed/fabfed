@@ -65,6 +65,7 @@ class Provider(ABC):
         assert self != source
         assert provider
         assert resource
+        resource.write_ansible(provider.name, delete=True)
         pass
 
     def get_dependency_resolver(self, *, external=True):

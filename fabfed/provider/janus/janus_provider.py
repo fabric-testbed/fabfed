@@ -6,6 +6,7 @@ from fabfed.model import Service, Resource, Node
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from fabfed.util.utils import get_inventory_dir
+from fabfed.util import state
 from fabfed.provider.janus.util.ansible_helper import AnsibleHelper
 
 
@@ -14,6 +15,7 @@ class JanusService(Service):
         super().__init__(label=label, name=name)
         self.logger = logger
         self.image = image
+        self.created = False
         self._nodes = nodes
         self._provider = provider
 
@@ -29,6 +31,7 @@ class JanusService(Service):
         else:
             helper.run_playbook(os.path.join(script_dir, "ansible/janus.yml"), tags=["docker", "janus"])
             helper.run_playbook(os.path.join(script_dir, "ansible/janus.yml"), tags=["janus-add"])
+            self.created = True
 
     def create(self):
         self._do_ansible()
@@ -78,10 +81,10 @@ class JanusProvider(Provider):
         self.logger.info(f"Adding resource={resource} using {self.label}")
         self._validate_resource(resource)
 
+        label = resource.get(Constants.LABEL)
         image = resource.get(Constants.RES_IMAGE)
         nodes = [rd for rd in resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]
                  if rd.attr == 'node']
-        label = resource.get(Constants.LABEL)
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
 
         service_nodes = [n for i in nodes for n in i.value]
@@ -97,13 +100,21 @@ class JanusProvider(Provider):
         @param resource: resource attributes
         """
         label = resource.get(Constants.LABEL)
+        states = resource.get(Constants.SAVED_STATES)
+        created = True
+        for s in states:
+            if s.attributes.get('created', False) == True:
+                created = True
 
         self.logger.info(f"Creating resource={resource} using {self.label}")
 
         temp = [service for service in self.services if service.label == label]
 
         for service in temp:
-            service.create()
+            if created:
+                self.logger.info(f"Service {label} is already in created state, skipping create task")
+            else:
+                service.create()
             self.resource_listener.on_created(source=self, provider=self, resource=service)
 
     def do_delete_resource(self, *, resource: dict):
@@ -118,3 +129,4 @@ class JanusProvider(Provider):
         service = JanusService(label=label, name=service_name, image=image,
                                nodes=service_nodes, provider=self, logger=self.logger)
         service.delete()
+        self.resource_listener.on_deleted(source=self, provider=self, resource=service)

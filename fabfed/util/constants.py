@@ -74,6 +74,7 @@ class Constants:
     INTERNAL_DEPENDENCIES = "internal_dependencies"
     RESOLVED_INTERNAL_DEPENDENCIES = "resolved_internal_dependencies"
 
+    SAVED_STATES = "saved_states"
     EXTERNAL_DEPENDENCY_STATES = "external_dependency_states"
 
     PROVIDER_CLASSES = {
