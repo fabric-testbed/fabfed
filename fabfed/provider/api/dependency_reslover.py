@@ -80,6 +80,7 @@ class DependencyResolver:
                                 found = resolved_dependency
                                 break
 
+
                         if not found:
                             resolved_dependency = ResolvedDependency(resource_label=dependency.resource.label,
                                                                      attr=dependency.key,

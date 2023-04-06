@@ -164,11 +164,13 @@ class Controller:
         resources.reverse()
 
         for resource in resources:
+            resource.attributes[Constants.SAVED_STATES] = list()
             if resource.label in resource_state_map:
                 key = resource.provider.label
                 external_dependencies = resource.attributes.get(Constants.EXTERNAL_DEPENDENCIES, [])
                 external_states = [resource_state_map[ed.resource.label] for ed in external_dependencies]
                 resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = sum(external_states, [])
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
 
         for resource in resources:
             if resource.label not in resource_state_map:

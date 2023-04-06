@@ -6,6 +6,7 @@ from fabrictestbed_extensions.fablib.slice import Slice
 from fabfed.model import Network
 from fabfed.util.constants import Constants
 from ...util.parser import Config
+from .fabric_constants import *
 
 from fabfed.util.utils import get_logger
 

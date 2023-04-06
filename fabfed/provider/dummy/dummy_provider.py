@@ -41,7 +41,7 @@ class DummyNode(Node, SSHNode):
         import random
         self.logger.info(f" Dummy Node {self.name} created.")
         self.user = "dummy_user"
-        self.host = f"localhost{random.randint(0,20)}"
+        self.host = f"localhost_{self.name}"
         self.keyfile = "~/.ssh/dummy_key"
         #self.jump_user = "dummy_jump_user"
         self.jump_host = "dummy.jumphost.net"

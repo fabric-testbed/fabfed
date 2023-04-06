@@ -172,7 +172,7 @@ class AnsibleHelper:
         """
         self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
 
-    def run_playbook(self, playbook_path: str, tags: list = []):
+    def run_playbook(self, playbook_path: str, tags: list = [], limit: str = None):
         """
         Run a playbook
         @param playbook_path path for the playbook
@@ -190,6 +190,12 @@ class AnsibleHelper:
                                         become_method='sudo', become_user='root', verbosity=True, check=False,
                                         start_at_task=None)
         passwords = {}
+
+        if limit:
+            try:
+                self.inventory.subset(limit)
+            except Exception as e:
+                self.logger.debug(f"Error filtering hosts: {e}")
 
         pbex = PlaybookExecutor(playbooks=[playbook_path], inventory=self.inventory,
                                 variable_manager=self.variable_manager,
