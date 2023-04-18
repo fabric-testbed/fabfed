@@ -207,7 +207,7 @@ class DummyProvider(Provider):
             service_count = resource.get(Constants.RES_COUNT, 1)
             image = resource.get(Constants.RES_IMAGE)
             for n in range(0, service_count):
-                service_name = f"{self.name}-{service_name_prefix}-{n}"
+                service_name = f"{self.name}-{name_prefix}-{n}"
                 service = DummyService(label=label, name=service_name, image=image, logger=self.logger)
                 service.delete()
                 self.resource_listener.on_deleted(source=self, provider=self, resource=service)
