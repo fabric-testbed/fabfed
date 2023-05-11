@@ -155,7 +155,7 @@ class FabricSlice:
                     raise Exception(f"Did not find network named {name_prefix}")
 
                 layer3 = resource.get(Constants.RES_LAYER3)
-                peer_layer3 = resource.get(Constants.RES_LAYER3)
+                peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
                 peering = resource.get(Constants.RES_PEERING)
                 net = FabricNetwork(label=label, delegate=delegate, layer3=layer3,
                                     peering=peering, peer_layer3=peer_layer3)
