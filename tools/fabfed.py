@@ -44,6 +44,8 @@ def manage_workflow(args):
 
         try:
             controller.create()
+        except KeyboardInterrupt:
+            logger.error(f"Keyboard Interrupt while creating resources ... {e}")
         except ControllerException as e:
             logger.error(f"Exceptions while creating resources ... {e}")
 

@@ -71,6 +71,11 @@ _LOGGER = None
 
 
 def get_logger():
+    global _LOGGER
+
+    if not _LOGGER:
+        _LOGGER = init_logger()
+
     return _LOGGER
 
 

@@ -8,7 +8,7 @@ import chi.server
 
 from fabfed.model import Network
 from .chi_util import LeaseHelper
-from ...util.parser import Config
+from ...util.config_models import Config
 from ...util.constants import Constants
 
 

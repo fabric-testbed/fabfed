@@ -18,7 +18,7 @@ class SenseNetwork(Network):
         self.dtn = []
         self.id = ''
 
-        # CREATE - COMPILED, CREATE - COMMITTING, CREATE - COMMITTED, CREATE - READY
+    # CREATE - COMPILED, CREATE - COMMITTING, CREATE - COMMITTED, CREATE - READY
     def create(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.name)
 

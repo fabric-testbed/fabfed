@@ -1,19 +1,26 @@
 import logging
-from typing import List
+from typing import List, Union
 
 from fabfed.exceptions import ControllerException
 from fabfed.model.state import ProviderState
 from fabfed.util.config import WorkflowConfig
 from .helper import ControllerResourceListener, partition_layer3_config
+from .policy_helper import ProviderPolicy
 from .provider_factory import ProviderFactory
 from ..util.constants import Constants
+from ..util.config_models import ResourceConfig
 
 
 class Controller:
-    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger):
+    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger, policy: Union[ProviderPolicy, None] = None):
         self.config = config
         self.logger = logger
         self.provider_factory = None
+        self.resources: List[ResourceConfig] = []
+
+        from .policy_helper import load_policy
+
+        self.policy = policy or load_policy()
 
     def init(self, *, session: str, provider_factory: ProviderFactory):
         for provider_config in self.config.get_provider_config():
@@ -32,9 +39,13 @@ class Controller:
         for provider in providers:
             provider.set_resource_listener(resource_listener)
 
-        resources = self.config.get_resource_configs()
+        self.resources = self.config.get_resource_configs()
 
-        for resource in resources:
+        from .policy_helper import handle_stitch_info
+
+        self.resources = handle_stitch_info(self.config, self.policy, self.resources)
+
+        for resource in self.resources:
             resource_dict = resource.attributes
             resource_dict[Constants.RES_TYPE] = resource.type
             resource_dict[Constants.RES_NAME_PREFIX] = resource.name
@@ -53,7 +64,7 @@ class Controller:
             if resource.is_network and not resource.attributes.get(Constants.RES_NET_STITCH_PROVS):
                 resource.attributes[Constants.RES_NET_STITCH_PROVS] = list()
 
-        for network in [resource for resource in resources if resource.is_network]:
+        for network in [resource for resource in self.resources if resource.is_network]:
             for dependency in network.dependencies:
                 if dependency.resource.is_network:
                     stitch_provider = network.provider.type
@@ -63,7 +74,7 @@ class Controller:
                             dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
 
         layer3_to_network_mapping = {}
-        networks = [resource for resource in resources if resource.is_network]
+        networks = [resource for resource in self.resources if resource.is_network]
 
         for network in networks:
             layer3 = network.attributes.get(Constants.RES_LAYER3)
@@ -96,7 +107,7 @@ class Controller:
 
 
     def plan(self):
-        resources = self.config.get_resource_configs()
+        resources = self.resources
         self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
 
         exceptions = []
@@ -114,7 +125,7 @@ class Controller:
             raise ControllerException(exceptions)
 
     def create(self):
-        resources = self.config.get_resource_configs()
+        resources = self.resources
         exceptions = []
 
         self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
@@ -138,7 +149,7 @@ class Controller:
         provider_resource_map = dict()
 
         for provider_state in provider_states:
-            temp_list = provider_state.network_states + provider_state.node_states + provider_state.service_states
+            temp_list = provider_state.states()
 
             for state in temp_list:
                 if state.label in resource_state_map:
@@ -149,7 +160,7 @@ class Controller:
             key = provider_state.label
             provider_resource_map[key] = list()
 
-        temp = self.config.get_resource_configs()
+        temp = self.resources
         temp.reverse()
 
         for resource in temp:
