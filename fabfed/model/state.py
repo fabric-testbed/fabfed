@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import yaml
 
-from fabfed.util.parser import DependencyInfo, ResourceConfig, ProviderConfig, BaseConfig, Config, Dependency
+from fabfed.util.config_models import Config, ResourceConfig, BaseConfig, ProviderConfig, Dependency, DependencyInfo
 from fabfed.model import ResolvedDependency
 
 
@@ -37,6 +37,9 @@ class ProviderState(BaseState):
         self.service_states = service_states
         self.pending = pending
         self.failed = failed
+
+    def states(self):
+        return self.network_states + self.node_states + self.service_states
 
 
 def provider_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ProviderState:
@@ -87,6 +90,7 @@ def base_config_representer(dumper: yaml.SafeDumper, base_config: BaseConfig) ->
         "name": base_config.name,
         "attrs": base_config.attributes
     })
+
 
 def config_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> Config:
     return Config(**loader.construct_mapping(node))

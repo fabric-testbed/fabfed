@@ -1,0 +1,39 @@
+fabric:
+  stitch-port:
+      - site: AWS
+        member-of:
+          - AWS
+        region:
+        device_name: agg4.ashb.net.internet2.edu
+        local_name: HundredGigE0/0/0/7
+        preference: 1000 # higher is preferred
+  group:
+      - name: AWS
+        producer-for:
+          - sense/AWS
+        consumer-for:
+          - sense/AWS
+
+      - name: UTAH
+        consumer-for:
+          - cloudlab/UTAH
+sense:
+  group:
+      - name: AWS # referred to as "sense/aws"
+        profile: FABRIC-AWS-DX-VGW # SENSE profile name
+        consumer-for:
+          - fabric/AWS
+        producer-for:
+          - fabric/AWS
+
+cloudlab:
+  stitch-port:
+      - site: UTAH
+        member-of:
+          - UTAH
+        device_name: Utah-Cloudlab-Powder
+        preference: 100 # higher is preferred
+  group:
+    - name: UTAH
+      producer-for:
+        - fabric/UTAH

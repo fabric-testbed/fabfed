@@ -154,7 +154,7 @@ class ChiProvider(Provider):
             net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
             self.logger.debug(f"Deleting network: {net_name} at site {site}")
             from fabfed.provider.chi.chi_network import ChiNetwork
-            from fabfed.util.parser import Config
+            from ...util.config_models import Config
 
             layer3 = Config("", "", {})
 
