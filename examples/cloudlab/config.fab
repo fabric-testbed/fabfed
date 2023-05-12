@@ -18,19 +18,6 @@ config:
           ip_start: 192.168.1.2
           ip_end: 192.168.1.254
 resource:
-  - network:
-      - cnet:
-          provider: '{{cloudlab.cloudlab_provider }}'
-          profile: '{{ var.cloudlab_profile }}'
-          layer3: "{{ layer3.my_layer }}"
-          # Unxomment to override vlan 
-          # interface: 
-          #  - vlan: 3101 
-  - node:
-      - cnode:
-          provider: '{{ cloudlab.cloudlab_provider }}'
-          network: "{{ network.cnet }}"
-          count: 2
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
@@ -38,10 +25,22 @@ resource:
           image: default_rocky_8
           nic_model: NIC_Basic
           count: 1
+      - cnode:
+          provider: '{{ cloudlab.cloudlab_provider }}'
+          network: "{{ network.cnet }}"
+          count: 2
   - network:
+      - cnet:
+          provider: '{{cloudlab.cloudlab_provider }}'
+          profile: '{{ var.cloudlab_profile }}'
+          layer3: "{{ layer3.my_layer }}"
+          stitch_with: '{{ network.fabric_network }}'
+          # Unxomment to override vlan 
+          # interface: 
+          #  - vlan: 3101 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           # site: UTAH
           layer3: "{{ layer3.my_layer }}"
           interface: '{{ node.fabric_node }}'
-          stitch_interface: '{{ network.cnet }}'
+          #stitch_with: '{{ network.cnet }}'

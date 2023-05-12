@@ -44,10 +44,10 @@ def manage_workflow(args):
 
         try:
             controller.create()
-        except KeyboardInterrupt:
-            logger.error(f"Keyboard Interrupt while creating resources ... {e}")
-        except ControllerException as e:
-            logger.error(f"Exceptions while creating resources ... {e}")
+        except KeyboardInterrupt as kie:
+            logger.error(f"Keyboard Interrupt while creating resources ... {kie}")
+        except ControllerException as ce:
+            logger.error(f"Exceptions while creating resources ... {ce}")
 
         states = controller.get_states()
         pending = 0
@@ -104,7 +104,7 @@ def manage_workflow(args):
 
             for network_state in provider_state.network_states:
                 attributes = dict()
-                props = ['id','name', 'interface', 'site', 'state', 'profile', "dtn", 'layer3']
+                props = ['id', 'name', 'interface', 'site', 'state', 'profile', "dtn", 'layer3']
 
                 for prop in props:
                     if prop in network_state.attributes:
