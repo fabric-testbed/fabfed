@@ -100,6 +100,7 @@ class NetworkBuilder:
         self.layer3 = resource.get(Constants.RES_LAYER3)
         self.peering = resource.get(Constants.RES_PEERING)
         self.peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
+        self.device = None
 
         if self.stitch_info:
             logger.info(f'Network {self.net_name}:Got stitch_info={self.stitch_info}')
@@ -134,9 +135,13 @@ class NetworkBuilder:
                         if self.site not in provider_ports:
                             port_tuple = list(provider_ports.items())[0]
                             self.site = port_tuple[0]
-                            self.facility_port = port_tuple[1]['name']
+                            self.device = port_tuple[1]['name']
                         else:
-                            self.facility_port = provider_ports[self.site]['name']
+                            self.device = provider_ports[self.site]['name']
+                    else:
+                        self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
+                        self.site = self.stitch_port.get(Constants.STITCH_PORT_SITE)
+
 
         if isinstance(self.vlan, list):
             self.vlan = self.vlan[0]
@@ -155,7 +160,7 @@ class NetworkBuilder:
 
         if self.vlan:
             logger.info(
-                f'Network {self.net_name}:Got vlan={self.vlan},facility_port={self.facility_port},site={self.site}')
+                f'Network {self.net_name}:Got vlan={self.vlan},facility_port={self.device},site={self.site}')
         else:
             logger.warning(f"Network {self.net_name} has no vlan ...")
 
@@ -216,7 +221,7 @@ class NetworkBuilder:
 
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
-            facility_port = self.slice_object.add_facility_port(name=self.facility_port,
+            facility_port = self.slice_object.add_facility_port(name=self.device,
                                                                 site=self.site,
                                                                 vlan=str(self.vlan))
 
