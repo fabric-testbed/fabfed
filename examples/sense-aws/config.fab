@@ -37,7 +37,7 @@ resource:
           name: aws-node
           network: "{{ network.sense_net }}"
           service:
-          count: 0 
+          count: 1 
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
           site: RENC
@@ -51,7 +51,7 @@ resource:
           name: aws-net
           layer3: "{{ layer3.sense_layer }}"
           peering: "{{ peering.my_peering }}"
-          count: 0 
+          count: 1 
           stitch_with: '{{ network.fabric_network }}'
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
