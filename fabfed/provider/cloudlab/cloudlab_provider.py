@@ -87,7 +87,18 @@ class CloudlabProvider(Provider):
         from .cloudlab_network import CloudNetwork
 
         net_name = f'{self.name}-{name_prefix}'
-        profile = resource[Constants.RES_PROFILE]
+        profile = resource.get(Constants.RES_PROFILE)
+
+        if not profile:
+            stitch_info = resource.get(Constants.RES_STITCH_INFO)
+
+            if stitch_info:
+                for g in [stitch_info.consumer_group, stitch_info.producer_group]:
+                    if self.type == g[Constants.PROVIDER]:
+                        profile = g.get(Constants.RES_PROFILE)
+                        break
+
+        assert profile, f"must provide a profile for {net_name}"
         interfaces = resource.get(Constants.RES_INTERFACES, list())
         layer3 = resource.get(Constants.RES_LAYER3)
         net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,

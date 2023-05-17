@@ -47,7 +47,6 @@ resource:
   - network:
       - sense_net:
           provider: '{{ sense.sense_provider }}'
-          profile: FABRIC-AWS-DX-VGW
           name: aws-net
           layer3: "{{ layer3.sense_layer }}"
           peering: "{{ peering.my_peering }}"
