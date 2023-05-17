@@ -6,7 +6,7 @@ fabric:
         region:
         device_name: agg4.ashb.net.internet2.edu
         local_name: HundredGigE0/0/0/7
-        preference: 1000 # higher is preferred
+        preference: 100 # higher is preferred
   group:
       - name: AWS
         producer-for:
@@ -21,7 +21,18 @@ fabric:
       - name: STAR
         consumer-for:
             - chi/STAR
+
+      - name: UKY
+        consumer-for:
+            - sense/UKY
 sense:
+  stitch-port:
+    - site: UKY
+      member-of:
+        - UKY
+      device_name: UKY-AL2S
+      preference: 90 # higher is preferred
+
   group:
       - name: AWS # referred to as "sense/aws"
         profile: FABRIC-AWS-DX-VGW # SENSE profile name
@@ -29,7 +40,10 @@ sense:
           - fabric/AWS
         producer-for:
           - fabric/AWS
-
+      - name: UKY
+        profile: FABRIC-L2-DTN
+        producer-for:
+          - fabric/UKY
 chi:
   stitch-port:
     - site: STAR

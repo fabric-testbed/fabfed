@@ -15,10 +15,10 @@ resource:
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          site: UKY
+          # site: UKY
           layer3: "{{ layer3.my_layer }}"
           interface: '{{ node.fabric_node }}'
-          stitch_interface: '{{ network.net1 }}' # 852 to 855 
+          stitch_with: '{{ network.net1 }}' # 852 to 855 
   - network:
       - net1:
           provider: '{{ sense.sense_provider }}'
@@ -28,6 +28,7 @@ resource:
           layer3: "{{ layer3.my_layer }}"
           interface:
             - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24
+          # stitch_with: '{{ network.fabric_network }}' 
   - service:
       - dtn_service:
           provider: '{{ janus.janus_provider }}'
