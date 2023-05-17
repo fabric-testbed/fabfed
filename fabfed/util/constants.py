@@ -32,7 +32,6 @@ class Constants:
     RES_NET_POOL_START = "pool_start"
     RES_NET_POOL_END = "pool_end"
     RES_NET_GATEWAY = "gateway"
-    RES_NET_STITCH_PROVS = "stitch_providers"
     RES_NET_CALLBACK = "callback"
     RES_SUBNET = 'subnet'
     RES_LAYER3 = 'layer3'

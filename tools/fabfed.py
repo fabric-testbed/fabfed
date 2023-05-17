@@ -58,6 +58,7 @@ def manage_workflow(args):
 
         for state in states:
             pending += len(state.pending)
+            pending += len(state.pending_internal)
             nodes += len([n for n in state.node_states if n.label not in state.failed])
             networks += len([n for n in state.network_states if n.label not in state.failed])
             services += len([s for s in state.service_states if s.label not in state.failed])

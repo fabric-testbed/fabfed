@@ -84,6 +84,17 @@ class SenseProvider(Provider):
 
         net_name = f'{self.name}-{name_prefix}'
         profile = resource.get(Constants.RES_PROFILE)
+
+        if not profile:
+            stitch_info = resource.get(Constants.RES_STITCH_INFO)
+
+            if stitch_info:
+                for g in [stitch_info.consumer_group, stitch_info.producer_group]:
+                    if self.type == g[Constants.PROVIDER]:
+                        profile = g.get(Constants.RES_PROFILE)
+                        break
+
+        assert profile, f"must provide a profile for {net_name}"
         layer3 = resource.get(Constants.RES_LAYER3)
         peering = self._handle_peering_config(resource) # resource.get(Constants.RES_PEERING)
         bandwidth = resource.get(Constants.RES_BANDWIDTH)

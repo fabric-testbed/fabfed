@@ -23,7 +23,7 @@ class Provider(ABC):
         self._pending = []
         self._failed = {}
         self._added = []
-        self._pending_internal = []
+        self.pending_internal = []
 
     @property
     def resources(self) -> List:
@@ -93,8 +93,8 @@ class Provider(ABC):
                 try:
                     self.add_resource(resource=pending_resource)
 
-                    temp = self._pending_internal
-                    self._pending_internal = []
+                    temp = self.pending_internal
+                    self.pending_internal = []
 
                     for internal_dependency in temp:
                         try:
@@ -136,9 +136,8 @@ class Provider(ABC):
             else:
                 self.logger.info(f"Adding to internal_dependencies {label}")
 
-                assert resource not in self._pending_internal, f"internal pending resource {label} already added"
-                self._pending_internal.append(resource)
-
+                assert resource not in self.pending_internal, f"internal pending resource {label} already added"
+                self.pending_internal.append(resource)
                 return
 
         try:
@@ -183,7 +182,7 @@ class Provider(ABC):
         node_states = [NodeState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.nodes]
         service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in self.services]
         return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
-                             self.pending, self.failed)
+                             self.pending, self.pending_internal, self.failed)
 
     def list_networks(self) -> list:
         from tabulate import tabulate

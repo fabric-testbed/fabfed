@@ -1,6 +1,3 @@
-variable:
-  - cloudlab_profile:
-      default: fabfed-stitch-v2
 provider:
   - cloudlab:
       - cloudlab_provider:
@@ -25,22 +22,16 @@ resource:
           image: default_rocky_8
           nic_model: NIC_Basic
           count: 1
-      - cnode:
+      - cloudlab_node:
           provider: '{{ cloudlab.cloudlab_provider }}'
-          network: "{{ network.cnet }}"
+          network: "{{ network.cloudlab_network }}"
           count: 2
   - network:
-      - cnet:
+      - cloudlab_network:
           provider: '{{cloudlab.cloudlab_provider }}'
-          profile: '{{ var.cloudlab_profile }}'
           layer3: "{{ layer3.my_layer }}"
           stitch_with: '{{ network.fabric_network }}'
-          # Unxomment to override vlan 
-          # interface: 
-          #  - vlan: 3101 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          # site: UTAH
           layer3: "{{ layer3.my_layer }}"
           interface: '{{ node.fabric_node }}'
-          #stitch_with: '{{ network.cnet }}'
