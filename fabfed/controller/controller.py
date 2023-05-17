@@ -93,6 +93,10 @@ class Controller:
                 for other in [peer for peer in peers if peer.label != network.label]:
                     network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
+        # for network in networks:
+        #     self.logger.info(f"{network}: stitch_info={network.attributes.get(Constants.RES_STITCH_INFO)}")
+        #     self.logger.info(f"{network}: stitch_with={network.attributes.get(Constants.RES_STITCH_INTERFACE)}")
+
     def plan(self):
         resources = self.resources
         self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
