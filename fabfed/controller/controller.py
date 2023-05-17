@@ -61,18 +61,6 @@ class Controller:
                 else:
                     resource_dict[Constants.INTERNAL_DEPENDENCIES].append(dependency)
 
-            if resource.is_network and not resource.attributes.get(Constants.RES_NET_STITCH_PROVS):
-                resource.attributes[Constants.RES_NET_STITCH_PROVS] = list()
-
-        for network in [resource for resource in self.resources if resource.is_network]:
-            for dependency in network.dependencies:
-                if dependency.resource.is_network:
-                    stitch_provider = network.provider.type
-
-                    if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
-                        if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
-                            dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
-
         layer3_to_network_mapping = {}
         networks = [resource for resource in self.resources if resource.is_network]
 
@@ -104,7 +92,6 @@ class Controller:
             for network in peers:
                 for other in [peer for peer in peers if peer.label != network.label]:
                     network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
-
 
     def plan(self):
         resources = self.resources

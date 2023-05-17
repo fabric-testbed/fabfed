@@ -22,9 +22,7 @@ class ProviderPolicy:
             if PRODUCER_FOR not in group:
                 group[PRODUCER_FOR] = []
 
-        from collections import OrderedDict
-
-        self.groups = [OrderedDict(sorted(g.items())) for g in groups]
+        self.groups = groups
 
     def __str__(self) -> str:
         lst = ["stitch_ports=" + str(self.stitch_ports), "groups=" + str(self.groups)]
@@ -34,7 +32,8 @@ class ProviderPolicy:
         return self.__str__()
 
 
-StitchInfo = namedtuple("StitchInfo", "stitch_port producer consumer")
+StitchInfo = namedtuple("StitchInfo", "stitch_port producer consumer producer_group consumer_group")
+
 
 def parse_policy(policy) -> Dict[str, ProviderPolicy]:
     for k, v in policy.items():
@@ -47,7 +46,7 @@ def parse_policy(policy) -> Dict[str, ProviderPolicy]:
         groups = v[GROUP] if GROUP in v else []
 
         for g in groups:
-            g['provider'] = k
+            g[Constants.PROVIDER] = k
 
         policy[k] = ProviderPolicy(type=k, stitch_ports=stitch_ports, groups=groups)
 
@@ -84,8 +83,10 @@ def find_stitch_port_for_group(policy: Dict[str, ProviderPolicy], group: str, pr
                     for stitch_port in policy[provider2].stitch_ports:
                         if group in stitch_port[MEMBER_OF]:
                             stitch_info = StitchInfo(stitch_port=stitch_port,
-                                                     producer=producer_group['provider'],
-                                                     consumer=g['provider'])
+                                                     producer=producer_group[Constants.PROVIDER],
+                                                     consumer=g[Constants.PROVIDER],
+                                                     producer_group=producer_group,
+                                                     consumer_group=g)
                             stitch_infos.append(stitch_info)
 
         if temp in g[PRODUCER_FOR]:   # provider2's group is a producer find provider2's groups that are consumers
@@ -94,8 +95,10 @@ def find_stitch_port_for_group(policy: Dict[str, ProviderPolicy], group: str, pr
                     for stitch_port in policy[provider1].stitch_ports:
                         if group in stitch_port[MEMBER_OF]:
                             stitch_info = StitchInfo(stitch_port=stitch_port,
-                                                     producer=g['provider'],
-                                                     consumer=consumer_group['provider'])
+                                                     producer=g[Constants.PROVIDER],
+                                                     consumer=consumer_group[Constants.PROVIDER],
+                                                     producer_group=g,
+                                                     consumer_group=consumer_group)
                             stitch_infos.append(stitch_info)
 
     return stitch_infos
@@ -116,6 +119,7 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
     if site:
         for stitch_info in stitch_infos:
             if site == stitch_info.stitch_port['site']:
+                logger.warning(f"returning stitch port for site={site} and providers={providers}:{stitch_info}")
                 return stitch_info
 
         logger.warning(f"did not find a stitch port for site={site} and providers={providers}")
@@ -176,9 +180,12 @@ def handle_stitch_info(config, policy, resources):
                                            site=site)
             network.attributes.pop(Constants.NETWORK_STITCH_WITH)
 
-            if network.provider.type != stitch_info.consumer:
-                from fabfed.util.config_models import DependencyInfo
+            from fabfed.util.config_models import DependencyInfo
 
+            if network.provider.type == stitch_info.consumer:
+                network.attributes[Constants.RES_STITCH_INTERFACE] = DependencyInfo(resource=other_network,
+                                                                                    attribute='')
+            else:
                 other_network.attributes[Constants.RES_STITCH_INTERFACE] = DependencyInfo(resource=network,
                                                                                           attribute='')
 
