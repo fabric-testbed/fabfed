@@ -104,7 +104,8 @@ def find_stitch_port_for_group(policy: Dict[str, ProviderPolicy], group: str, pr
     return stitch_infos
 
 
-def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str], site=None) -> StitchInfo or None:
+def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str], site=None,
+                     profile=None) -> StitchInfo or None:
     from fabfed.util.utils import get_logger
 
     logger = get_logger()
@@ -116,10 +117,17 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
 
     stitch_infos.sort(key=lambda si: si.stitch_port['preference'], reverse=True)
 
+    if profile:
+        for stitch_info in stitch_infos:
+            for g in [stitch_info.consumer_group, stitch_info.producer_group]:
+                if g.get(Constants.RES_PROFILE) == profile:
+                    logger.info(f"Using stitch port based on profile={profile} and providers={providers}:{stitch_info}")
+                    return stitch_info
+
     if site:
         for stitch_info in stitch_infos:
             if site == stitch_info.stitch_port['site']:
-                logger.warning(f"returning stitch port for site={site} and providers={providers}:{stitch_info}")
+                logger.info(f"Using stitch port based on site={site} and providers={providers}:{stitch_info}")
                 return stitch_info
 
         logger.warning(f"did not find a stitch port for site={site} and providers={providers}")
@@ -129,8 +137,32 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
     if not stitch_info:
         raise StitchPortNotFound(f"did not find a stitch port for providers={providers}")
 
-    logger.info(f"returning stitch port for providers={providers}:{stitch_info}")
+    if len(stitch_info) > 1:
+        logger.info(f"Using stitch port based on precedence for providers={providers}:{stitch_info}")
+    else:
+        logger.info(f"Using stitch port for providers={providers}:{stitch_info}")
+
     return stitch_info
+
+
+def find_profile(network, resources):
+    profile = network.attributes.get(Constants.RES_PROFILE)
+
+    # if not profile:
+    #     for dep in [dep for dep in network.dependencies if dep.resource.is_network]:
+    #         profile = dep.resource.attributes.get(Constants.RES_PROFILE)
+    #
+    #         if profile:
+    #             break
+
+    if not profile:
+        for net in [resource for resource in resources if resource.is_network]:
+            if [dep for dep in network.dependencies if dep.resource == net]:
+                profile = net.attributes.get(Constants.RES_PROFILE)
+
+                if profile:
+                    break
+    return profile
 
 
 def find_site(network, resources):
@@ -175,9 +207,12 @@ def handle_stitch_info(config, policy, resources):
             assert other_network.is_network, "only network stitching is supported"
 
             site = find_site(network, resources)
+            profile = find_profile(network, resources)
+
             stitch_info = find_stitch_port(policy=policy,
                                            providers=[network.provider.type, other_network.provider.type],
-                                           site=site)
+                                           site=site,
+                                           profile=profile)
             network.attributes.pop(Constants.NETWORK_STITCH_WITH)
 
             from fabfed.util.config_models import DependencyInfo
