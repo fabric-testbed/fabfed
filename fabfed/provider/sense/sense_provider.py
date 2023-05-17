@@ -21,7 +21,7 @@ class SenseProvider(Provider):
         self.config = config[profile]
         from .sense_client import init_client
 
-        init_client(config)
+        init_client(self.config)
 
     def _handle_peering_config(self, resource):
         import fabfed.provider.api.dependency_util as util
