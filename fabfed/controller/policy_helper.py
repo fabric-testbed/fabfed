@@ -104,8 +104,33 @@ def find_stitch_port_for_group(policy: Dict[str, ProviderPolicy], group: str, pr
     return stitch_infos
 
 
+def check_options(k, v, adict):
+    temp = adict.get('option')
+
+    if temp:
+        assert isinstance(temp, dict), "option must be a dictionary"
+
+        if temp.get(k):
+            if isinstance(v, str):
+                if v == temp.get(k):
+                    return True, set((k, v))
+
+            if isinstance(v, list):
+                for v_pair in v:
+                    aset = set(v_pair.items())
+
+                    if isinstance(temp.get(k), list):
+                        for t_pair in temp.get(k):
+                            bset = set(t_pair.items())
+
+                            if aset.issubset(bset):
+                                return True, aset
+
+    return False, None
+
+
 def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str], site=None,
-                     profile=None) -> StitchInfo or None:
+                     profile=None, options=None) -> StitchInfo or None:
     from fabfed.util.utils import get_logger
 
     logger = get_logger()
@@ -116,6 +141,34 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
         stitch_infos.extend(temp_stitch_infos)
 
     stitch_infos.sort(key=lambda si: si.stitch_port['preference'], reverse=True)
+
+    # Using the options first
+    if options:
+        for stitch_info in stitch_infos:
+            for k, v in options.items():
+                if stitch_info.stitch_port.get(k) == v:
+                    logger.info(f"Using stitch port based on {k}={v} and providers={providers}:{stitch_info}")
+                    return stitch_info
+
+                ret, aset = check_options(k, v, stitch_info.stitch_port)
+
+                if ret:
+                    logger.info(
+                        f"Using stitch port based on {aset} and providers={providers}:{stitch_info}")
+                    return stitch_info
+
+                for g in [stitch_info.consumer_group, stitch_info.producer_group]:
+                    if g.get(k) == v:
+                        logger.info(
+                            f"Using stitch port based on {k}={v} and providers={providers}:{stitch_info}")
+                        return stitch_info
+
+                    ret, aset = check_options(k, v, g)
+
+                    if ret:
+                        logger.info(
+                            f"Using stitch port based on {aset} and providers={providers}:{stitch_info}")
+                        return stitch_info
 
     if profile:
         for stitch_info in stitch_infos:
@@ -138,7 +191,7 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
         raise StitchPortNotFound(f"did not find a stitch port for providers={providers}")
 
     if len(stitch_info) > 1:
-        logger.info(f"Using stitch port based on precedence for providers={providers}:{stitch_info}")
+        logger.info(f"Using stitch port based on preference for providers={providers}:{stitch_info}")
     else:
         logger.info(f"Using stitch port for providers={providers}:{stitch_info}")
 
@@ -208,11 +261,13 @@ def handle_stitch_info(config, policy, resources):
 
             site = find_site(network, resources)
             profile = find_profile(network, resources)
+            options = network.attributes.get(Constants.NETWORK_STITCH_OPTION, list())
 
             stitch_info = find_stitch_port(policy=policy,
                                            providers=[network.provider.type, other_network.provider.type],
                                            site=site,
-                                           profile=profile)
+                                           profile=profile,
+                                           options=options)
             network.attributes.pop(Constants.NETWORK_STITCH_WITH)
 
             from fabfed.util.config_models import DependencyInfo
