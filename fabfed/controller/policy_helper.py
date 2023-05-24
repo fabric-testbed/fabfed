@@ -190,7 +190,7 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
     if not stitch_info:
         raise StitchPortNotFound(f"did not find a stitch port for providers={providers}")
 
-    if len(stitch_info) > 1:
+    if len(stitch_infos) > 1:
         logger.info(f"Using stitch port based on preference for providers={providers}:{stitch_info}")
     else:
         logger.info(f"Using stitch port for providers={providers}:{stitch_info}")
