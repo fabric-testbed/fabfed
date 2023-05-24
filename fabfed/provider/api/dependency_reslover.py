@@ -88,7 +88,7 @@ class DependencyResolver:
                         else:
                             resolved_dependency = ResolvedDependency(resource_label=dependency.resource.label,
                                                                      attr=dependency.key,
-                                                                     value=(found.value,))
+                                                                     value=(value,) + found.value)
                             resolved_dependencies.remove(found)
 
                         resolved_dependencies.append(resolved_dependency)
