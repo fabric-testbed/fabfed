@@ -97,14 +97,18 @@ class Controller:
         #     self.logger.info(f"{network}: stitch_info={network.attributes.get(Constants.RES_STITCH_INFO)}")
         #     self.logger.info(f"{network}: stitch_with={network.attributes.get(Constants.RES_STITCH_INTERFACE)}")
 
-    def plan(self):
+    def plan(self, provider_states: List[ProviderState]):
         resources = self.resources
+        resource_state_map = Controller._build_state_map(provider_states)
         self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
 
         exceptions = []
         for resource in resources:
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
+
+            if resource.label in resource_state_map:
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
 
             try:
                 provider.add_resource(resource=resource.attributes)
@@ -115,8 +119,9 @@ class Controller:
         if exceptions:
             raise ControllerException(exceptions)
 
-    def create(self):
+    def create(self, provider_states: List[ProviderState]):
         resources = self.resources
+        resource_state_map = Controller._build_state_map(provider_states)
         exceptions = []
 
         self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
@@ -124,6 +129,9 @@ class Controller:
         for resource in resources:
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
+
+            if resource.label in resource_state_map:
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
 
             try:
                 provider.create_resource(resource=resource.attributes)
@@ -134,11 +142,9 @@ class Controller:
         if exceptions:
             raise ControllerException(exceptions)
 
-    def delete(self, *, provider_states: List[ProviderState]):
-        exceptions = []
+    @staticmethod
+    def _build_state_map(provider_states):
         resource_state_map = dict()
-        provider_resource_map = dict()
-
         for provider_state in provider_states:
             temp_list = provider_state.states()
 
@@ -147,6 +153,22 @@ class Controller:
                     resource_state_map[state.label].append(state)
                 else:
                     resource_state_map[state.label] = [state]
+
+        return resource_state_map
+
+    def delete(self, *, provider_states: List[ProviderState]):
+        exceptions = []
+        resource_state_map = Controller._build_state_map(provider_states)
+        provider_resource_map = dict()
+
+        for provider_state in provider_states:
+            # temp_list = provider_state.states()
+            #
+            # for state in temp_list:
+            #     if state.label in resource_state_map:
+            #         resource_state_map[state.label].append(state)
+            #     else:
+            #         resource_state_map[state.label] = [state]
 
             key = provider_state.label
             provider_resource_map[key] = list()

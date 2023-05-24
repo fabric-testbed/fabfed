@@ -10,6 +10,10 @@ def init_client(config):
         SENSE_CLIENT = SenseClient(config)
 
 
+def get_client():
+    return SENSE_CLIENT
+
+
 # TODO Fix this and make sure the config is coming from fabfed credentials
 class SenseClient(RequestWrapper):
     def __init__(self, config=None):

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+mkdir -p /etc/janus/profiles
+touch /etc/janus/db.json && sudo chown 1000 /etc/janus/db.json
+
+docker volume create portainer_data
+docker compose -f controller-compose.yml up -d
+sleep 3
+sudo docker compose -f controller-compose.yml down
+
+PORTAINER_TMP=$(mktemp)
+docker run --rm -v portainer_data:/data {{ ipv6_registry }}portainer/helper-reset-password > $PORTAINER_TMP 2>&1
+PORTAINER_PASSWORD=$(grep "Use the" $PORTAINER_TMP | awk -F 'login: ' '{print $2}' | sed 's/%/%%/g')
+rm -f $PORTAINER_TMP
+cat <<EOF | sudo tee /etc/janus/janus.conf
+[JANUS]
+PORTAINER_URI: http://portainer-ce:9000/api
+PORTAINER_USER: admin
+PORTAINER_PASSWORD: $PORTAINER_PASSWORD
+PORTAINER_VERIFY_SSL: False
+EOF
+
+docker compose -f controller-compose.yml up -d
