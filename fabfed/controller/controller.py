@@ -177,12 +177,15 @@ class Controller:
         temp.reverse()
 
         for resource in temp:
+            resource.attributes[Constants.SAVED_STATES] = list()
+
             if resource.label in resource_state_map:
                 key = resource.provider.label
                 external_dependencies = resource.attributes.get(Constants.EXTERNAL_DEPENDENCIES, [])
                 external_states = [resource_state_map[ed.resource.label] for ed in external_dependencies]
                 resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = sum(external_states, [])
                 provider_resource_map[key].append(resource)
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
 
         remaining_resources = list()
         skip_resources = set()
