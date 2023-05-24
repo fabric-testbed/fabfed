@@ -84,6 +84,7 @@ class Constants:
     EXTERNAL_DEPENDENCY_STATES = "external_dependency_states"
 
     NETWORK_STITCH_WITH = "stitch_with"
+    NETWORK_STITCH_OPTION = "stitch_option"
     PROVIDER = 'provider'
 
     PROVIDER_CLASSES = {
