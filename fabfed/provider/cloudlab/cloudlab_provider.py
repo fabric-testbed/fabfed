@@ -117,8 +117,6 @@ class CloudlabProvider(Provider):
                 node.create()
                 self.resource_listener.on_created(source=self, provider=self, resource=node)
                 self.logger.debug(f"Created node: {vars(node)}")
-
-            self.resource_listener.on_created(source=self, provider=self, resource=self._nodes[0])
             return
 
         self._networks[0].create()

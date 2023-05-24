@@ -27,8 +27,8 @@ def run_apply_workflow(*, session, config_str) -> List[ProviderState]:
     logger = logging.getLogger(__name__)
     controller = Controller(config=config, logger=logger)
     controller.init(session=session, provider_factory=default_provider_factory)
-    controller.plan()
-    controller.create()
+    controller.plan(provider_states=[])
+    controller.create(provider_states=[])
     states = controller.get_states()
     sutil.save_states(states, session)
     return states

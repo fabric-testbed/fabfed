@@ -85,6 +85,11 @@ class DependencyResolver:
                                                                      attr=dependency.key,
                                                                      value=(value,))
                         else:
+                            # TODO REVIEW THIS CHANGE BY Ezra.
+                            # resolved_dependency = ResolvedDependency(resource_label=dependency.resource.label,
+                            #                                          attr=dependency.key,
+                            #                                          value=(found.value,))
+
                             resolved_dependency = ResolvedDependency(resource_label=dependency.resource.label,
                                                                      attr=dependency.key,
                                                                      value=(value,) + found.value)
