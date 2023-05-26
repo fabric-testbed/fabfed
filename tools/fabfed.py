@@ -37,15 +37,19 @@ def manage_workflow(args):
             logger.error(f"Exceptions while initializing providers  .... {e}")
             sys.exit(1)
 
+        states = sutil.load_states(args.session)
+
         try:
-            controller.plan()
+            controller.plan(provider_states=states)
         except ControllerException as e:
             logger.error(f"Exceptions while adding resources ... {e}")
 
         try:
-            controller.create()
-        except ControllerException as e:
-            logger.error(f"Exceptions while creating resources ... {e}")
+            controller.create(provider_states=states)
+        except KeyboardInterrupt as kie:
+            logger.error(f"Keyboard Interrupt while creating resources ... {kie}")
+        except ControllerException as ce:
+            logger.error(f"Exceptions while creating resources ... {ce}")
 
         states = controller.get_states()
         pending = 0
@@ -56,6 +60,7 @@ def manage_workflow(args):
 
         for state in states:
             pending += len(state.pending)
+            pending += len(state.pending_internal)
             nodes += len([n for n in state.node_states if n.label not in state.failed])
             networks += len([n for n in state.network_states if n.label not in state.failed])
             services += len([s for s in state.service_states if s.label not in state.failed])
@@ -65,13 +70,21 @@ def manage_workflow(args):
         sutil.save_states(states, args.session)
         return
 
+    if args.init:
+        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+        controller = Controller(config=config, logger=logger)
+        controller.init(session=args.session, provider_factory=default_provider_factory)
+        sutil.dump_resources(controller.resources, args.json)
+        return
+
     if args.plan:
         config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger)
         controller.init(session=args.session, provider_factory=default_provider_factory)
+        states = sutil.load_states(args.session)
 
         try:
-            controller.plan()
+            controller.plan(provider_states=states)
         except ControllerException as e:
             logger.error(f"Exceptions while adding resources ... {e}")
 
@@ -102,7 +115,7 @@ def manage_workflow(args):
 
             for network_state in provider_state.network_states:
                 attributes = dict()
-                props = ['id','name', 'interface', 'site', 'state', 'profile', "dtn", 'layer3']
+                props = ['id', 'name', 'interface', 'site', 'state', 'profile', "dtn", 'layer3']
 
                 for prop in props:
                     if prop in network_state.attributes:

@@ -5,7 +5,8 @@ from sense.client.discover_api import DiscoverApi
 from sense.client.profile_api import ProfileApi
 from sense.client.workflow_combined_api import WorkflowCombinedApi
 
-from .sense_client import SENSE_CLIENT
+from .sense_client import get_client
+
 from .sense_constants import *
 
 from fabfed.util.utils import get_logger
@@ -14,7 +15,7 @@ logger = get_logger()
 
 
 def describe_profile(*, client=None, uuid: str):
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     profile_api = ProfileApi(req_wrapper=client)
     profile_details = profile_api.profile_describe(uuid)
     profile_details = json.loads(profile_details, object_hook=lambda dct: SimpleNamespace(**dct))
@@ -70,6 +71,8 @@ def populate_options_using_interfaces(options, interfaces, edit_uri_entries):
 
 
 def get_profile_uuid(*, client=None, profile):
+    from .sense_client import SENSE_CLIENT
+
     client = client or SENSE_CLIENT
     profiles = list_profiles(client=client)
 
@@ -84,7 +87,7 @@ def get_profile_uuid(*, client=None, profile):
 
 
 def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, interfaces):
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     profile_uuid = get_profile_uuid(client=client, profile=profile)
 
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
@@ -197,7 +200,7 @@ def instance_operate(*, client=None, si_uuid):
 def delete_instance(*, client=None, si_uuid):
     import time
 
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
 
     status = workflow_api.instance_get_status(si_uuid=si_uuid)
@@ -244,7 +247,7 @@ def instance_get_status(*, client=None, si_uuid):
 
 
 def service_instance_details(*, client=None, si_uuid):
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     discover_api = DiscoverApi(req_wrapper=client)
     response = discover_api.discover_service_instances_get()
     # print(json.dumps(json.loads(response), indent=2))
@@ -267,7 +270,7 @@ def service_instance_details(*, client=None, si_uuid):
 
 
 def discover_service_instances(*, client=None):
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     discover_api = DiscoverApi(req_wrapper=client)
     response = discover_api.discover_service_instances_get()
     # print(json.dumps(json.loads(response), indent=2))
@@ -286,7 +289,7 @@ def discover_service_instances(*, client=None):
 
 
 def list_profiles(*, client=None):
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     profile_api = ProfileApi(req_wrapper=client)
     profiles = profile_api.profile_list()
 
@@ -298,8 +301,9 @@ def list_profiles(*, client=None):
     return profiles
 
 
-def find_instance_by_alias(*, alias):
-    instances = discover_service_instances()
+def find_instance_by_alias(*, client=None, alias):
+    client = client or get_client()
+    instances = discover_service_instances(client=client)
 
     for instance in instances:
         if instance['alias'] == alias:
@@ -309,7 +313,7 @@ def find_instance_by_alias(*, alias):
 
 
 def get_vms_specs_from_profile(*, client=None, profile_uuid):
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     profile_details = describe_profile(client=client, uuid=profile_uuid)
     all_vms = []
 
@@ -324,7 +328,7 @@ def get_vms_specs_from_profile(*, client=None, profile_uuid):
 def manifest_create(*, client=None, template_file=None, alias=None, si_uuid=None):
     import os
 
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     si_uuid = si_uuid or find_instance_by_alias(alias=alias)
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
     template_file = os.path.join(os.path.dirname(__file__), 'manifests', template_file)

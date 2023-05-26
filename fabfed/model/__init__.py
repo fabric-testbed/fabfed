@@ -40,9 +40,15 @@ class SSHNode():
         if self.jump_host and self.jump_user and self.jump_keyfile:
             return f"-o ProxyJump=\"{self.jump_user}@{self.jump_host}\""
 
-    def write_ansible(self, friendly_name):
+    def write_ansible(self, friendly_name, delete=False):
         import os
         file_path = os.path.join(get_inventory_dir(friendly_name), f"{friendly_name}-{self.label}-{self.name}")
+        if delete:
+            try:
+                os.unlink(file_path)
+            except:
+                pass
+            return
         hosts =f"""[{self.name}]
 {self.host}
 [{self.name}:vars]
@@ -53,7 +59,6 @@ ansible_user={self.user}
 node={self.get_dataplane_address()}
 name={friendly_name}-{self.name}
 """
-
         with open(file_path, "w") as stream:
             try:
                 stream.write(hosts)
@@ -99,8 +104,8 @@ class Node(Resource,SSHNode):
     def get_dataplane_address(self, network=None, interface=None, af=None):
         pass
 
-    def write_ansible(self, friendly_name):
-        SSHNode.write_ansible(self, friendly_name)
+    def write_ansible(self, friendly_name, delete=False):
+        SSHNode.write_ansible(self, friendly_name, delete)
 
 
 class Network(Resource):
@@ -114,14 +119,14 @@ class Network(Resource):
     def get_reservation_id(self):
         pass
 
-    def write_ansible(self, friendly_name):
+    def write_ansible(self, friendly_name, delete=False):
         pass
 
 class Service(Resource):
     def __init__(self, *, label, name: str):
         super().__init__(label, name)
 
-    def write_ansible(self, friendly_name):
+    def write_ansible(self, friendly_name, delete=False):
         pass
 
 ResolvedDependency = namedtuple("ResolvedDependency", "resource_label attr value")

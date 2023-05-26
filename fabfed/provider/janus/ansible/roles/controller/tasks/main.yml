@@ -1,0 +1,20 @@
+---
+- name: set ipv6 facts
+  set_fact:
+    ipv6_registry: "{{ 'registry.ipv6.docker.com/' if not inventory_hostname|ansible.utils.ipv4 else '' }}"
+
+- name: apply compose template
+  template:
+    src: files/controller-compose.yml.j2
+    dest: /tmp/controller-compose.yml
+
+- name: apply setup template
+  template:
+    src: files/controller-setup.sh.j2
+    dest: /tmp/controller-setup.sh
+    mode: u+rwx
+
+- name: Run setup script
+  ansible.builtin.shell:
+    cmd: /tmp/controller-setup.sh
+    chdir: /tmp

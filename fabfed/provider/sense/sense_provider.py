@@ -21,7 +21,7 @@ class SenseProvider(Provider):
         self.config = config[profile]
         from .sense_client import init_client
 
-        init_client(config)
+        init_client(self.config)
 
     def _handle_peering_config(self, resource):
         import fabfed.provider.api.dependency_util as util
@@ -36,13 +36,13 @@ class SenseProvider(Provider):
             if isinstance(net, Network):
                 iface = net.interface
 
-            if isinstance(iface, list):
-                iface = iface[0]
+                if isinstance(iface, list):
+                    iface = iface[0]
 
-            if isinstance(iface, dict) and iface.get("provider") == "fabric":
-                peering.attributes[Constants.RES_ID] = iface[Constants.RES_ID]
-                peering.attributes[Constants.RES_SECURITY] = iface[Constants.RES_SECURITY]
-                self.logger.info(f"Added id and password to peering config:id={iface[Constants.RES_ID]}")
+                if isinstance(iface, dict) and iface.get("provider") == "fabric":
+                    peering.attributes[Constants.RES_ID] = iface[Constants.RES_ID]
+                    peering.attributes[Constants.RES_SECURITY] = iface[Constants.RES_SECURITY]
+                    self.logger.info(f"Added id and password to peering config:id={iface[Constants.RES_ID]}")
 
         return peering
 
@@ -74,18 +74,35 @@ class SenseProvider(Provider):
 
             return
 
+        stitch_info = resource.get(Constants.RES_STITCH_INFO)
+        sense_group = dict()
+
+        if stitch_info:
+            groups = [stitch_info.consumer_group, stitch_info.producer_group]
+            sense_group = next(filter(lambda g: g[Constants.PROVIDER] == self.type, groups))
+
         interfaces = resource.get(Constants.RES_INTERFACES)
+
+        if not interfaces:
+            option = sense_group.get('option')
+
+            if option:
+                interfaces = option.get('interface')
 
         if interfaces:
             for interface in interfaces:
-
                 if not interface.get(Constants.RES_BANDWIDTH):
                     interface[Constants.RES_BANDWIDTH] = resource.get(Constants.RES_BANDWIDTH)
 
         net_name = f'{self.name}-{name_prefix}'
         profile = resource.get(Constants.RES_PROFILE)
+
+        if not profile and sense_group:
+            profile = sense_group.get(Constants.RES_PROFILE)
+
+        assert profile, f"must provide a profile for {net_name}"
         layer3 = resource.get(Constants.RES_LAYER3)
-        peering = self._handle_peering_config(resource) # resource.get(Constants.RES_PEERING)
+        peering = self._handle_peering_config(resource)
         bandwidth = resource.get(Constants.RES_BANDWIDTH)
 
         from .sense_network import SenseNetwork

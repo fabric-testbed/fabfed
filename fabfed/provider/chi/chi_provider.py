@@ -75,14 +75,13 @@ class ChiProvider(Provider):
 
         if rtype == Constants.RES_TYPE_NETWORK.lower():
             layer3 = resource.get(Constants.RES_LAYER3)
-            stitch_providers = resource.get(Constants.RES_NET_STITCH_PROVS, list())
-            assert stitch_providers
-
+            stitch_info = resource.get(Constants.RES_STITCH_INFO)
+            assert stitch_info and stitch_info.consumer, f"resource {label} missing stitch provider"
             net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
             from fabfed.provider.chi.chi_network import ChiNetwork
 
             net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
-                             layer3=layer3, stitch_provider=stitch_providers[0],
+                             layer3=layer3, stitch_provider=stitch_info.consumer,
                              project_name=project_name)
             self._networks.append(net)
 
@@ -154,7 +153,7 @@ class ChiProvider(Provider):
             net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
             self.logger.debug(f"Deleting network: {net_name} at site {site}")
             from fabfed.provider.chi.chi_network import ChiNetwork
-            from fabfed.util.parser import Config
+            from ...util.config_models import Config
 
             layer3 = Config("", "", {})
 

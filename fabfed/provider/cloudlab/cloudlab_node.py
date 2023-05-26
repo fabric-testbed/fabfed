@@ -2,6 +2,7 @@ import json
 
 from fabfed.model import Node
 from fabfed.util.utils import get_logger
+from fabfed.util.constants import Constants
 from .cloudlab_constants import *
 from .cloudlab_exceptions import CloudlabException
 from .cloudlab_provider import CloudlabProvider
@@ -41,11 +42,11 @@ class CloudlabNode(Node):
         logger.info(f"STATUS: {json.dumps(status, indent=2)}")
         assert status['status'] == 'ready', f"status={status['status']}"
 
-        node_info = list(status[AGGREGATE_STATUS][NODE_URI][NODES].values())[0] # [NODE]
+        node_info = list(status[AGGREGATE_STATUS][NODE_URI][NODES].values())[0]  # [NODE]
         logger.info(f"NODE_INFO: {node_info}")
 
         self.mgmt_ip = node_info[IPV4]
-        self.host = node_info[HOSTNAME]
+        self.host = node_info[IPV4]  # node_info[HOSTNAME]
         exitval, response = api.experimentManifests(server, exp_params).apply()
 
         if exitval:
@@ -83,5 +84,10 @@ class CloudlabNode(Node):
     def add_route(self, subnet, gateway):
         pass
 
-    def get_dataplane_address(self, network=None, interface=None, af=None):
-        pass
+    def get_dataplane_address(self, network=None, interface=None, af=Constants.IPv4):
+        if af == Constants.IPv4:
+            return self.dataplane_ipv4
+        elif af == Constants.IPv6:
+            return self.dataplane_ipv6
+        else:
+            return None

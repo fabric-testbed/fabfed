@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import yaml
 
-from fabfed.util.parser import DependencyInfo, ResourceConfig, ProviderConfig, BaseConfig, Config, Dependency
+from fabfed.util.config_models import Config, ResourceConfig, BaseConfig, ProviderConfig, Dependency, DependencyInfo
 from fabfed.model import ResolvedDependency
 
 
@@ -30,13 +30,17 @@ class ServiceState(BaseState):
 
 class ProviderState(BaseState):
     def __init__(self, label, attributes, network_states: List[NetworkState],
-                 node_states: List[NodeState], service_states: List[ServiceState], pending, failed: Dict[str, str]):
+                 node_states: List[NodeState], service_states: List[ServiceState], pending, pending_internal, failed: Dict[str, str]):
         super().__init__("provider", label, attributes)
         self.network_states = network_states
         self.node_states = node_states
         self.service_states = service_states
         self.pending = pending
+        self.pending_internal = pending_internal
         self.failed = failed
+
+    def states(self):
+        return self.network_states + self.node_states + self.service_states
 
 
 def provider_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ProviderState:
@@ -51,6 +55,7 @@ def provider_representer(dumper: yaml.SafeDumper, provider_state: ProviderState)
         "node_states": provider_state.node_states,
         "service_states": provider_state.service_states,
         "pending": provider_state.pending,
+        "pending_internal": provider_state.pending_internal,
         "failed": provider_state.failed
     })
 
@@ -87,6 +92,7 @@ def base_config_representer(dumper: yaml.SafeDumper, base_config: BaseConfig) ->
         "name": base_config.name,
         "attrs": base_config.attributes
     })
+
 
 def config_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> Config:
     return Config(**loader.construct_mapping(node))

@@ -1,0 +1,55 @@
+version: '3.7'
+services:
+  portainer-ce:
+    image: {{ ipv6_registry }}portainer/portainer-ce:2.16.1
+    container_name: portainer-ce
+    restart: unless-stopped
+    volumes:
+      - portainer_data:/data
+    expose:
+      - 9000
+    ports:
+      - "0.0.0.0:9000:9000"
+    networks:
+      - dtnaas
+
+  controller:
+    image: {{ ipv6_registry }}dtnaas/controller
+    container_name: janus-controller
+    restart: unless-stopped
+    environment:
+      - PORT=5000
+    volumes:
+      - /etc/janus:/etc/janus
+    expose:
+      - 5000
+    ports:
+      - "0.0.0.0:5000:5000"
+    networks:
+      - dtnaas
+
+  janus-web:
+    image: {{ ipv6_registry }}dtnaas/janus-web
+    container_name: janus-web
+    restart: unless-stopped
+    environment:
+      - JANUS_WEB_CTRL_HOST=controller
+      - PORTAINER_WS=ws://portainer-ce:9000
+    expose:
+      - 8000
+    ports:
+      - "8000:8000"
+    networks:
+      - dtnaas
+
+volumes:
+  portainer_data:
+    external: true
+    name: portainer_data
+
+networks:
+  dtnaas:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: fd00:dead:beef::/48

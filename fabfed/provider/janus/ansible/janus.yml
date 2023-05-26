@@ -5,5 +5,6 @@
   roles:
     - { role: roles/docker, tags: 'docker' }
     - { role: roles/janus, tags: 'janus' }
+    - { role: roles/controller, tags: 'controller' }
     - { role: roles/janus-add-node, tags: 'janus-add' }
     - { role: roles/janus-del-node, tags: 'janus-del' }

@@ -1,19 +1,26 @@
 import logging
-from typing import List
+from typing import List, Union
 
 from fabfed.exceptions import ControllerException
 from fabfed.model.state import ProviderState
 from fabfed.util.config import WorkflowConfig
 from .helper import ControllerResourceListener, partition_layer3_config
+from .policy_helper import ProviderPolicy
 from .provider_factory import ProviderFactory
 from ..util.constants import Constants
+from ..util.config_models import ResourceConfig
 
 
 class Controller:
-    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger):
+    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger, policy: Union[ProviderPolicy, None] = None):
         self.config = config
         self.logger = logger
         self.provider_factory = None
+        self.resources: List[ResourceConfig] = []
+
+        from .policy_helper import load_policy
+
+        self.policy = policy or load_policy()
 
     def init(self, *, session: str, provider_factory: ProviderFactory):
         for provider_config in self.config.get_provider_config():
@@ -32,9 +39,13 @@ class Controller:
         for provider in providers:
             provider.set_resource_listener(resource_listener)
 
-        resources = self.config.get_resource_configs()
+        self.resources = self.config.get_resource_configs()
 
-        for resource in resources:
+        from .policy_helper import handle_stitch_info
+
+        self.resources = handle_stitch_info(self.config, self.policy, self.resources)
+
+        for resource in self.resources:
             resource_dict = resource.attributes
             resource_dict[Constants.RES_TYPE] = resource.type
             resource_dict[Constants.RES_NAME_PREFIX] = resource.name
@@ -43,6 +54,7 @@ class Controller:
             resource_dict[Constants.RESOLVED_EXTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.INTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.RESOLVED_INTERNAL_DEPENDENCIES] = list()
+            resource_dict[Constants.SAVED_STATES] = list()
 
             for dependency in resource.dependencies:
                 if dependency.is_external:
@@ -50,20 +62,8 @@ class Controller:
                 else:
                     resource_dict[Constants.INTERNAL_DEPENDENCIES].append(dependency)
 
-            if resource.is_network and not resource.attributes.get(Constants.RES_NET_STITCH_PROVS):
-                resource.attributes[Constants.RES_NET_STITCH_PROVS] = list()
-
-        for network in [resource for resource in resources if resource.is_network]:
-            for dependency in network.dependencies:
-                if dependency.resource.is_network:
-                    stitch_provider = network.provider.type
-
-                    if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
-                        if stitch_provider not in dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS]:
-                            dependency.resource.attributes[Constants.RES_NET_STITCH_PROVS].append(stitch_provider)
-
         layer3_to_network_mapping = {}
-        networks = [resource for resource in resources if resource.is_network]
+        networks = [resource for resource in self.resources if resource.is_network]
 
         for network in networks:
             layer3 = network.attributes.get(Constants.RES_LAYER3)
@@ -94,15 +94,22 @@ class Controller:
                 for other in [peer for peer in peers if peer.label != network.label]:
                     network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
+        # for network in networks:
+        #     self.logger.info(f"{network}: stitch_info={network.attributes.get(Constants.RES_STITCH_INFO)}")
+        #     self.logger.info(f"{network}: stitch_with={network.attributes.get(Constants.RES_STITCH_INTERFACE)}")
 
-    def plan(self):
-        resources = self.config.get_resource_configs()
+    def plan(self, provider_states: List[ProviderState]):
+        resources = self.resources
+        resource_state_map = Controller._build_state_map(provider_states)
         self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
 
         exceptions = []
         for resource in resources:
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
+
+            if resource.label in resource_state_map:
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
 
             try:
                 provider.add_resource(resource=resource.attributes)
@@ -113,8 +120,9 @@ class Controller:
         if exceptions:
             raise ControllerException(exceptions)
 
-    def create(self):
-        resources = self.config.get_resource_configs()
+    def create(self, provider_states: List[ProviderState]):
+        resources = self.resources
+        resource_state_map = Controller._build_state_map(provider_states)
         exceptions = []
 
         self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
@@ -122,6 +130,9 @@ class Controller:
         for resource in resources:
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
+
+            if resource.label in resource_state_map:
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
 
             try:
                 provider.create_resource(resource=resource.attributes)
@@ -132,13 +143,11 @@ class Controller:
         if exceptions:
             raise ControllerException(exceptions)
 
-    def delete(self, *, provider_states: List[ProviderState]):
-        exceptions = []
+    @staticmethod
+    def _build_state_map(provider_states):
         resource_state_map = dict()
-        provider_resource_map = dict()
-
         for provider_state in provider_states:
-            temp_list = provider_state.network_states + provider_state.node_states + provider_state.service_states
+            temp_list = provider_state.states()
 
             for state in temp_list:
                 if state.label in resource_state_map:
@@ -146,10 +155,26 @@ class Controller:
                 else:
                     resource_state_map[state.label] = [state]
 
+        return resource_state_map
+
+    def delete(self, *, provider_states: List[ProviderState]):
+        exceptions = []
+        resource_state_map = Controller._build_state_map(provider_states)
+        provider_resource_map = dict()
+
+        for provider_state in provider_states:
+            # temp_list = provider_state.states()
+            #
+            # for state in temp_list:
+            #     if state.label in resource_state_map:
+            #         resource_state_map[state.label].append(state)
+            #     else:
+            #         resource_state_map[state.label] = [state]
+
             key = provider_state.label
             provider_resource_map[key] = list()
 
-        temp = self.config.get_resource_configs()
+        temp = self.resources
         temp.reverse()
 
         for resource in temp:
@@ -159,6 +184,7 @@ class Controller:
                 external_states = [resource_state_map[ed.resource.label] for ed in external_dependencies]
                 resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = sum(external_states, [])
                 provider_resource_map[key].append(resource)
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
 
         remaining_resources = list()
         skip_resources = set()
