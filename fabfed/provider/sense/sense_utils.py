@@ -71,9 +71,7 @@ def populate_options_using_interfaces(options, interfaces, edit_uri_entries):
 
 
 def get_profile_uuid(*, client=None, profile):
-    from .sense_client import SENSE_CLIENT
-
-    client = client or SENSE_CLIENT
+    client = client or get_client()
     profiles = list_profiles(client=client)
 
     profile_uuid = profile
@@ -173,6 +171,7 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
 
 
 def instance_operate(*, client=None, si_uuid):
+    client = client or get_client()
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
 
     import time
@@ -242,6 +241,7 @@ def delete_instance(*, client=None, si_uuid):
 
 
 def instance_get_status(*, client=None, si_uuid):
+    client = client or get_client()
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
     return workflow_api.instance_get_status(si_uuid=si_uuid)
 
