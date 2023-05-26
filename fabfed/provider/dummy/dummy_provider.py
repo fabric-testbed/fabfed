@@ -39,16 +39,16 @@ class DummyNode(Node, SSHNode):
 
     def create(self):
         import random
-        self.logger.info(f" Node {self.name} created.")
+        self.logger.info(f" Dummy Node {self.name} created.")
         self.user = "dummy_user"
-        self.host = f"localhost{random.randint(0,20)}"
+        self.host = f"localhost_{self.name}"
         self.keyfile = "~/.ssh/dummy_key"
         #self.jump_user = "dummy_jump_user"
         self.jump_host = "dummy.jumphost.net"
         self.jump_keyfile = "~/.ssh/dummy_jump_key"
 
     def delete(self):
-        self.logger.info(f" Node {self.name} deleted")
+        self.logger.info(f" Dummy Node {self.name} deleted")
 
     def get_reservation_id(self):
         pass
@@ -79,10 +79,10 @@ class DummyService(Service):
             self._hidden_attribute = HideAttribute(x=random.randint(1, 5), y=random.random())
             self.exposed_attribute_x = self._hidden_attribute.x
 
-        self.logger.info(f" Service {self.name} created. X={self.exposed_attribute_x}")
+        self.logger.info(f" Dummy Service {self.name} created. X={self.exposed_attribute_x}")
 
     def delete(self):
-        self.logger.info(f" Service {self.name} deleted")
+        self.logger.info(f" Dummy Service {self.name} deleted")
 
 class DummyProvider(Provider):
 
@@ -169,7 +169,6 @@ class DummyProvider(Provider):
         @param resource: resource attributes
         """
         label = resource.get(Constants.LABEL)
-
         self.logger.info(f"Creating resource={resource} using {self.label}")
 
         rtype = resource.get(Constants.RES_TYPE)
@@ -192,12 +191,23 @@ class DummyProvider(Provider):
         self.logger.info(f"Deleting resource={resource} using {self.label}")
 
         label = resource.get(Constants.LABEL)
-        service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-        service_count = resource.get(Constants.RES_COUNT, 1)
-        image = resource.get(Constants.RES_IMAGE)
+        rtype = resource.get(Constants.RES_TYPE)
+        name_prefix = resource.get(Constants.RES_NAME_PREFIX)
 
-        for n in range(0, service_count):
-            service_name = f"{self.name}-{service_name_prefix}-{n}"
-            service = DummyService(label=label, name=service_name, image=image, logger=self.logger)
-            service.delete()
-            self.resource_listener.on_deleted(source=self, provider=self, resource=service)
+        if rtype == Constants.RES_TYPE_NODE.lower():
+            node_count = resource.get(Constants.RES_COUNT, 1)
+            for i in range(node_count):
+                name = f"{name_prefix}{i}"
+                node = DummyNode(label=label, name=name, site=None, image=None, flavor=None, logger=self.logger)
+                node.delete()
+                self.resource_listener.on_deleted(source=self, provider=self, resource=node)
+        elif rtype == Constants.RES_TYPE_NETWORK.lower():
+            pass
+        elif rtype == Constants.RES_TYPE_SERVICE.lower():
+            service_count = resource.get(Constants.RES_COUNT, 1)
+            image = resource.get(Constants.RES_IMAGE)
+            for n in range(0, service_count):
+                service_name = f"{self.name}-{name_prefix}-{n}"
+                service = DummyService(label=label, name=service_name, image=image, logger=self.logger)
+                service.delete()
+                self.resource_listener.on_deleted(source=self, provider=self, resource=service)
