@@ -54,6 +54,7 @@ class Controller:
             resource_dict[Constants.RESOLVED_EXTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.INTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.RESOLVED_INTERNAL_DEPENDENCIES] = list()
+            resource_dict[Constants.SAVED_STATES] = list()
 
             for dependency in resource.dependencies:
                 if dependency.is_external:
@@ -177,8 +178,6 @@ class Controller:
         temp.reverse()
 
         for resource in temp:
-            resource.attributes[Constants.SAVED_STATES] = list()
-
             if resource.label in resource_state_map:
                 key = resource.provider.label
                 external_dependencies = resource.attributes.get(Constants.EXTERNAL_DEPENDENCIES, [])
