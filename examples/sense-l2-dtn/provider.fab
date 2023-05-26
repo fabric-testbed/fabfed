@@ -2,7 +2,7 @@ provider:
   - fabric:
     - fabric_provider:
          credential_file: ~/.fabfed/fabfed_credentials.yml
-         profile: beta_fabric 
+         profile: fabric 
 
   - sense:
     - sense_provider:

@@ -77,41 +77,46 @@ class CloudNetwork(Network):
         while True:
             exitval, response = api.experimentStatus(server, exp_params).apply()
 
-            if exitval:
-                code = response.value
+            # sometimes the response is not what we expect (network glitch). We keep checking status ...
+            if response and hasattr(response, "value"):
+                if exitval:
+                    code = response.value
 
-                if code == api.GENIRESPONSE_REFUSED or code == api.GENIRESPONSE_NETWORK_ERROR:
-                    logger.debug("Server is offline, waiting for a bit")
-                    continue
-                elif code == api.GENIRESPONSE_BUSY:
-                    logger.debug("Experiment is busy, waiting for a bit")
-                    continue
-                elif code == api.GENIRESPONSE_SEARCHFAILED:
-                    raise CloudlabException(message="Experiment is gone", exitval=exitval, response=response)
+                    if code == api.GENIRESPONSE_REFUSED or code == api.GENIRESPONSE_NETWORK_ERROR:
+                        logger.debug("Server is offline, waiting for a bit")
+                    elif code == api.GENIRESPONSE_BUSY:
+                        logger.debug("Experiment is busy, waiting for a bit")
+                    elif code == api.GENIRESPONSE_SEARCHFAILED:
+                        raise CloudlabException(message="Experiment is gone", exitval=exitval, response=response)
+                    else:
+                        raise CloudlabException(exitval=exitval, response=response)
                 else:
-                    raise CloudlabException(exitval=exitval, response=response)
+                    status = json.loads(response.value)
+                    logger.info(json.dumps(status, indent=2))
 
-            status = json.loads(response.value)
-            logger.info(json.dumps(status, indent=2))
+                    if status["status"] == "failed":
+                        raise CloudlabException(exitval=exitval, response=response,
+                                                message="Experiment failed to instantiate")
+                    elif status["status"] == "ready":
+                        if "execute_status" not in status:
+                            logger.info("No execute service to wait for!")
+                            break
 
-            if status["status"] == "failed":
-                raise CloudlabException(exitval=exitval, response=response, message="Experiment failed to instantiate")
-            elif status["status"] == "ready":
-                if "execute_status" not in status:
-                    logger.info("No execute service to wait for!")
-                    break
+                        total = status["execute_status"]["total"]
+                        finished = status["execute_status"]["finished"]
 
-                total = status["execute_status"]["total"]
-                finished = status["execute_status"]["finished"]
+                        if total != finished:
+                            logger.info("Still waiting for execute service to finish")
+                            continue
 
-                if total != finished:
-                    logger.info("Still waiting for execute service to finish")
-                    continue
+                        logger.info("Execute services have finished")
+                        break
 
-                logger.info("Execute services have finished")
-                break
+            if response and hasattr(response, "value"):
+                logger.info(f"Still waiting for experiment to be ready exitval={exitval}:{response.value}")
+            else:
+                logger.warning(f"Still waiting for experiment to be ready exitval={exitval}:{response}")
 
-            logger.info("Still waiting for experiment to be ready")
             time.sleep(CLOUDLAB_SLEEP_TIME)
 
         exitval, response = api.experimentManifests(server, exp_params).apply()

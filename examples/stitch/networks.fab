@@ -16,7 +16,6 @@ resource:
 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          site: '{{ var.fabric_site }}'
-          stitch_interface: '{{ network.chi_network }}'
+          stitch_with: '{{ network.chi_network }}'
           interface: '{{ node.fabric_node }}'
           layer3: "{{ layer3.my_layer }}"

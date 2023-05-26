@@ -5,7 +5,7 @@ from fabrictestbed_extensions.fablib.slice import Slice
 
 from fabfed.model import Network
 from fabfed.util.constants import Constants
-from ...util.parser import Config
+from ...util.config_models import Config
 
 from fabfed.util.utils import get_logger
 
@@ -91,18 +91,29 @@ class FabricUtil:
 class NetworkBuilder:
     def __init__(self, label, slice_object: Slice, name, resource: dict):
         self.slice_object = slice_object
-        self.vlan = None  # facility port vlan
-        self.site = resource.get(Constants.RES_SITE)  # facility port site
+        self.stitch_info = resource.get(Constants.RES_STITCH_INFO)
+        self.stitch_port = self.stitch_info.stitch_port if self.stitch_info else dict()
+        self.vlan = None
+        self.site = resource.get(Constants.RES_SITE)
+        self.interfaces = []
+        self.net_name = name
+        self.layer3 = resource.get(Constants.RES_LAYER3)
+        self.peering = resource.get(Constants.RES_PEERING)
+        self.peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
+        self.device = None
 
-        ports = FabricUtil.get_facility_ports()
-        prop = 'stitch_interface'
+        if self.stitch_info:
+            logger.info(f'Network {self.net_name}:Got stitch_info={self.stitch_info}')
+        else:
+            logger.warning(f"Network {self.net_name} has no stitch info ...")
 
+        # TODO PROVIDE A WAY TO SET THE VLAN FOR TESTING ....
         if not self.vlan:
             import fabfed.provider.api.dependency_util as util
             from fabfed.exceptions import FabfedException
 
-            if util.has_resolved_external_dependencies(resource=resource, attribute=prop):
-                net = util.get_single_value_for_dependency(resource=resource, attribute=prop)
+            if util.has_resolved_external_dependencies(resource=resource, attribute=Constants.RES_STITCH_INTERFACE):
+                net = util.get_single_value_for_dependency(resource=resource, attribute=Constants.RES_STITCH_INTERFACE)
 
                 if isinstance(net, Network):
                     net = net.interface
@@ -114,26 +125,26 @@ class NetworkBuilder:
                     self.vlan = net['vlan']
                     provider = net['provider']
 
-                    if provider not in ports or not ports[provider]:
-                        raise FabfedException(f"no facility ports for provider {provider}:available_ports={ports}")
+                    if not self.stitch_port:
+                        ports = FabricUtil.get_facility_ports()
+                        if provider not in ports or not ports[provider]:
+                            raise FabfedException(f"no facility ports for provider {provider}:available_ports={ports}")
 
-                    provider_ports = ports[provider]
+                        provider_ports = ports[provider]
 
-                    if self.site not in provider_ports:
-                        port_tuple = list(provider_ports.items())[0]
-                        self.site = port_tuple[0]
-                        self.facility_port = port_tuple[1]['name']
+                        if self.site not in provider_ports:
+                            port_tuple = list(provider_ports.items())[0]
+                            self.site = port_tuple[0]
+                            self.device = port_tuple[1]['name']
+                        else:
+                            self.device = provider_ports[self.site]['name']
                     else:
-                        self.facility_port = provider_ports[self.site]['name']
+                        self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
+                        self.site = self.stitch_port.get(Constants.STITCH_PORT_SITE)
+
 
         if isinstance(self.vlan, list):
             self.vlan = self.vlan[0]
-
-        self.interfaces = []
-        self.net_name = name
-        self.layer3 = resource.get(Constants.RES_LAYER3)
-        self.peering = resource.get(Constants.RES_PEERING)
-        self.peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
 
         if self.peering:
             from .plugins import Plugins
@@ -149,7 +160,7 @@ class NetworkBuilder:
 
         if self.vlan:
             logger.info(
-                f'Network {self.net_name}:Got vlan={self.vlan},facility_port={self.facility_port},site={self.site}')
+                f'Network {self.net_name}:Got vlan={self.vlan},facility_port={self.device},site={self.site}')
         else:
             logger.warning(f"Network {self.net_name} has no vlan ...")
 
@@ -162,15 +173,30 @@ class NetworkBuilder:
 
         if self.peering:
             cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
+
             asn = self.peering.attributes.get(Constants.RES_REMOTE_ASN)
             account_id = self.peering.attributes.get(Constants.RES_CLOUD_ACCOUNT)
             subnet = self.peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
             peer_subnet = self.peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
             region= self.peering.attributes.get(Constants.RES_CLOUD_REGION)
             device = self.peering.attributes.get(Constants.RES_LOCAL_DEVICE)
-            port  = self.peering.attributes.get(Constants.RES_LOCAL_PORT)
+            port = self.peering.attributes.get(Constants.RES_LOCAL_PORT)
+
+            if not device:
+                device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
+
+            if not port:
+                port = self.stitch_port.get(Constants.STITCH_PORT_LOCAL_NAME)
+
+            if not region:
+                region = self.stitch_port.get(Constants.STITCH_PORT_REGION)
+
+            if not cloud:
+                cloud = self.stitch_port.get(Constants.STITCH_PORT_SITE)
+                self.peering.attributes[Constants.RES_CLOUD_FACILITY] = cloud # TODO WORKAROUND FOR NOW
 
             labels = Labels(ipv4_subnet=subnet)
+
             if region:
                 labels = Labels.update(labels, region=region)
             if device: 
@@ -195,7 +221,7 @@ class NetworkBuilder:
 
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
-            facility_port = self.slice_object.add_facility_port(name=self.facility_port,
+            facility_port = self.slice_object.add_facility_port(name=self.device,
                                                                 site=self.site,
                                                                 vlan=str(self.vlan))
 

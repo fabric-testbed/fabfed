@@ -37,6 +37,7 @@ def build_parser(*, manage_workflow, manage_sessions):
     workflow_parser.add_argument('-validate', action='store_true', default=False,
                                  help='assembles and validates all .fab files  in the config directory')
     workflow_parser.add_argument('-apply', action='store_true', default=False, help='create resources')
+    workflow_parser.add_argument('-init', action='store_true', default=False, help='display resource ordering')
     workflow_parser.add_argument('-plan', action='store_true', default=False, help='shows plan')
     workflow_parser.add_argument('-show', action='store_true', default=False, help='display resources')
     workflow_parser.add_argument('-summary', action='store_true', default=False, help='display resources')
@@ -71,6 +72,11 @@ _LOGGER = None
 
 
 def get_logger():
+    global _LOGGER
+
+    if not _LOGGER:
+        _LOGGER = init_logger()
+
     return _LOGGER
 
 

@@ -39,7 +39,16 @@ class FabricNode(Node):
             logger.warning(f" Node {self.name} has no management ip ")
             return
 
-        v6_dev = v4_dev = None
+        v6_dev = v4_dev = stitch_dev = None
+        try:
+            # XXX Finding interfaces on stitched networks is currently not working on fablib==1.4.0
+            # Search for interface directly...
+            stitch_iface = slice_object.get_interface(name=f"{self.name}-{FABRIC_STITCH_NET_IFACE_NAME}-p1")
+            stitch_dev = stitch_iface.get_device_name()
+            logger.info(f" Node {self.name} has stitch device={stitch_dev}")
+        except:
+            logger.warning(f" Node {self.name} has no stitch network/device")
+            pass
 
         if INCLUDE_FABNETS:
             v4_net = slice_object.get_network(name=self.v4net_name)
@@ -56,12 +65,18 @@ class FabricNode(Node):
 
             for addr_info in ip_addr['addr_info']:
                 self.addr_list[ifname].append(addr_info['local'])
+                if stitch_dev:
+                    if stitch_dev == ifname and addr_info['family'] == 'inet':
+                        self.dataplane_ipv4 = addr_info['local']
 
-                if v4_dev == ifname and addr_info['family'] == 'inet':
-                    self.dataplane_ipv4 = addr_info['local']
+                    if stitch_dev == ifname and addr_info['family'] == 'inet6':
+                        self.dataplane_ipv6 = addr_info['local']
+                else:
+                    if v4_dev == ifname and addr_info['family'] == 'inet':
+                        self.dataplane_ipv4 = addr_info['local']
 
-                if v6_dev == ifname and addr_info['family'] == 'inet6':
-                    self.dataplane_ipv6 = addr_info['local']
+                    if v6_dev == ifname and addr_info['family'] == 'inet6':
+                        self.dataplane_ipv6 = addr_info['local']
         # print("""""""""""""""""""""""""""""""""""""""""""")
         # print("Interfaces:")
         # for iface in delegate.get_interfaces():

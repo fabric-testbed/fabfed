@@ -2,6 +2,32 @@ from fabfed.model.state import ProviderState
 from fabfed.util.utils import get_base_dir
 from typing import List
 
+import json
+
+
+class SetEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        else:
+            return obj.__dict__
+        # return json.JSONEncoder.default(self, obj)
+
+
+def dump_resources(resources, to_json: bool):
+    import sys
+
+    if to_json:
+        import json
+
+        # sys.stdout.write(json.dumps(resources, default=lambda o: o.__dict__, indent=3))
+        sys.stdout.write(json.dumps(resources, cls=SetEncoder, indent=3))
+    else:
+        import yaml
+        from fabfed.model.state import get_dumper
+
+        sys.stdout.write(yaml.dump(resources, Dumper=get_dumper()))
+
 
 def dump_states(states, to_json: bool):
     import sys
@@ -10,7 +36,8 @@ def dump_states(states, to_json: bool):
     if to_json:
         import json
 
-        sys.stdout.write(json.dumps(states, default=lambda o: o.__dict__, indent=3))
+        # sys.stdout.write(json.dumps(states, default=lambda o: o.__dict__, indent=3))
+        sys.stdout.write(json.dumps(states, cls=SetEncoder, indent=3))
     else:
         import yaml
 

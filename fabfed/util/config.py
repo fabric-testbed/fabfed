@@ -1,4 +1,5 @@
-from .parser import Parser, ResourceConfig, ProviderConfig
+from .parser import Parser
+from .config_models import ResourceConfig, ProviderConfig
 from typing import List
 
 
