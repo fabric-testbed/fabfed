@@ -15,6 +15,8 @@ class SenseNode(Node):
         self._spec = spec
         self.spec_name = spec['name']
         self.node_details: dict = {}
+        self.dataplane_ipv4 = None
+        self.dataplane_ipv6 = None
 
     def create(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.network)
@@ -33,6 +35,7 @@ class SenseNode(Node):
         if not self.node_details:
             raise SenseException(f"Was not able to get node details {self.name}:spec_name={self.spec_name}")
 
+        self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_AWS_PRIVATE_IP]
         self.mgmt_ip = self.node_details[SenseConstants.SENSE_AWS_PUBLIC_IP]
         self.image = self.node_details[SenseConstants.SENSE_AWS_IMAGE]
         self.image = self.image[self.image.find("+") + 1:]

@@ -32,7 +32,6 @@ class Constants:
     RES_NET_POOL_START = "pool_start"
     RES_NET_POOL_END = "pool_end"
     RES_NET_GATEWAY = "gateway"
-    RES_NET_STITCH_PROVS = "stitch_providers"
     RES_NET_CALLBACK = "callback"
     RES_SUBNET = 'subnet'
     RES_LAYER3 = 'layer3'
@@ -61,6 +60,14 @@ class Constants:
     RES_LOCAL_DEVICE = "local_device"
     RES_LOCAL_PORT = "local_port"
 
+    STITCH_PORT_DEVICE_NAME = 'device_name'
+    STITCH_PORT_LOCAL_NAME = 'local_name'
+    STITCH_PORT_REGION = 'region'
+    STITCH_PORT_SITE = 'site'
+
+    RES_STITCH_INFO = "stitch_info"
+    RES_STITCH_INTERFACE = "stitch_interface"
+
     LOGGING = "logging"
     PROPERTY_CONF_LOG_FILE = 'log-file'
     PROPERTY_CONF_LOG_LEVEL = 'log-level'
@@ -74,7 +81,12 @@ class Constants:
     INTERNAL_DEPENDENCIES = "internal_dependencies"
     RESOLVED_INTERNAL_DEPENDENCIES = "resolved_internal_dependencies"
 
+    SAVED_STATES = "saved_states"
     EXTERNAL_DEPENDENCY_STATES = "external_dependency_states"
+
+    NETWORK_STITCH_WITH = "stitch_with"
+    NETWORK_STITCH_OPTION = "stitch_option"
+    PROVIDER = 'provider'
 
     PROVIDER_CLASSES = {
         "fabric": "fabfed.provider.fabric.fabric_provider.FabricProvider",

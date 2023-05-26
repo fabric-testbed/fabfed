@@ -15,19 +15,26 @@ resource:
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          site: UKY
+          # site: UKY
           layer3: "{{ layer3.my_layer }}"
           interface: '{{ node.fabric_node }}'
-          stitch_interface: '{{ network.net1 }}' # 852 to 855 
+          stitch_with: '{{ network.net1 }}' # 852 to 855 
+          stitch_option: 
+              # profile: 'FABRIC-L2-DTN'
+              # site: UKY 
+              # device_name : UKY-AL2S 
+              interface:
+                - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24
   - network:
       - net1:
           provider: '{{ sense.sense_provider }}'
-          profile: FABRIC-L2-DTN # You can use uid as well fc67b2d6-3ff7-44d0-9367-f2e24dc90107
+          # profile: FABRIC-L2-DTN # You can use uid as well fc67b2d6-3ff7-44d0-9367-f2e24dc90107
           name: l2-net
-          bandwidth: "500"
+          # bandwidth: "500"
           layer3: "{{ layer3.my_layer }}"
-          interface:
-            - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24
+          # interface:
+          #  - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24
+          # stitch_with: '{{ network.fabric_network }}' 
   - service:
       - dtn_service:
           provider: '{{ janus.janus_provider }}'

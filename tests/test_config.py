@@ -1,4 +1,5 @@
-from fabfed.util.parser import Parser, DependencyInfo
+from fabfed.util.parser import Parser
+from fabfed.util.config_models import DependencyInfo
 from fabfed.exceptions import ParseConfigException
 from fabfed.exceptions import ResourceTypeNotSupported
 import pytest

@@ -22,7 +22,7 @@ class ControllerResourceListener(ResourceListener):
 def partition_layer3_config(*, networks: list):
     from ipaddress import IPv4Address
     from ..util.constants import Constants
-    from ..util.parser import Config
+    from fabfed.util.config_models import Config
 
     if len(networks) <= 1:
         return

@@ -116,8 +116,11 @@ class FabricSlice:
         for i in range(node_count):
             name = f"{name_prefix}{i}"
             node_builder = NodeBuilder(label, self.slice_object, name, resource)
-            node_builder.add_component(model=nic_model, name="nic1")
-            self.logger.info(f"Added nic1 interface using model {nic_model} to node {name}")
+            # node_builder.add_component(model=nic_model, name="nic1")
+            # self.logger.info(f"Added nic1 interface using model {nic_model} to node {name}")
+            node_builder.add_component(model=nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
+            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface using model {nic_model} to node {name}")
+
             node = node_builder.build()
             self.nodes.append(node)
 
@@ -155,7 +158,7 @@ class FabricSlice:
                     raise Exception(f"Did not find network named {name_prefix}")
 
                 layer3 = resource.get(Constants.RES_LAYER3)
-                peer_layer3 = resource.get(Constants.RES_LAYER3)
+                peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
                 peering = resource.get(Constants.RES_PEERING)
                 net = FabricNetwork(label=label, delegate=delegate, layer3=layer3,
                                     peering=peering, peer_layer3=peer_layer3)
