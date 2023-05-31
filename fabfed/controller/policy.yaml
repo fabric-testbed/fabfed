@@ -32,6 +32,11 @@ fabric:
       - name: UKY
         consumer-for:
             - sense/UKY
+
+      - name: GCP 
+        consumer-for:
+            - sense/GCP
+
 sense:
   stitch-port:
     - site: UKY
@@ -39,6 +44,14 @@ sense:
         - UKY
       device_name: UKY-AL2S
       preference: 90 # higher is preferred
+
+    - site: GCP 
+      member-of:
+        - GCP 
+
+      device_name: REPLACE_ME_WITH_DEVICE_NAME 
+      local_name: REPLACE_ME_WITH_LOCAL_NAME 
+      preference: 10 # higher is preferred
 
   group:
       - name: AWS # referred to as "sense/aws"
@@ -56,6 +69,12 @@ sense:
 
         producer-for:
           - fabric/UKY
+
+      - name: GCP 
+        profile: REPLACE_ME_WITH_SENSE_PROFILE_NAME 
+        producer-for:
+          - fabric/GCP
+
 chi:
   stitch-port:
     - site: STAR
