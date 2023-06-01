@@ -49,7 +49,7 @@ class ProviderConfig(BaseConfig):
         super().__init__(type, name, attrs)
 
 
-Dependency = namedtuple("Dependency", "key resource  attribute, is_external")
+Dependency = namedtuple("Dependency", "key resource attribute is_external")
 
 
 class ResourceConfig(BaseConfig):

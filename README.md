@@ -9,7 +9,7 @@ The FabFed is a Python library for a cross-testbed federation framework that (1)
 
 The FabFed code took the initial form from the Mobius API, and refactored and reinvented the slice modeling, user interface, data structure and  stitching workflows. 
 
-The example below showcases network stitching across providers, a [chi](https://www.chameleoncloud.org/) provider and a [fabric](https://portal.fabric-testbed.net/) provider. The configuration, while incomplete, highlights how fabfed-py expresses dependencies. In particular, line 12 states that the network labeled `fabric_network` gets its `vlan` from the `chi_network`. 
+The example below showcases network stitching across providers, a [chi](https://www.chameleoncloud.org/) provider and a [fabric](https://portal.fabric-testbed.net/) provider. The configuration, while incomplete, highlights how fabfed-py expresses dependencies.  
 
 - For more details, refer to fabfed's [workflow design](./docs/workflow_design.md)
 - For a complete example, refer to  [Fabric Chameleon Stitching](./examples/stitch)
@@ -26,7 +26,7 @@ The example below showcases network stitching across providers, a [chi](https://
   9       - fabric_network:
  10            provider: '{{ fabric.fabric_provider }}'
  11            site: 'STAR'
- 12            vlan: '{{ network.chi_network.vlans}}'
+ 12            stitch_with: '{{ network.chi_network }}'
 ```
 
 # <a name="install"></a>Installation
@@ -48,13 +48,17 @@ the <i>--config-dir</i>.  If this option is not present, the current directory i
 - [ ] Use the --help options shown above if in doubt. 
 
 ```
-fabfed workflow --config-dir some_dir --var-file some_var_file.yml --session some_session -validate
+fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -validate
 
-fabfed workflow --config-dir some_dir --var-file some_var_file.yml --session some_session  -apply
+fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -init [-summary] [-json]
 
-fabfed workflow --config-dir some_dir --var-file some_var_file.yml --session some_session -show
+fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -plan [-summary] [-json]
 
-fabfed workflow --config-dir some_dir --var-file some_var_file.yml --session some_session -destroy
+fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -apply
+
+fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -show [-summary] [-json]
+
+fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -destroy
 
 fabfed sessions -show
 ```

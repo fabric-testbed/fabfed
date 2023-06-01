@@ -32,7 +32,6 @@ class Constants:
     RES_NET_POOL_START = "pool_start"
     RES_NET_POOL_END = "pool_end"
     RES_NET_GATEWAY = "gateway"
-    RES_NET_CALLBACK = "callback"
     RES_SUBNET = 'subnet'
     RES_LAYER3 = 'layer3'
     RES_PEER_LAYER3 = 'peer_layer3'
@@ -40,6 +39,7 @@ class Constants:
     RES_LAYER3_DHCP_END = 'ip_end'
 
     RES_INTERFACES = 'interface'
+    RES_NODES = 'node'
     RES_BANDWIDTH = "bandwidth"
     RES_INDEX = 'index'
 
