@@ -40,12 +40,12 @@ fabfed sessions --help
 ```
 
 # <a name="operate"></a>Operation Instructions
-- [ ] Fabfed worflow configuration is specified across one or more <i>.fab<i> files. Fabfed does not care how these files  are named. Fabfed simply loads all the .fab configuration files, assembles them and parses the assembled configuration.  
-- [ ] Fabfed will pickup any file ending with the <b>.fab</b> extension in the directory specified by
+- Fabfed worflow configuration is specified across one or more <i>.fab<i> files. Fabfed does not care how these files  are named. Fabfed simply loads all the .fab configuration files, assembles them and parses the assembled configuration.  
+- Fabfed will pickup any file ending with the <b>.fab</b> extension in the directory specified by
 the <i>--config-dir</i>.  If this option is not present, the current directory is used. 
-- [ ] The --var-file option can be used to override the default value of any variable. It consists of a set of key-value pairs with each pair written as ```key: value```. At runtime, all variables found in an assembled configuration must have a value other than ```None```. The parser will halt and throw an exeption otherwise. 
-- [ ] The --session is a friendly name used to track a given workflow.  
-- [ ] Use the --help options shown above if in doubt. 
+- The --var-file option can be used to override the default value of any variable. It consists of a set of key-value pairs with each pair written as ```key: value```. At runtime, all variables found in an assembled configuration must have a value other than ```None```. The parser will halt and throw an exeption otherwise. 
+- The --session is a friendly name used to track a given workflow.  
+- Use the --help options shown above if in doubt. 
 
 ```
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -validate
