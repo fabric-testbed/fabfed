@@ -71,7 +71,7 @@ sense:
           - fabric/UKY
 
       - name: GCP 
-        profile: REPLACE_ME_WITH_SENSE_PROFILE_NAME 
+        profile: GCP-INTERCONN 
         producer-for:
           - fabric/GCP
 
