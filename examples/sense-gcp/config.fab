@@ -27,14 +27,14 @@ config:
 
           # FOR SENSE and FABRIC
           local_asn: "55038" # customer_asn (hard coded for now) 
-          local_address: "192.168.1.1/30" # customer_ip
+          local_address: "192.168.1.1/30" # customer_ip (ignore)
           remote_asn: "16550" # google_asn (default) 
-          remote_address: "192.168.1.2/30" # google_ip
+          remote_address: "192.168.1.2/30" # google_ip (ignore)
 resource:
   - node:
       - sense_node:
           provider: '{{ sense.sense_provider }}'
-          name: aws-node
+          name: gcp-node
           network: "{{ network.sense_net }}"
           service:
           count: 1 
@@ -47,7 +47,7 @@ resource:
   - network:
       - sense_net:
           provider: '{{ sense.sense_provider }}'
-          name: aws-net
+          name: gcp-net
           layer3: "{{ layer3.sense_layer }}"
           peering: "{{ peering.my_peering }}"
           count: 1 
