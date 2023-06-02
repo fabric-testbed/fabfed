@@ -19,17 +19,17 @@ config:
   - peering:
       - my_peering:
           # FOR FABRIC
-          cloud_account: "296256999979"
+          cloud_account: "296256999979" # pairing key
           cloud_facility:
-          local_device:
-          local_port:
-          cloud_region:
+          local_device: "agg4.ashb.net.internet2.edu"
+          local_port: "Bundle-Ether5"
+          cloud_region: "us-east4"
 
           # FOR SENSE and FABRIC
           local_asn: "55038" # customer_asn (hard coded for now) 
           local_address: "192.168.1.1/30" # customer_ip
-          remote_asn: "64512" # amazon_asn 
-          remote_address: "192.168.1.2/30" # amazon_ip
+          remote_asn: "16550" # google_asn (default) 
+          remote_address: "192.168.1.2/30" # google_ip
 resource:
   - node:
       - sense_node:
@@ -53,7 +53,7 @@ resource:
           count: 1 
           stitch_with: '{{ network.fabric_network }}'
           stitch_option:
-              profile: REPLACE_ME_WITH_SENSE_PROFILE_NAME
+              profile: GCP-INTERCONN
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
