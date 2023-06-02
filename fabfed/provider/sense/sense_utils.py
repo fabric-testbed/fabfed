@@ -104,6 +104,16 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
         logger.info(f'Edit Entries: {json.dumps(temp_entries, indent=2)}')
 
     edit_uri_entries = [e for e in edit_entries if e.path.endswith(SENSE_URI)]
+    
+    """ figure out the cloud service: aws, gcp and etc. """
+    xform = profile_details.intent.options[0]
+    if xform == "aws-form":
+        peering_mapping = SENSE_AWS_PEERING_MAPPING
+    elif xform == "gcp-form":
+        peering_mapping = SENSE_GCP_PEERING_MAPPING
+    else:
+        raise Exception(f"invalide mapping ....{xform}")
+        
     options = []
 
     if interfaces:
@@ -113,7 +123,7 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
         options.append({f"data.connections[{0}].bandwidth.capacity": bandwidth})
 
     if peering:
-        for k, v in SENSE_AWS_PEERING_MAPPING.items():
+        for k, v in peering_mapping.items():
             if peering.attributes.get(k):
                 path = "data.gateways[0].connects[0]." + v
                 options.append({path: peering.attributes.get(k)})
