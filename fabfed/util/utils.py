@@ -34,6 +34,9 @@ def build_parser(*, manage_workflow, manage_sessions):
                                  required=False)
     workflow_parser.add_argument('-s', '--session', type=str, default='',
                                  help='friendly session name to help track a workflow', required=True)
+    workflow_parser.add_argument('-p', '--policy-file', type=str, default='',
+                                 help="Yaml stitching policy file",
+                                 required=False)
     workflow_parser.add_argument('-validate', action='store_true', default=False,
                                  help='assembles and validates all .fab files  in the config directory')
     workflow_parser.add_argument('-apply', action='store_true', default=False, help='create resources')

@@ -13,6 +13,10 @@ def manage_workflow(args):
 
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
+    from fabfed.controller.policy_helper import load_policy
+
+    policy = load_policy(policy_file=args.policy_file) if args.policy_file else {}
+
     if args.validate:
         try:
             WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
@@ -26,7 +30,7 @@ def manage_workflow(args):
         config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
 
         try:
-            controller = Controller(config=config, logger=logger)
+            controller = Controller(config=config, logger=logger, policy=policy)
         except Exception as e:
             logger.error(f"Exceptions while initializing controller .... {e}")
             sys.exit(1)
@@ -72,14 +76,14 @@ def manage_workflow(args):
 
     if args.init:
         config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
-        controller = Controller(config=config, logger=logger)
+        controller = Controller(config=config, logger=logger, policy=policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
         return
 
     if args.plan:
         config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
-        controller = Controller(config=config, logger=logger)
+        controller = Controller(config=config, logger=logger, policy=policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         states = sutil.load_states(args.session)
 
@@ -103,7 +107,7 @@ def manage_workflow(args):
         try:
             if states:
                 config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
-                controller = Controller(config=config, logger=logger)
+                controller = Controller(config=config, logger=logger, policy=policy)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)
         except ControllerException as e:
