@@ -23,8 +23,17 @@ class SenseNode(Node):
         assert si_uuid
         status = sense_utils.instance_get_status(si_uuid=si_uuid)
         assert status == 'CREATE - READY'
-
-        template_file = 'aws-template.json'
+        flavor = "unknown"
+        
+        if "gcp-node" in self.name:
+            template_file = 'gcp-template.json'
+            flavor = "gcp-node"
+        elif "aws-node" in self.name:
+            template_file = 'aws-template.json'
+            flavor = "aws-node"
+        else:
+            raise SenseException(f"Was not able to get node template file {self.name}")
+        
         details = sense_utils.manifest_create(alias=self.network, template_file=template_file)
 
         for node_details in details.get("Nodes", []):
@@ -32,14 +41,26 @@ class SenseNode(Node):
                 self.node_details = node_details
                 break
 
+        # TODO: resolve the difference between spec_name and nodename 
+        self.node_details = node_details if not self.node_details and flavor == "gcp-node" else {}
+        
         if not self.node_details:
             raise SenseException(f"Was not able to get node details {self.name}:spec_name={self.spec_name}")
 
-        self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_AWS_PRIVATE_IP]
-        self.mgmt_ip = self.node_details[SenseConstants.SENSE_AWS_PUBLIC_IP]
-        self.image = self.node_details[SenseConstants.SENSE_AWS_IMAGE]
-        self.image = self.image[self.image.find("+") + 1:]
-        self.keyfile = self.node_details[SenseConstants.SENSE_AWS_KEYPAIR]
+        if flavor == "aws-node":
+            self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_AWS_PRIVATE_IP]
+            self.mgmt_ip = self.node_details[SenseConstants.SENSE_AWS_PUBLIC_IP]
+            self.image = self.node_details[SenseConstants.SENSE_AWS_IMAGE]
+            self.image = self.image[self.image.find("+") + 1:]
+            self.keyfile = self.node_details[SenseConstants.SENSE_AWS_KEYPAIR]
+        elif flavor == "gcp-node":
+            self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_GCP_PRIVATE_IP]
+            self.mgmt_ip = self.node_details[SenseConstants.SENSE_GCP_PUBLIC_IP]
+            # self.image = self.node_details[SenseConstants.SENSE_GCP_IMAGE]
+            # self.image = self.image[self.image.find("+") + 1:]
+            # self.keyfile = self.node_details[SenseConstants.SENSE_GCP_KEYPAIR]
+        else:
+            raise SenseException(f"Unable to init node details {self.name}:{flavor}")
 
     def delete(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.network)
