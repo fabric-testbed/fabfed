@@ -1,5 +1,5 @@
 import logging
-from typing import List, Union
+from typing import List, Union, Dict
 
 from fabfed.exceptions import ControllerException
 from fabfed.model.state import ProviderState
@@ -12,7 +12,8 @@ from ..util.config_models import ResourceConfig
 
 
 class Controller:
-    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger, policy: Union[ProviderPolicy, None] = None):
+    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger,
+                 policy: Union[Dict[str, ProviderPolicy], None] = None):
         self.config = config
         self.logger = logger
         self.provider_factory = None
