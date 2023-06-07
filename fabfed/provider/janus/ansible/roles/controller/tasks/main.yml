@@ -1,4 +1,6 @@
 ---
+- debug: msg="{{ url }} {{ username }} {{ token }} {{ node }} {{ name }}"
+
 - name: set ipv6 facts
   set_fact:
     ipv6_registry: "{{ 'registry.ipv6.docker.com/' if not inventory_hostname|ansible.utils.ipv4 else '' }}"
@@ -18,3 +20,24 @@
   ansible.builtin.shell:
     cmd: /tmp/controller-setup.sh
     chdir: /tmp
+
+- name: Add a Janus profile
+  vars:
+    - janus_body: {
+        'settings': {
+          'cpu': false,
+          'mem': false,
+          'auto_tune': true,
+          'mgmt_net': host
+        }
+      }
+  ansible.builtin.uri:
+    url: "{{ url }}/api/janus/controller/profiles/fabfed"
+    user: "{{ username }}"
+    password: "{{ password }}"
+    method: POST
+    body: "{{ janus_body }}"
+    force_basic_auth: yes
+    status_code: 200
+    body_format: json
+    validate_certs: false
