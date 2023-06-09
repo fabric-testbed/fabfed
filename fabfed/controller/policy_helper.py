@@ -111,9 +111,8 @@ def check_options(k, v, adict):
         assert isinstance(temp, dict), "option must be a dictionary"
 
         if temp.get(k):
-            if isinstance(v, str):
-                if v == temp.get(k):
-                    return True, set((k, v))
+            if isinstance(v, str) and v == temp.get(k):
+                return True, {(k, v)}
 
             if isinstance(v, list):
                 for v_pair in v:
@@ -142,33 +141,36 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
 
     stitch_infos.sort(key=lambda si: si.stitch_port['preference'], reverse=True)
 
+    logger.info(f"Found {len(stitch_infos)} stitch ports")
+
     # Using the options first
     if options:
-        for stitch_info in stitch_infos:
-            for k, v in options.items():
+        for k, v in options.items():
+            for stitch_info in stitch_infos:
                 if stitch_info.stitch_port.get(k) == v:
-                    logger.info(f"Using stitch port based on {k}={v} and providers={providers}:{stitch_info}")
+                    logger.info(f"Using stitch port based on port: {k}={v} and providers={providers}:{stitch_info}")
                     return stitch_info
 
                 ret, aset = check_options(k, v, stitch_info.stitch_port)
 
                 if ret:
                     logger.info(
-                        f"Using stitch port based on {aset} and providers={providers}:{stitch_info}")
+                        f"Using stitch port based on port: {aset} and providers={providers}:{stitch_info}")
                     return stitch_info
 
                 for g in [stitch_info.consumer_group, stitch_info.producer_group]:
                     if g.get(k) == v:
                         logger.info(
-                            f"Using stitch port based on {k}={v} and providers={providers}:{stitch_info}")
+                            f"Using stitch port based on group: {k}={v} and providers={providers}:{stitch_info}")
                         return stitch_info
 
                     ret, aset = check_options(k, v, g)
 
                     if ret:
                         logger.info(
-                            f"Using stitch port based on {aset} and providers={providers}:{stitch_info}")
+                            f"Using stitch port based on group: {aset} and providers={providers}:{stitch_info}")
                         return stitch_info
+            logger.warning(f"No stitch port based on {k}={v}")
 
     if profile:
         for stitch_info in stitch_infos:
