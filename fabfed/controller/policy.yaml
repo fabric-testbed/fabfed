@@ -49,8 +49,8 @@ sense:
       member-of:
         - GCP 
 
-      device_name: REPLACE_ME_WITH_DEVICE_NAME 
-      local_name: REPLACE_ME_WITH_LOCAL_NAME 
+      device_name: agg4.ashb.net.internet2.edu
+      local_name: Bundle-Ether5
       preference: 10 # higher is preferred
 
   group:
