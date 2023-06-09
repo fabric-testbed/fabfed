@@ -42,7 +42,7 @@ resource:
           provider: '{{ fabric.fabric_provider }}'
           site: RENC
           image: default_rocky_8
-          count: 0
+          count: 1
           nic_model: NIC_Basic
   - network:
       - sense_net:
@@ -59,4 +59,4 @@ resource:
           layer3: "{{ layer3.fab_layer }}"
           peering: "{{ peering.my_peering }}"
           interface: '{{ node.fabric_node }}'
-          count: 0
+          count: 1
