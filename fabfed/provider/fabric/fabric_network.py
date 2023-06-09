@@ -110,6 +110,7 @@ class NetworkBuilder:
         self.label = label
         self.net = None
         self.type = resource.get('net_type')     # TODO: type
+        self.discovered_stitch_info = {}
 
         if self.stitch_port:
             self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
@@ -151,7 +152,9 @@ class NetworkBuilder:
 
             if isinstance(interface, dict) and 'provider' in interface:
                 logger.info(f'Network {self.net_name} found stitching interface {interface}')
+
                 self.vlan = interface.get('vlan')
+                self.discovered_stitch_info = interface
 
                 if not self.device:
                     provider = interface['provider']
@@ -178,6 +181,10 @@ class NetworkBuilder:
             cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
             asn = self.peering.attributes.get(Constants.RES_REMOTE_ASN)
             account_id = self.peering.attributes.get(Constants.RES_CLOUD_ACCOUNT)
+
+            if account_id is None:
+                account_id = self.discovered_stitch_info.get("id")
+
             subnet = self.peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
             peer_subnet = self.peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
             region= self.peering.attributes.get(Constants.RES_CLOUD_REGION)
@@ -298,6 +305,10 @@ class NetworkBuilder:
             capacities=Capacities(mtu=9001))
 
     def build(self) -> FabricNetwork:
+        import sys
+
+        print("Exiting Early")
+        sys.exit(1)
         assert self.net
         return FabricNetwork(label=self.label, delegate=self.net, layer3=self.layer3,
                              peering=self.peering, peer_layer3=self.peer_layer3)
