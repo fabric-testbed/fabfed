@@ -31,12 +31,16 @@ class FabricNetwork(Network):
         if self.peering:
             cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
 
-            if cloud != "AWS":
+            if cloud == "AWS":
+                account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
+                key = self.slice_name + "-" + account_id
+                self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
+            elif cloud == "GCP":
+                account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
+                key = self.slice_name + "-" + account_id
+                self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
+            else:
                 raise Exception(f"unsupported cloud {cloud}")
-
-            account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
-            key = self.slice_name + "-" + account_id
-            self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
 
         for key, iface in ns.interfaces.items():
             if hasattr(iface.labels, "vlan") and iface.labels.vlan:
@@ -156,7 +160,7 @@ class NetworkBuilder:
 
         self.label = label
         self.net = None
-        self.type = resource.get('net_type')
+        self.type = resource.get('net_type')   #TODO: type
 
         if self.vlan:
             logger.info(
