@@ -140,9 +140,13 @@ class NetworkBuilder:
             interface = self.stitching_net.interface
 
             if isinstance(interface, list):
-                interface = interface[0]
+                temp = [i for i in interface if isinstance(i, dict) and 'provider' in i]
+
+                if temp:
+                    interface = temp[0]
 
             if isinstance(interface, dict) and 'provider' in interface:
+                logger.info(f'Network {self.net_name} found stitching interface {interface}')
                 self.vlan = interface.get('vlan')
 
                 if not self.device:
