@@ -13,6 +13,10 @@ def manage_workflow(args):
 
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
+    from fabfed.controller.policy_helper import load_policy
+
+    policy = load_policy(policy_file=args.policy_file) if args.policy_file else {}
+
     if args.validate:
         try:
             WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
@@ -26,7 +30,7 @@ def manage_workflow(args):
         config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
 
         try:
-            controller = Controller(config=config, logger=logger)
+            controller = Controller(config=config, logger=logger, policy=policy)
         except Exception as e:
             logger.error(f"Exceptions while initializing controller .... {e}")
             sys.exit(1)
@@ -74,14 +78,14 @@ def manage_workflow(args):
 
     if args.init:
         config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
-        controller = Controller(config=config, logger=logger)
+        controller = Controller(config=config, logger=logger, policy=policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
-        sutil.dump_resources(controller.resources, args.json)
+        sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
         return
 
     if args.plan:
         config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
-        controller = Controller(config=config, logger=logger)
+        controller = Controller(config=config, logger=logger, policy=policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         states = sutil.load_states(args.session)
 
@@ -91,53 +95,12 @@ def manage_workflow(args):
             logger.error(f"Exceptions while adding resources ... {e}")
 
         states = controller.get_states()
-        sutil.dump_states(states, args.json)
+        sutil.dump_states(states, args.json, args.summary)
         return
 
     if args.show:
         states = sutil.load_states(args.session)
-        sutil.dump_states(states, args.json)
-        return
-
-    if args.summary:
-        states = sutil.load_states(args.session)
-        temp = []
-
-        for provider_state in states:
-            for node_state in provider_state.node_states:
-                attributes = dict()
-                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6"]
-
-                for prop in props:
-                    if prop in node_state.attributes:
-                        attributes[prop] = node_state.attributes[prop]
-
-                node_state.attributes = attributes
-                temp.append(node_state)
-
-            for network_state in provider_state.network_states:
-                attributes = dict()
-                props = ['id', 'name', 'interface', 'site', 'state', 'profile', "dtn", 'layer3']
-
-                for prop in props:
-                    if prop in network_state.attributes:
-                        attributes[prop] = network_state.attributes[prop]
-
-                network_state.attributes = attributes
-                temp.append(network_state)
-
-            for service_state in provider_state.service_states:
-                attributes = dict()
-                props = ['name', 'image']
-
-                for prop in props:
-                    if prop in service_state.attributes:
-                        attributes[prop] = service_state.attributes[prop]
-
-                service_state.attributes = attributes
-                temp.append(service_state)
-
-        sutil.dump_states(temp, args.json)
+        sutil.dump_states(states, args.json, args.summary)
         return
 
     if args.destroy:
@@ -146,7 +109,7 @@ def manage_workflow(args):
         try:
             if states:
                 config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
-                controller = Controller(config=config, logger=logger)
+                controller = Controller(config=config, logger=logger, policy=policy)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)
         except ControllerException as e:
