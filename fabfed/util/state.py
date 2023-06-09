@@ -11,16 +11,52 @@ class SetEncoder(json.JSONEncoder):
             return list(obj)
         else:
             return obj.__dict__
-        # return json.JSONEncoder.default(self, obj)
 
 
-def dump_resources(resources, to_json: bool):
+def dump_resources(*, resources, to_json: bool, summary: bool = False):
     import sys
+
+    if summary:
+        summaries = []
+        from collections import namedtuple
+        from fabfed.util.constants import Constants
+
+        ResourceSummary = namedtuple("ResourceSummary", "label attributes")
+
+        for resource in resources:
+            resource_dict = resource.attributes.copy()
+            del_attrs = [Constants.EXTERNAL_DEPENDENCIES,
+                         Constants.RESOLVED_EXTERNAL_DEPENDENCIES,
+                         Constants.INTERNAL_DEPENDENCIES,
+                         Constants.RESOLVED_INTERNAL_DEPENDENCIES,
+                         Constants.SAVED_STATES]
+
+            for attr in del_attrs:
+                del resource_dict[attr]
+
+            stringify_attrs = [Constants.PROVIDER,
+                               Constants.RES_INTERFACES,
+                               Constants.RES_NODES,
+                               Constants.RES_NETWORK,
+                               Constants.RES_STITCH_INTERFACE,
+                               Constants.NETWORK_STITCH_WITH,
+                               Constants.RES_LAYER3,
+                               Constants.RES_PEER_LAYER3,
+                               Constants.RES_PEERING
+                               ]
+
+            for attr in stringify_attrs:
+                if attr in resource_dict:
+                    resource_dict[attr] = str(resource_dict[attr])
+
+            label = resource_dict.pop(Constants.LABEL)
+            summaries.append(ResourceSummary(label=label, attributes=resource_dict))
+
+        resources = summaries
 
     if to_json:
         import json
 
-        # sys.stdout.write(json.dumps(resources, default=lambda o: o.__dict__, indent=3))
         sys.stdout.write(json.dumps(resources, cls=SetEncoder, indent=3))
     else:
         import yaml
@@ -29,14 +65,51 @@ def dump_resources(resources, to_json: bool):
         sys.stdout.write(yaml.dump(resources, Dumper=get_dumper()))
 
 
-def dump_states(states, to_json: bool):
+def dump_states(states, to_json: bool, summary: bool = False):
     import sys
     from fabfed.model.state import get_dumper
+
+    temp = []
+    if summary:
+        for provider_state in states:
+            for node_state in provider_state.node_states:
+                attributes = dict()
+                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6"]
+
+                for prop in props:
+                    if prop in node_state.attributes:
+                        attributes[prop] = node_state.attributes[prop]
+
+                node_state.attributes = attributes
+                temp.append(node_state)
+
+            for network_state in provider_state.network_states:
+                attributes = dict()
+                props = ['id', 'name', 'interface', 'site', 'state', 'profile', "dtn", 'layer3']
+
+                for prop in props:
+                    if prop in network_state.attributes:
+                        attributes[prop] = network_state.attributes[prop]
+
+                network_state.attributes = attributes
+                temp.append(network_state)
+
+            for service_state in provider_state.service_states:
+                attributes = dict()
+                props = ['name', 'image']
+
+                for prop in props:
+                    if prop in service_state.attributes:
+                        attributes[prop] = service_state.attributes[prop]
+
+                service_state.attributes = attributes
+                temp.append(service_state)
+
+        states = temp
 
     if to_json:
         import json
 
-        # sys.stdout.write(json.dumps(states, default=lambda o: o.__dict__, indent=3))
         sys.stdout.write(json.dumps(states, cls=SetEncoder, indent=3))
     else:
         import yaml
@@ -54,7 +127,10 @@ def load_states(friendly_name) -> List[ProviderState]:
     if os.path.exists(file_path):
         with open(file_path, 'r') as stream:
             try:
-                return yaml.load(stream, Loader=get_loader())
+                ret = yaml.load(stream, Loader=get_loader())
+
+                if ret is not None:
+                    return ret
             except Exception as e:
                 from fabfed.exceptions import StateException
 
@@ -69,11 +145,16 @@ def save_states(states: List[ProviderState], friendly_name):
     from fabfed.model.state import get_dumper
 
     file_path = os.path.join(get_base_dir(friendly_name), friendly_name + '.yml')
+    temp_file_path = file_path + ".temp"
 
-    with open(file_path, "w") as stream:
+    with open(temp_file_path, "w") as stream:
         try:
             stream.write(yaml.dump(states, Dumper=get_dumper()))
         except Exception as e:
             from fabfed.exceptions import StateException
 
-            raise StateException(f'Exception while saving state at {file_path}:{e}')
+            raise StateException(f'Exception while saving state at temp file {temp_file_path}:{e}')
+
+    import shutil
+
+    shutil.move(temp_file_path, file_path)

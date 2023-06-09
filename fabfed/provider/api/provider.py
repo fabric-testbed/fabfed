@@ -181,8 +181,10 @@ class Provider(ABC):
         net_states = [NetworkState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.networks]
         node_states = [NodeState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.nodes]
         service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in self.services]
+        pending = [res['label'] for res in self.pending]
+        pending_internal = [res['label'] for res in self.pending_internal]
         return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
-                             self.pending, self.pending_internal, self.failed)
+                             pending, pending_internal, self.failed)
 
     def list_networks(self) -> list:
         from tabulate import tabulate

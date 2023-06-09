@@ -12,7 +12,7 @@ class SenseNetwork(Network):
         self.profile = profile
         self.layer3 = layer3
         self.peering = peering
-        self.interface = interfaces
+        self.interface = interfaces if interfaces is not None else []
         self.bandwidth = bandwidth
         self.switch_ports = []
         self.dtn = []
@@ -60,6 +60,19 @@ class SenseNetwork(Network):
 
         if 'CREATE - READY' not in status:
             raise Exception(f"Creation failed for {si_uuid} {status}")
+
+        if self.intents[0]['json']['service'] == 'vcn':
+            if "GCP" in self.intents[0]['json']['data']['gateways'][0]['type'].upper():
+                try:
+                    template_file = 'gcp-template.json'
+                    details = sense_utils.manifest_create(si_uuid=si_uuid, template_file=template_file)
+
+                    for node_details in details.get("Nodes", []):
+                        pairing_key = node_details.get('Pairing Key')
+                        self.interface.append(dict(id=pairing_key, provider="sense"))
+                        break
+                except:
+                    pass
 
         if self.intents[0]['json']['service'] == 'dnc':
             try:

@@ -1,6 +1,7 @@
 fabric:
   stitch-port:
       - site: AWS
+        name: AGG4
         member-of:
           - AWS
         region:

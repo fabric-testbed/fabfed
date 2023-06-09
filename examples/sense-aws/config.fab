@@ -52,6 +52,9 @@ resource:
           peering: "{{ peering.my_peering }}"
           count: 1 
           stitch_with: '{{ network.fabric_network }}'
+          stitch_option: 
+              name: AGG4 
+
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
