@@ -37,8 +37,8 @@ class FabricNetwork(Network):
                 key = self.slice_name + "-" + account_id
                 self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
             elif cloud == "GCP":
-                account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
-                key = self.slice_name + "-" + account_id
+                import uuid
+                key = self.slice_name + "-" + uuid.uuid4().hex
                 self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
             else:
                 raise Exception(f"unsupported cloud {cloud}")
@@ -305,10 +305,6 @@ class NetworkBuilder:
             capacities=Capacities(mtu=9001))
 
     def build(self) -> FabricNetwork:
-        import sys
-
-        print("Exiting Early")
-        sys.exit(1)
         assert self.net
         return FabricNetwork(label=self.label, delegate=self.net, layer3=self.layer3,
                              peering=self.peering, peer_layer3=self.peer_layer3)
