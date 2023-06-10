@@ -23,14 +23,16 @@ class SenseNode(Node):
         assert si_uuid
         status = sense_utils.instance_get_status(si_uuid=si_uuid)
         assert status == 'CREATE - READY'
-        flavor = "unknown"
         
-        if "gcp-node" in self.name:
+        """ retrieve the gateway type from intents """
+        instance_dict = sense_utils.service_instance_details(si_uuid=si_uuid)
+        gateway_type = instance_dict.get("intents")[0]['json']['data']['gateways'][0]['type'].upper()
+        if "GCP" in gateway_type:
             template_file = 'gcp-template.json'
-            flavor = "gcp-node"
-        elif "aws-node" in self.name:
+            gateway = SenseConstants.SupportedCloud.GCP
+        elif "AWS" in gateway_type:
             template_file = 'aws-template.json'
-            flavor = "aws-node"
+            gateway = SenseConstants.SupportedCloud.AWS
         else:
             raise SenseException(f"Was not able to get node template file {self.name}")
         
@@ -42,25 +44,25 @@ class SenseNode(Node):
                 break
 
         # TODO: resolve the difference between spec_name and nodename 
-        self.node_details = node_details if not self.node_details and flavor == "gcp-node" else {}
+        self.node_details = node_details if not self.node_details and gateway == SenseConstants.SupportedCloud.GCP else {}
         
         if not self.node_details:
             raise SenseException(f"Was not able to get node details {self.name}:spec_name={self.spec_name}")
 
-        if flavor == "aws-node":
+        if gateway == SenseConstants.SupportedCloud.AWS:
             self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_AWS_PRIVATE_IP]
             self.mgmt_ip = self.node_details[SenseConstants.SENSE_AWS_PUBLIC_IP]
             self.image = self.node_details[SenseConstants.SENSE_AWS_IMAGE]
             self.image = self.image[self.image.find("+") + 1:]
             self.keyfile = self.node_details[SenseConstants.SENSE_AWS_KEYPAIR]
-        elif flavor == "gcp-node":
+        elif gateway == SenseConstants.SupportedCloud.GCP:
             self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_GCP_PRIVATE_IP]
             self.mgmt_ip = self.node_details[SenseConstants.SENSE_GCP_PUBLIC_IP]
             # self.image = self.node_details[SenseConstants.SENSE_GCP_IMAGE]
             # self.image = self.image[self.image.find("+") + 1:]
             # self.keyfile = self.node_details[SenseConstants.SENSE_GCP_KEYPAIR]
         else:
-            raise SenseException(f"Unable to init node details {self.name}:{flavor}")
+            raise SenseException(f"Unable to init node details {self.name}:{gateway}")
 
     def delete(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.network)
