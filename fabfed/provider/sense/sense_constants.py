@@ -1,4 +1,5 @@
 from fabfed.util.constants import Constants
+import enum
 
 SENSE_PROFILE_UID = "service_profile_uuid"
 SENSE_ALIAS = "alias"
@@ -68,3 +69,11 @@ SENSE_GCP_NODE_NAME = 'Node Name'
 SENSE_GCP_IMAGE = 'Image'
 
 SENSE_RETRY = 50
+
+class SupportedCloud(str, enum.Enum):
+    """
+    The Cloud supported by SENSE.
+    """
+    GCP = "GOOGLE"
+    AWS = "AMAZON"
+    DTN = "DTNL2"
