@@ -19,7 +19,7 @@ config:
   - peering:
       - my_peering:
           # FOR FABRIC
-          cloud_account: "296256999979" # pairing key
+          # cloud_account: "296256999979" # pairing key
           cloud_facility:
           local_device: "agg4.ashb.net.internet2.edu"
           local_port: "Bundle-Ether5"
