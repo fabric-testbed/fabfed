@@ -211,7 +211,7 @@ class NetworkBuilder:
             logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
 
             facility_port = self.slice_object.add_facility_port(
-                name='Cloud_Facility_' + cloud,
+                name='Cloud-Facility-' + cloud,
                 site=cloud,
                 labels=labels,
                 peer_labels=peer_labels,
