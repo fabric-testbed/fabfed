@@ -204,10 +204,11 @@ class NetworkBuilder:
                 cloud = self.stitch_port.get(Constants.STITCH_PORT_SITE)
                 self.peering.attributes[Constants.RES_CLOUD_FACILITY] = cloud # TODO WORKAROUND FOR NOW
 
-            labels = Labels(ipv4_subnet=subnet)
+            labels = Labels(ipv4_subnet=subnet,
+                            vlan='3')
 
-            if region:
-                labels = Labels.update(labels, region=region)
+            # if region:
+            #     labels = Labels.update(labels, region=region)
             if device: 
                 labels = Labels.update(labels, device_name=device)
             if port: 
