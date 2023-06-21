@@ -75,3 +75,9 @@
     name: docker
     enabled: true
     state: started
+
+- name: script-based install of docker-compose
+  shell: |
+    curl -SL https://github.com/docker/compose/releases/download/v2.18.1/docker-compose-linux-x86_64 -o /usr/libexec/docker/cli-plugins/docker-compose
+    chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+  when: ansible_distribution == 'Amazon'
