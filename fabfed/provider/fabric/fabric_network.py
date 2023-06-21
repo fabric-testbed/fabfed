@@ -30,10 +30,10 @@ class FabricNetwork(Network):
         self.interface = []
 
         if self.peering:
-            cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
+            # cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
 
-            if cloud != "AWS":
-                raise Exception(f"unsupported cloud {cloud}")
+            # if cloud != "AWS":
+            #    raise Exception(f"unsupported cloud {cloud}")
 
             account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
             key = self.slice_name + "-" + account_id
