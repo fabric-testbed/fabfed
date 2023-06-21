@@ -41,3 +41,7 @@
     status_code: 200
     body_format: json
     validate_certs: false
+  register: result
+  until: ('status' in result) and (result.status == 200)
+  retries: 12
+  delay: 10
