@@ -183,6 +183,7 @@ class NetworkBuilder:
             region= self.peering.attributes.get(Constants.RES_CLOUD_REGION)
             device = self.peering.attributes.get(Constants.RES_LOCAL_DEVICE)
             port = self.peering.attributes.get(Constants.RES_LOCAL_PORT)
+            vlan = self.peering.attributes.get('cloud_vlan')
 
             if not device:
                 device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
@@ -197,11 +198,17 @@ class NetworkBuilder:
                 cloud = self.stitch_port.get(Constants.STITCH_PORT_SITE)
                 self.peering.attributes[Constants.RES_CLOUD_FACILITY] = cloud # TODO WORKAROUND FOR NOW
 
-            labels = Labels(ipv4_subnet=subnet,
-                            vlan='3')
+            if not vlan:
+                vlan = self.stitch_port.get('vlan')   # TODO WORKAROUND GCP NEEDS THIS
+
+            labels = Labels(ipv4_subnet=subnet)
+
+            if vlan:
+                labels = Labels.update(labels, vlan=str(vlan))
 
             # if region:
             #     labels = Labels.update(labels, region=region)
+
             if device: 
                 labels = Labels.update(labels, device_name=device)
             if port: 

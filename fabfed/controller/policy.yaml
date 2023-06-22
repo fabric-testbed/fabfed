@@ -54,6 +54,7 @@ sense:
       local_name: Bundle-Ether5
       region: us-east4
       preference: 10 # higher is preferred
+      vlan: 3
 
   group:
       - name: AWS # referred to as "sense/aws"
