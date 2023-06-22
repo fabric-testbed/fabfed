@@ -56,17 +56,11 @@ SENSE_GCP_PEERING_MAPPING = {
 # ami-052efd3df9dad4825
 # Canonical, Ubuntu, 22.04 LTS, amd64 jammy image build on 2022-06-09
 
-SENSE_AWS_KEYPAIR = 'Key Pair'
-SENSE_AWS_PUBLIC_IP = 'Public IP'
-SENSE_AWS_PRIVATE_IP = 'Private IP'
-SENSE_AWS_NODE_NAME = 'Node Name'
-SENSE_AWS_IMAGE = 'Image'
-
-SENSE_GCP_KEYPAIR = 'Key Pair'
-SENSE_GCP_PUBLIC_IP = 'Public IP'
-SENSE_GCP_PRIVATE_IP = 'Private IP'
-SENSE_GCP_NODE_NAME = 'Node Name'
-SENSE_GCP_IMAGE = 'Image'
+SENSE_KEYPAIR = 'Key Pair'
+SENSE_PUBLIC_IP = 'Public IP'
+SENSE_PRIVATE_IP = 'Private IP'
+SENSE_NODE_NAME = 'Node Name'
+SENSE_IMAGE = 'Image'
 
 SENSE_RETRY = 50
 
