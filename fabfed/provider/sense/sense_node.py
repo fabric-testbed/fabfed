@@ -39,30 +39,18 @@ class SenseNode(Node):
         details = sense_utils.manifest_create(alias=self.network, template_file=template_file)
 
         for node_details in details.get("Nodes", []):
-            if node_details[SenseConstants.SENSE_AWS_NODE_NAME] == self.spec_name:
+            if node_details[SenseConstants.SENSE_NODE_NAME].lower() == self.spec_name.lower():
                 self.node_details = node_details
                 break
 
-        # TODO: resolve the difference between spec_name and nodename 
-        self.node_details = node_details if not self.node_details and gateway == SenseConstants.SupportedCloud.GCP else {}
-        
         if not self.node_details:
             raise SenseException(f"Was not able to get node details {self.name}:spec_name={self.spec_name}")
 
-        if gateway == SenseConstants.SupportedCloud.AWS:
-            self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_AWS_PRIVATE_IP]
-            self.mgmt_ip = self.node_details[SenseConstants.SENSE_AWS_PUBLIC_IP]
-            self.image = self.node_details[SenseConstants.SENSE_AWS_IMAGE]
-            self.image = self.image[self.image.find("+") + 1:]
-            self.keyfile = self.node_details[SenseConstants.SENSE_AWS_KEYPAIR]
-        elif gateway == SenseConstants.SupportedCloud.GCP:
-            self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_GCP_PRIVATE_IP]
-            self.mgmt_ip = self.node_details[SenseConstants.SENSE_GCP_PUBLIC_IP]
-            # self.image = self.node_details[SenseConstants.SENSE_GCP_IMAGE]
-            # self.image = self.image[self.image.find("+") + 1:]
-            # self.keyfile = self.node_details[SenseConstants.SENSE_GCP_KEYPAIR]
-        else:
-            raise SenseException(f"Unable to init node details {self.name}:{gateway}")
+        self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_PRIVATE_IP]
+        self.mgmt_ip = self.node_details[SenseConstants.SENSE_PUBLIC_IP]
+        self.image = self.node_details[SenseConstants.SENSE_IMAGE]
+        self.image = self.image[self.image.find("+") + 1:]
+        self.keyfile = self.node_details[SenseConstants.SENSE_KEYPAIR]
 
     def delete(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.network)

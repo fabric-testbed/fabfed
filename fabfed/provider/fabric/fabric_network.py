@@ -29,19 +29,12 @@ class FabricNetwork(Network):
         ns = self._delegate.get_fim_network_service()
         self.interface = []
 
-        if self.peering:
-            cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
 
-            if cloud == "AWS":
-                account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
-                key = self.slice_name + "-" + account_id
-                self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
-            elif cloud == "GCP":
-                import uuid
-                key = self.slice_name + "-" + uuid.uuid4().hex
-                self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
-            else:
-                raise Exception(f"unsupported cloud {cloud}")
+        # TODO This is only needed for sense-aws
+        if self.peering and Constants.RES_CLOUD_ACCOUNT in self.peering.attributes:
+            account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
+            key = self.slice_name + "-" + account_id
+            self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
 
         for key, iface in ns.interfaces.items():
             if hasattr(iface.labels, "vlan") and iface.labels.vlan:
