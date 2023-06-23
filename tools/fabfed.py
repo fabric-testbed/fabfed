@@ -47,6 +47,8 @@ def manage_workflow(args):
             controller.plan(provider_states=states)
         except ControllerException as e:
             logger.error(f"Exceptions while adding resources ... {e}")
+        except Exception as e:
+            logger.error(f"Exceptioin while planning ... {e}")
 
         try:
             controller.create(provider_states=states)
