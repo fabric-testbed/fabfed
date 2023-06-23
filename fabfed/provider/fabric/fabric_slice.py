@@ -306,6 +306,10 @@ class FabricSlice:
         if self.failed:
             raise Exception(f"fabric slice {self.name} has some failures. Refusing to create {label}")
 
+        if self.pending:
+            self.logger.warning(f"still have pending {len(self.pending)} resources")
+            return
+
         if self.slice_created:
             state = self.slice_object.get_state()
 
@@ -326,16 +330,13 @@ class FabricSlice:
                 self.notified_create = True
             return
 
-        if self.pending:
-            self.logger.warning(f"still have pending {len(self.pending)} resources")
-            return
 
         self._submit_and_wait()
         self.slice_created = True
 
         self.logger.info(f"Going to sleep. DEEP. slice {self.provider.label}")
         import time
-        time.sleep(30)
+        time.sleep(120)
         self.logger.info(f"Back from sleeping ... slice {self.provider.label}")
 
         self._handle_node_networking()
