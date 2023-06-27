@@ -14,7 +14,7 @@ JANUS_CTRL_PORT=5000
 
 class JanusService(Service):
     def __init__(self, *, label, name: str, image, nodes, controller_url, controller_host,
-                 provider, logger: logging.Logger):
+                 controller_web, ssh_tunnel_cmd, provider, logger: logging.Logger):
         super().__init__(label=label, name=name)
         self.logger = logger
         self.image = image
@@ -28,6 +28,8 @@ class JanusService(Service):
         else:
             self.controller_url = provider.config.get("url")
             self._internal_controller = False
+        self.controller_web = controller_web
+        self.controller_ssh_tunnel_cmd = ssh_tunnel_cmd
 
     def _do_ansible(self, delete=False):
         def _helper(host_file, tags, extra_vars = dict(), limit = ""):
@@ -102,6 +104,8 @@ class JanusProvider(Provider):
         controller = resource.get("controller", None)
         controller_url = None
         controller_host = None
+        controller_web = None
+        ssh_tunnel_cmd = None
         if controller and len(controller) == 1:
             if isinstance(controller, list):
                 controller = controller[0]
@@ -109,6 +113,8 @@ class JanusProvider(Provider):
                 controller = controller[0]
             controller_url = f"https://{controller.get_dataplane_address()}:{JANUS_CTRL_PORT}"
             controller_host = controller.mgmt_ip
+            controller_web = "http://localhost:8000"
+            ssh_tunnel_cmd = f"{controller.sshcmd_str} -L 8000:localhost:8000"
         elif controller:
             self.logger.error(f"Invalid controller configuration for {label}")
 
@@ -120,6 +126,8 @@ class JanusProvider(Provider):
         service = JanusService(label=label, name=service_name, image=image, nodes=service_nodes,
                                controller_url=controller_url,
                                controller_host=controller_host,
+                               controller_web=controller_web,
+                               ssh_tunnel_cmd=ssh_tunnel_cmd,
                                provider=self, logger=self.logger)
         self._services.append(service)
         self.resource_listener.on_added(source=self, provider=self, resource=service)
