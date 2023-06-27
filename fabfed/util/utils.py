@@ -114,6 +114,15 @@ def init_logger():
     return logger
 
 
+def absolute_path(path):
+    from pathlib import Path
+    import os
+
+    path = Path(path).expanduser().absolute()
+
+    return os.path.realpath(str(path))
+
+
 def load_as_ns_from_yaml(*, dir_path=None, content=None):
     import yaml
     import json

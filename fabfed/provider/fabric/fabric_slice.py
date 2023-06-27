@@ -100,6 +100,10 @@ class FabricSlice:
         if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
             temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
+        for node in temp:
+            node.delegate.add_component(model=node.nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
+            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface using model {node.nic_model} to node {node.name}")
+
         network_builder.handle_network(temp)
         net = network_builder.build()
         self.provider.networks.append(net)
@@ -116,11 +120,6 @@ class FabricSlice:
         for i in range(node_count):
             name = f"{name_prefix}{i}"
             node_builder = NodeBuilder(label, self.slice_object, name, resource)
-            # node_builder.add_component(model=nic_model, name="nic1")
-            # self.logger.info(f"Added nic1 interface using model {nic_model} to node {name}")
-            node_builder.add_component(model=nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
-            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface using model {nic_model} to node {name}")
-
             node = node_builder.build()
             self.nodes.append(node)
 

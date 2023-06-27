@@ -11,15 +11,22 @@ from fabfed.util.config import WorkflowConfig
 def manage_workflow(args):
     logger = utils.init_logger()
 
-    var_dict = utils.load_vars(args.var_file) if args.var_file else {}
+    config_dir = utils.absolute_path(args.config_dir)
+    config_dir_from_meta = sutil.load_meta_data(args.session, 'config_dir')
 
+    if config_dir_from_meta and config_dir_from_meta != config_dir:
+        logger.error(f"attempt to use fabfed session {args.session} from the wrong config dir {config_dir} ...")
+        logger.warning(f"ATTN: The CORRECT config dir for session {args.session} is {config_dir_from_meta}!!!!!!!")
+        sys.exit(1)
+
+    var_dict = utils.load_vars(args.var_file) if args.var_file else {}
     from fabfed.controller.policy_helper import load_policy
 
     policy = load_policy(policy_file=args.policy_file) if args.policy_file else {}
 
     if args.validate:
         try:
-            WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+            WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
             logger.info("config looks ok")
         except Exception as e:
             logger.error(f"Validation failed .... {type(e)} {e}")
@@ -27,7 +34,7 @@ def manage_workflow(args):
             sys.exit(1)
 
     if args.apply:
-        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
 
         try:
             controller = Controller(config=config, logger=logger, policy=policy)
@@ -73,18 +80,19 @@ def manage_workflow(args):
             failed += len(state.failed)
 
         logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
+        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
         sutil.save_states(states, args.session)
         return
 
     if args.init:
-        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger, policy=policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
         return
 
     if args.plan:
-        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger, policy=policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         states = sutil.load_states(args.session)
@@ -108,7 +116,7 @@ def manage_workflow(args):
 
         try:
             if states:
-                config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+                config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
                 controller = Controller(config=config, logger=logger, policy=policy)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)
@@ -118,6 +126,7 @@ def manage_workflow(args):
 
             logger.error(traceback.format_exc())
 
+        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
         sutil.save_states(states, args.session)
         return
 
