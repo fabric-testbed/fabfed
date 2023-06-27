@@ -34,6 +34,7 @@ def manage_workflow(args):
             sys.exit(1)
 
     if args.apply:
+        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
         config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
 
         try:
@@ -80,7 +81,6 @@ def manage_workflow(args):
             failed += len(state.failed)
 
         logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
-        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
         sutil.save_states(states, args.session)
         return
 
@@ -126,7 +126,6 @@ def manage_workflow(args):
 
             logger.error(traceback.format_exc())
 
-        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
         sutil.save_states(states, args.session)
         return
 
