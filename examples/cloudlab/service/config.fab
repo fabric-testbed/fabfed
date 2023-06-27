@@ -12,10 +12,9 @@ provider:
           profile: fabric
   - janus:
       - janus_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: janus
           url: "{{ node.fabric_node }}"
-          username: admin
-          password: admin
-          token:
 
 config:
   - layer3:
@@ -31,8 +30,8 @@ resource:
           profile: '{{ var.cloudlab_profile }}'
           layer3: "{{ layer3.my_layer }}"
           # Uncomment to override vlan
-          # interface:
-          #  - vlan: 3101
+          interface:
+            - vlan: 3101
   - node:
       - cnode:
           provider: '{{ cloudlab.cloudlab_provider }}'
@@ -41,9 +40,9 @@ resource:
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: UTAH
+          site: CLEM
           image: default_rocky_8
-          nic_model: NIC_Basic
+          nic_model: NIC_ConnectX_5
           count: 1
   - network:
       - fabric_network:
@@ -59,3 +58,4 @@ resource:
           controller: '{{ node.fabric_node }}'
           image: dtnaas/tools
           profile: fabfed
+          count: 0
