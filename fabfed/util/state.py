@@ -117,6 +117,28 @@ def dump_states(states, to_json: bool, summary: bool = False):
         sys.stdout.write(yaml.dump(states, Dumper=get_dumper()))
 
 
+def load_meta_data(friendly_name: str, attr=None):
+    import yaml
+    import os
+    from fabfed.model.state import get_loader
+
+    file_path = os.path.join(get_base_dir(friendly_name), friendly_name + '_meta.yml')
+
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as stream:
+            try:
+                ret = yaml.load(stream, Loader=get_loader())
+
+                if ret is not None:
+                    return ret.get(attr) if attr else ret
+            except Exception as e:
+                from fabfed.exceptions import StateException
+
+                raise StateException(f'Exception while loading state at {file_path}:{e}')
+
+    return None if attr else dict()
+
+
 def load_states(friendly_name) -> List[ProviderState]:
     import yaml
     import os
@@ -137,6 +159,22 @@ def load_states(friendly_name) -> List[ProviderState]:
                 raise StateException(f'Exception while loading state at {file_path}:{e}')
 
     return []
+
+
+def save_meta_data(meta_data: dict, friendly_name: str):
+    import yaml
+    import os
+    from fabfed.model.state import get_dumper
+
+    file_path = os.path.join(get_base_dir(friendly_name), friendly_name + '_meta.yml')
+
+    with open(file_path, "w") as stream:
+        try:
+            stream.write(yaml.dump(meta_data, Dumper=get_dumper()))
+        except Exception as e:
+            from fabfed.exceptions import StateException
+
+            raise StateException(f'Exception while saving state at temp file {file_path}:{e}')
 
 
 def save_states(states: List[ProviderState], friendly_name):

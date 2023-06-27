@@ -10,12 +10,13 @@ logger = get_logger()
 
 
 class FabricNode(Node):
-    def __init__(self, *, label, delegate: Delegate):
+    def __init__(self, *, label, delegate: Delegate, nic_model=None):
         flavor = {'cores': delegate.get_cores(), 'ram': delegate.get_ram(), 'disk': delegate.get_disk()}
         super().__init__(label=label, name=delegate.get_name(), image=delegate.get_image(), site=delegate.get_site(),
                          flavor=str(flavor))
         logger.info(f" Node {self.name} construtor called ... ")
         self._delegate = delegate
+        self.nic_model = nic_model
         slice_object = delegate.get_slice()
         self.slice_name = slice_object.get_name()
         self.mgmt_ip = delegate.get_management_ip()
@@ -93,6 +94,10 @@ class FabricNode(Node):
         # print("""""""""""""""""""""""""""""""""""""""""""")
 
     @property
+    def delegate(self):
+        return self._delegate
+
+    @property
     def v4net_name(self):
         return f"{self.name}-{FABRIC_IPV4_NET_NAME}"
 
@@ -159,9 +164,10 @@ class NodeBuilder:
         ram = flavor.get(Constants.RES_FLAVOR_RAM, Delegate.default_ram)
         disk = flavor.get(Constants.RES_FLAVOR_DISK, Delegate.default_disk)
         self.label = label
+        self.nic_model = resource.get(Constants.RES_NIC_MODEL, 'NIC_Basic')
         self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
-        # Fabfed will always include two basic NICs for FabNetv4/v6
 
+        # Fabfed will always include two basic NICs for FabNetv4/v6
         if INCLUDE_FABNETS:
             net_iface_v4 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV4_NET_IFACE_NAME).get_interfaces()[0]
             net_iface_v6 = self.node.add_component(model='NIC_Basic', name=FABRIC_IPV6_NET_IFACE_NAME).get_interfaces()[0]
@@ -172,4 +178,4 @@ class NodeBuilder:
         self.node.add_component(model=model, name=name)
 
     def build(self) -> FabricNode:
-        return FabricNode(label=self.label, delegate=self.node)
+        return FabricNode(label=self.label, delegate=self.node, nic_model=self.nic_model)
