@@ -333,9 +333,9 @@ class FabricSlice:
         self._submit_and_wait()
         self.slice_created = True
 
-        self.logger.info(f"Going to sleep. DEEP. slice {self.provider.label}")
+        self.logger.info(f"Going to sleep {FABRIC_SLEEP_AFTER_SUBMIT_OK} seconds:slice {self.provider.label}")
         import time
-        time.sleep(120)
+        time.sleep(FABRIC_SLEEP_AFTER_SUBMIT_OK)
         self.logger.info(f"Back from sleeping ... slice {self.provider.label}")
 
         self._handle_node_networking()

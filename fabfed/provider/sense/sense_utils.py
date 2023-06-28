@@ -8,6 +8,7 @@ from sense.client.workflow_combined_api import WorkflowCombinedApi
 from .sense_client import get_client
 
 from .sense_constants import *
+from .sense_exceptions import SenseException
 
 from fabfed.util.utils import get_logger
 
@@ -32,7 +33,7 @@ def describe_profile(*, client=None, uuid: str):
 
 def populate_options_using_interfaces(options, interfaces, edit_uri_entries):
     if len(interfaces) > len(edit_uri_entries):
-        raise Exception("invalid number of interfaces")
+        raise SenseException("invalid number of interfaces")
 
     index_used = False
 
@@ -47,13 +48,13 @@ def populate_options_using_interfaces(options, interfaces, edit_uri_entries):
     else:
         for interface in interfaces:
             if not interface.get(Constants.RES_INDEX):
-                raise Exception(f"index missing {interface}")
+                raise SenseException(f"index missing {interface}")
 
     for interface in interfaces:
         idx = interface.get(Constants.RES_INDEX)
 
         if idx < 0 or idx >= len(edit_uri_entries):
-            raise Exception("bad interface index")
+            raise SenseException("bad interface index")
 
         name = interface.get(Constants.RES_ID)
         path_prefix = f"data.connections[0].terminals[{idx}]."
@@ -112,7 +113,7 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
     elif xform == "gcp-form":
         peering_mapping = SENSE_GCP_PEERING_MAPPING
     else:
-        raise Exception(f"invalide mapping ....{xform}")
+        raise SenseException(f"invalide mapping ....{xform}")
         
     options = []
 
@@ -174,7 +175,7 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
     try:
         temp = json.loads(response)
     except:
-        raise Exception(f"did not receive json ....{response}")
+        raise SenseException(f"did not receive json ....{response}")
 
     status = workflow_api.instance_get_status()
     return temp['service_uuid'], status
@@ -215,9 +216,12 @@ def delete_instance(*, client=None, si_uuid):
     status = workflow_api.instance_get_status(si_uuid=si_uuid)
 
     if 'error' in status:
-        raise Exception("error deleting got " + status)
+        raise SenseException("error deleting got " + status)
 
-    if "CREATE - COMPILED" in status or "FAILED" in status:
+    if 'FAILED' in status:
+            raise SenseException(f'cannot delete instance - contact admin. {status}')
+
+    if "CREATE - COMPILED" in status:
         workflow_api.instance_delete(si_uuid=si_uuid)
         return
 
@@ -247,7 +251,7 @@ def delete_instance(*, client=None, si_uuid):
         workflow_api.instance_delete(si_uuid=si_uuid)
         logger.info(f"Deleted instance: {si_uuid}")
     else:
-        raise Exception(f'cancel operation disrupted - instance not deleted - contact admin. {status}')
+        raise SenseException(f'cancel operation disrupted - instance not deleted - contact admin. {status}')
 
 
 def instance_get_status(*, client=None, si_uuid):
@@ -276,7 +280,7 @@ def service_instance_details(*, client=None, si_uuid):
 
             return instance
 
-    raise Exception()
+    raise SenseException('no details found')
 
 
 def discover_service_instances(*, client=None):
