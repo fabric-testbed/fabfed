@@ -205,16 +205,18 @@ class Controller:
                 continue
 
             fabric_work_around = False
-            for remaining_resource in remaining_resources:    # TODO: THIS FABRIC SPECIFIC AS WE DON"T SUPPORT SLICE MODIFY API JUST YET
-                if provider_label == remaining_resource.provider.label and "@fabric" in remaining_resource.provider.label:
-                    fabric_work_around = True 
+            # TODO: THIS FABRIC SPECIFIC AS WE DON"T SUPPORT SLICE MODIFY API JUST YET
+            for remaining_resource in remaining_resources:
+                if provider_label == remaining_resource.provider.label \
+                        and "@fabric" in remaining_resource.provider.label:
+                    fabric_work_around = True
                     break
 
             if fabric_work_around:
-                 self.logger.warning(f"Skipping deleting fabric resource: {resource} with {provider_label}")
-                 remaining_resources.append(resource)
-                 skip_resources.update([external_state.label for external_state in external_states])
-                 continue
+                self.logger.warning(f"Skipping deleting fabric resource: {resource} with {provider_label}")
+                remaining_resources.append(resource)
+                skip_resources.update([external_state.label for external_state in external_states])
+                continue
 
             try:
                 provider.delete_resource(resource=resource.attributes)

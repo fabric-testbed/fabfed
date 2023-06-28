@@ -57,7 +57,6 @@ class SenseNetwork(Network):
 
         self.id = self.referenceUUID
 
-
         if self.intents[0]['json']['service'] == 'vcn':
             if "GCP" in self.intents[0]['json']['data']['gateways'][0]['type'].upper():
                 try:

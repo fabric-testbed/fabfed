@@ -34,10 +34,8 @@ class SenseNode(Node):
         gateway_type = instance_dict.get("intents")[0]['json']['data']['gateways'][0]['type'].upper()
         if "GCP" in gateway_type:
             template_file = 'gcp-template.json'
-            gateway = SenseConstants.SupportedCloud.GCP
         elif "AWS" in gateway_type:
             template_file = 'aws-template.json'
-            gateway = SenseConstants.SupportedCloud.AWS
         else:
             raise SenseException(f"Was not able to get node template file {self.name}")
         
