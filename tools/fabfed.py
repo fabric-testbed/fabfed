@@ -133,6 +133,9 @@ def manage_workflow(args):
             import traceback
 
             logger.error(traceback.format_exc())
+        except KeyboardInterrupt as kie:
+            logger.error(f"Keyboard Interrupt while deleting resources ... {kie}")
+            sys.exit(1)
 
         sutil.save_states(states, args.session)
         return
