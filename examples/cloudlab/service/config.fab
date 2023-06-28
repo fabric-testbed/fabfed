@@ -39,9 +39,9 @@ resource:
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: UTAH
+          site: CLEM  # UTAH
           image: default_rocky_8
-          nic_model: NIC_Basic
+          nic_model: NIC_ConnectX_5
           count: 1
   - network:
       - fabric_network:
@@ -57,4 +57,4 @@ resource:
           controller: '{{ node.fabric_node }}'
           image: dtnaas/tools
           profile: fabfed
-          count: 1 
+          count: 0
