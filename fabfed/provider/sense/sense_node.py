@@ -1,5 +1,6 @@
 from fabfed.model import Node
 from fabfed.util.utils import get_logger
+from fabfed.util.constants import Constants
 from . import sense_utils
 from .sense_exceptions import SenseException
 from . import sense_constants as SenseConstants
@@ -38,7 +39,7 @@ class SenseNode(Node):
             template_file = 'aws-template.json'
         else:
             raise SenseException(f"Was not able to get node template file {self.name}")
-        
+
         details = sense_utils.manifest_create(alias=self.network, template_file=template_file)
 
         for node_details in details.get("Nodes", []):
@@ -51,9 +52,14 @@ class SenseNode(Node):
 
         self.dataplane_ipv4 = self.node_details[SenseConstants.SENSE_PRIVATE_IP]
         self.mgmt_ip = self.node_details[SenseConstants.SENSE_PUBLIC_IP]
+        self.host = self.node_details[SenseConstants.SENSE_PUBLIC_IP]
         self.image = self.node_details[SenseConstants.SENSE_IMAGE]
         self.image = self.image[self.image.find("+") + 1:]
         self.keyfile = self.node_details[SenseConstants.SENSE_KEYPAIR]
+
+        # XXX: hardcoded
+        self.user = "ubuntu"
+        self.keypair = "/home/ezra/.ssh/kp-sense-aws"
 
     def delete(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.network)
@@ -68,5 +74,10 @@ class SenseNode(Node):
     def add_route(self, subnet, gateway):
         pass
 
-    def get_dataplane_address(self, network=None, interface=None, af=None):
-        pass
+    def get_dataplane_address(self, network=None, interface=None, af=Constants.IPv4):
+        if af == Constants.IPv4:
+            return self.dataplane_ipv4
+        elif af == Constants.IPv6:
+            return self.dataplane_ipv6
+        else:
+            return None
