@@ -19,7 +19,9 @@ def manage_workflow(args):
         logger.warning(f"ATTN: The CORRECT config dir for session {args.session} is {config_dir_from_meta}!!!!!!!")
         sys.exit(1)
 
+    sutil.save_meta_data(dict(config_dir=config_dir), args.session)
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
+
     from fabfed.controller.policy_helper import load_policy
 
     policy = load_policy(policy_file=args.policy_file) if args.policy_file else {}
@@ -34,7 +36,6 @@ def manage_workflow(args):
             sys.exit(1)
 
     if args.apply:
-        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
         config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
 
         try:
@@ -57,6 +58,9 @@ def manage_workflow(args):
             logger.error(f"Exceptions while adding resources ... {e}")
         except Exception as e:
             logger.error(f"Exceptioin while planning ... {e}")
+        except KeyboardInterrupt as kie:
+            logger.error(f"Keyboard Interrupt while adding  resources ... {kie}")
+            sys.exit(1)
 
         try:
             controller.create(provider_states=states)
@@ -120,6 +124,10 @@ def manage_workflow(args):
                 controller = Controller(config=config, logger=logger, policy=policy)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)
+
+            if not states:
+                sutil.destroy_session(args.session)
+                return
         except ControllerException as e:
             logger.error(f"Exceptions while deleting resources ...{e}")
             import traceback

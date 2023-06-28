@@ -196,3 +196,10 @@ def save_states(states: List[ProviderState], friendly_name):
     import shutil
 
     shutil.move(temp_file_path, file_path)
+
+
+def destroy_session(friendly_name: str):
+    import shutil
+
+    dir_path = get_base_dir(friendly_name)
+    shutil.rmtree(dir_path)

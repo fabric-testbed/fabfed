@@ -12,10 +12,8 @@ provider:
           profile: fabric
   - janus:
       - janus_provider:
-          url: "{{ node.fabric_node }}"
-          username: admin
-          password: admin
-          token:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: janus 
 
 config:
   - layer3:
@@ -48,10 +46,10 @@ resource:
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          # site: UTAH
           layer3: "{{ layer3.my_layer }}"
           interface: '{{ node.fabric_node }}'
           stitch_with: '{{ network.cnet }}'
+          count: 1
   - service:
       - dtn_service:
           provider: '{{ janus.janus_provider }}'
@@ -59,3 +57,4 @@ resource:
           controller: '{{ node.fabric_node }}'
           image: dtnaas/tools
           profile: fabfed
+          count: 1 

@@ -20,9 +20,14 @@ class SenseNode(Node):
 
     def create(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.network)
-        assert si_uuid
+
+        if not si_uuid:
+            raise SenseException(f"Instance not found by alias={self.network}")
+
         status = sense_utils.instance_get_status(si_uuid=si_uuid)
-        assert status == 'CREATE - READY'
+
+        if status != 'CREATE - READY':
+            raise SenseException(f"Instance is not ready:status={status}")
         
         """ retrieve the gateway type from intents """
         instance_dict = sense_utils.service_instance_details(si_uuid=si_uuid)
