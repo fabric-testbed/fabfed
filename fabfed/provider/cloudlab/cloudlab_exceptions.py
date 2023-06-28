@@ -3,8 +3,11 @@ from fabfed.exceptions import FabfedException
 
 class CloudlabException(FabfedException):
     """Cloudlab exception"""
-    def __init__(self, *, message=None, exitval, response=None):
-        self.message = f"exitval={exitval}"
+    def __init__(self, *, message=None, exitval=None, response=None):
+        self.message = ''
+
+        if exitval:
+            self.message = f"exitval={exitval}"
 
         if message:
             self.message = f"message={message},{self.message}"

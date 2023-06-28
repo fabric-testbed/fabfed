@@ -1,6 +1,6 @@
 variable:
   - fabric_site:
-      default: STAR
+      default: WASH 
 
 provider:
   - fabric:
