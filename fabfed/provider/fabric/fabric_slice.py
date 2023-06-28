@@ -102,7 +102,7 @@ class FabricSlice:
 
         for node in temp:
             node.delegate.add_component(model=node.nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
-            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface using model {node.nic_model} to node {node.name}")
+            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface to node {node.name}")
 
         network_builder.handle_network(temp)
         net = network_builder.build()
@@ -114,7 +114,6 @@ class FabricSlice:
     def _add_node(self, resource: dict):
         node_count = resource.get(Constants.RES_COUNT, 1)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-        nic_model = resource.get(Constants.RES_NIC_MODEL, 'NIC_Basic')
         label = resource.get(Constants.LABEL)
 
         for i in range(node_count):
@@ -328,7 +327,6 @@ class FabricSlice:
 
                 self.notified_create = True
             return
-
 
         self._submit_and_wait()
         self.slice_created = True

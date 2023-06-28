@@ -3,6 +3,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 from fabfed.util.constants import Constants
 
+
 def create_parser(usage='%(prog)s [options]',
                   description='',
                   formatter_class=None):
@@ -188,12 +189,13 @@ def get_base_dir(friendly_name):
     os.makedirs(base_dir, exist_ok=True)
     return base_dir
 
+
 def get_inventory_dir(friendly_name):
-    from pathlib import Path
     import os
     inv_dir = os.path.join(get_base_dir(friendly_name), "inventory")
     os.makedirs(inv_dir, exist_ok=True)
     return inv_dir
+
 
 def dump_sessions(to_json: bool):
     from fabfed.util import state as sutil
@@ -204,7 +206,7 @@ def dump_sessions(to_json: bool):
     base_dir = os.path.join(str(Path.home()), '.fabfed', 'sessions')
     os.makedirs(base_dir, exist_ok=True)
     sessions = os.listdir(base_dir)
-    sessions = [ dict(session=s, config_dir=sutil.load_meta_data(s, 'config_dir')) for s in sessions]
+    sessions = [dict(session=s, config_dir=sutil.load_meta_data(s, 'config_dir')) for s in sessions]
 
     if to_json:
         import json
