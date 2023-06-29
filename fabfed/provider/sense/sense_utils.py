@@ -8,10 +8,25 @@ from sense.client.workflow_combined_api import WorkflowCombinedApi
 from .sense_client import get_client
 
 from .sense_constants import *
+from .sense_exceptions import SenseException
 
 from fabfed.util.utils import get_logger
 
 logger = get_logger()
+
+
+def get_image_info(image_spec, attr=None):
+    import os
+
+    path_file = os.path.join(os.path.dirname(__file__), 'inventory', 'sense_image_info.json')
+
+    with open(path_file, 'r') as fp:
+        infos = json.load(fp)
+
+    if not attr:
+        return infos.get(image_spec)
+
+    return infos.get(image_spec, dict()).get(attr)
 
 
 def describe_profile(*, client=None, uuid: str):
@@ -32,7 +47,7 @@ def describe_profile(*, client=None, uuid: str):
 
 def populate_options_using_interfaces(options, interfaces, edit_uri_entries):
     if len(interfaces) > len(edit_uri_entries):
-        raise Exception("invalid number of interfaces")
+        raise SenseException("invalid number of interfaces")
 
     index_used = False
 
@@ -47,13 +62,13 @@ def populate_options_using_interfaces(options, interfaces, edit_uri_entries):
     else:
         for interface in interfaces:
             if not interface.get(Constants.RES_INDEX):
-                raise Exception(f"index missing {interface}")
+                raise SenseException(f"index missing {interface}")
 
     for interface in interfaces:
         idx = interface.get(Constants.RES_INDEX)
 
         if idx < 0 or idx >= len(edit_uri_entries):
-            raise Exception("bad interface index")
+            raise SenseException("bad interface index")
 
         name = interface.get(Constants.RES_ID)
         path_prefix = f"data.connections[0].terminals[{idx}]."
@@ -87,16 +102,13 @@ def get_profile_uuid(*, client=None, profile):
 def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, interfaces):
     client = client or get_client()
     profile_uuid = get_profile_uuid(client=client, profile=profile)
-
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
     workflow_api.instance_new()
     intent = {SENSE_PROFILE_UID: profile_uuid, "alias": alias}
-
+    edit_entries = []
     profile_details = describe_profile(client=client, uuid=profile_uuid)
 
     logger.debug(f'Profile Details: {profile_details}')
-
-    edit_entries = []
 
     if hasattr(profile_details, "edit"):
         edit_entries = profile_details.edit
@@ -113,7 +125,18 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
         options.append({f"data.connections[{0}].bandwidth.capacity": bandwidth})
 
     if peering:
-        for k, v in SENSE_AWS_PEERING_MAPPING.items():
+        try:
+            gateway_type = profile_details.intent.data.gateways[0].type.upper()
+            if "GCP" in gateway_type:
+                peering_mapping = SENSE_GCP_PEERING_MAPPING
+            elif "AWS" in gateway_type:
+                peering_mapping = SENSE_AWS_PEERING_MAPPING
+            else:
+                raise SenseException(f"Was not able to figure out peering mapping for {gateway_type}")
+        except Exception as e:
+            raise SenseException(f"Was not able to figure out peering mapping:{str(e)}")
+
+        for k, v in peering_mapping.items():
             if peering.attributes.get(k):
                 path = "data.gateways[0].connects[0]." + v
                 options.append({path: peering.attributes.get(k)})
@@ -164,7 +187,7 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
     try:
         temp = json.loads(response)
     except:
-        raise Exception(f"did not receive json ....{response}")
+        raise SenseException(f"did not receive json ....{response}")
 
     status = workflow_api.instance_get_status()
     return temp['service_uuid'], status
@@ -205,9 +228,12 @@ def delete_instance(*, client=None, si_uuid):
     status = workflow_api.instance_get_status(si_uuid=si_uuid)
 
     if 'error' in status:
-        raise Exception("error deleting got " + status)
+        raise SenseException("error deleting got " + status)
 
-    if "CREATE - COMPILED" in status or "FAILED" in status:
+    if 'FAILED' in status:
+            raise SenseException(f'cannot delete instance - contact admin. {status}')
+
+    if "CREATE - COMPILED" in status:
         workflow_api.instance_delete(si_uuid=si_uuid)
         return
 
@@ -237,7 +263,7 @@ def delete_instance(*, client=None, si_uuid):
         workflow_api.instance_delete(si_uuid=si_uuid)
         logger.info(f"Deleted instance: {si_uuid}")
     else:
-        raise Exception(f'cancel operation disrupted - instance not deleted - contact admin. {status}')
+        raise SenseException(f'cancel operation disrupted - instance not deleted - contact admin. {status}')
 
 
 def instance_get_status(*, client=None, si_uuid):
@@ -266,7 +292,7 @@ def service_instance_details(*, client=None, si_uuid):
 
             return instance
 
-    raise Exception()
+    raise SenseException('no details found')
 
 
 def discover_service_instances(*, client=None):

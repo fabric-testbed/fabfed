@@ -40,7 +40,9 @@ class CloudlabNode(Node):
 
         status = json.loads(response.value)
         logger.info(f"STATUS: {json.dumps(status, indent=2)}")
-        assert status['status'] == 'ready', f"status={status['status']}"
+
+        if status['status'] != 'ready':
+            raise CloudlabException(message=f"Found experiment with status={status['status']}")
 
         node_info = list(status[AGGREGATE_STATUS][NODE_URI][NODES].values())[0]  # [NODE]
         logger.info(f"NODE_INFO: {node_info}")

@@ -4,6 +4,7 @@ services:
     image: {{ ipv6_registry }}portainer/portainer-ce:2.16.1
     container_name: portainer-ce
     restart: unless-stopped
+    command: --admin-password $2y$10$/XJgUD2poLrF5PbwY9upFOIIUds7oB63ZL6i06VXbLEawZNuabu5a
     volumes:
       - portainer_data:/data
     expose:

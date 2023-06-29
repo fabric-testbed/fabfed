@@ -31,7 +31,7 @@ class ChiNetwork(Network):
             "network_name": self.name,
             "network_properties": "",
             "resource_properties": json.dumps(
-                ["==", "$stitch_provider", self.stitch_provider] # "fabric"
+                ["==", "$stitch_provider", self.stitch_provider]  # "fabric"
             ),
         }]
         self.vlans = list()
@@ -130,7 +130,7 @@ class ChiNetwork(Network):
                 self.logger.warning(f"Error Removing subnet ...{nf}")
                 break
             except RuntimeError as re:
-                if "No subnets found with" in str(re):
+                if "No subnets found with" in str(re) or "No routers found with" in str(re):
                     break
 
                 raise re
