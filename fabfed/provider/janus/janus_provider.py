@@ -163,14 +163,25 @@ class JanusProvider(Provider):
         service_nodes = [n.attributes.get('name') for n in nodes]
         label = resource.get(Constants.LABEL)
         states = resource.get(Constants.SAVED_STATES)
-        for s in states:
-            controller_url =  s.attributes.get('controller_url')
-            controller_host = s.attributes.get('controller_host')
+        states = [s for s in states if s.label == label]
+
+        if not states:
+            return
+
+        s = states[0]
+        controller_url = s.attributes.get('controller_url')
+        controller_host = s.attributes.get('controller_host')
+        controller_web = s.attributes.get('controller_web')
+        ssh_tunnel_cmd = s.attributes.get('controller_ssh_tunnel_cmd')
+
         service_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         service_name = f"{self.name}-{service_name_prefix}"
         service = JanusService(label=label, name=service_name, image=image, nodes=service_nodes,
                                controller_url=controller_url,
                                controller_host=controller_host,
+                               controller_web=controller_web,
+                               ssh_tunnel_cmd=ssh_tunnel_cmd,
                                provider=self, logger=self.logger)
+
         service.delete()
         self.resource_listener.on_deleted(source=self, provider=self, resource=service)

@@ -9,7 +9,7 @@ logger = get_logger()
 
 
 class SenseNode(Node):
-    def __init__(self, *, label, name: str, network: str, spec: dict):
+    def __init__(self, *, label, name: str, network: str, spec: dict, provider):
         super().__init__(label=label, name=name, image="", site="", flavor="")
         assert network
         self.network = network
@@ -18,6 +18,7 @@ class SenseNode(Node):
         self.node_details: dict = {}
         self.dataplane_ipv4 = None
         self.dataplane_ipv6 = None
+        self._provider = provider
 
     def create(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.network)
@@ -55,11 +56,11 @@ class SenseNode(Node):
         self.host = self.node_details[SenseConstants.SENSE_PUBLIC_IP]
         self.image = self.node_details[SenseConstants.SENSE_IMAGE]
         self.image = self.image[self.image.find("+") + 1:]
-        self.keyfile = self.node_details[SenseConstants.SENSE_KEYPAIR]
+        self.keypair = self.node_details[SenseConstants.SENSE_KEYPAIR]
+        self.user = sense_utils.get_image_info(self.image, 'user') 
 
-        # XXX: hardcoded
-        self.user = "ubuntu"
-        self.keypair = "/home/ezra/.ssh/kp-sense-aws"
+        if self._provider:
+            self.keyfile = self._provider.private_key_file_location
 
     def delete(self):
         si_uuid = sense_utils.find_instance_by_alias(alias=self.network)
