@@ -1,6 +1,7 @@
 from fabfed.util.constants import Constants
 import enum
 
+SENSE_SLICE_PRIVATE_KEY_LOCATION = "slice-private-key-location"
 SENSE_PROFILE_UID = "service_profile_uuid"
 SENSE_ALIAS = "alias"
 SENSE_EDIT = "options"

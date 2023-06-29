@@ -77,7 +77,7 @@ def add_ip_address_to_network(slice_delegate, node, net_name, node_addr, subnet,
     for attempt in range(retry):
         try:
             iface = delegate.get_interface(network_name=net_name)
-            logger.info(f'adding ip addr: {iface}: {net_name}:{node.name}:attempt={attempt + 1}')
+            logger.info(f'adding ip addr {node_addr}:{subnet}: {net_name}:{node.name}:attempt={attempt + 1}')
             iface.ip_addr_add(addr=node_addr, subnet=subnet)
         except:
             iface = delegate.get_interface(network_name=net_name + "_aux")
