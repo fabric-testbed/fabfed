@@ -7,6 +7,12 @@ provider:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: fabric
+  - janus:
+      - janus_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: janus
+          url: "{{ node.fabric_node }}"
+
 config:
   - layer3:
       - fab_layer:
@@ -26,9 +32,9 @@ config:
           cloud_region:
 
           # FOR SENSE and FABRIC
-          local_asn: "55038" # customer_asn (hard coded for now) 
+          local_asn: "55038" # customer_asn (hard coded for now)
           local_address: "192.168.1.1/30" # customer_ip
-          remote_asn: "64512" # amazon_asn 
+          remote_asn: "64512" # amazon_asn
           remote_address: "192.168.1.2/30" # amazon_ip
 resource:
   - node:
@@ -37,10 +43,10 @@ resource:
           name: aws-node
           network: "{{ network.sense_net }}"
           service:
-          count: 1 
+          count: 1
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: RENC
+          site: MAX # Use RENC when deploying to fabric beta environment
           image: default_rocky_8
           count: 1
           nic_model: NIC_Basic
@@ -50,10 +56,10 @@ resource:
           name: aws-net
           layer3: "{{ layer3.sense_layer }}"
           peering: "{{ peering.my_peering }}"
-          count: 1 
+          count: 1
           stitch_with: '{{ network.fabric_network }}'
           stitch_option: 
-              name: AGG4 
+              port_name: AGG4 
 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
@@ -61,3 +67,12 @@ resource:
           peering: "{{ peering.my_peering }}"
           interface: '{{ node.fabric_node }}'
           count: 1
+
+  - service:
+      - dtn_service:
+          provider: '{{ janus.janus_provider }}'
+          node: [ '{{ node.sense_node }}', '{{ node.fabric_node }}' ]
+          controller: '{{ node.fabric_node }}'
+          image: dtnaas/tools
+          profile: fabfed
+          count: 0   # SET THIS TO 1 if you want use janus service

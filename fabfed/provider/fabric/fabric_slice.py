@@ -100,6 +100,10 @@ class FabricSlice:
         if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
             temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
+        for node in temp:
+            node.delegate.add_component(model=node.nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
+            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface to node {node.name}")
+
         network_builder.handle_network(temp)
         net = network_builder.build()
         self.provider.networks.append(net)
@@ -110,17 +114,11 @@ class FabricSlice:
     def _add_node(self, resource: dict):
         node_count = resource.get(Constants.RES_COUNT, 1)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-        nic_model = resource.get(Constants.RES_NIC_MODEL, 'NIC_Basic')
         label = resource.get(Constants.LABEL)
 
         for i in range(node_count):
             name = f"{name_prefix}{i}"
             node_builder = NodeBuilder(label, self.slice_object, name, resource)
-            # node_builder.add_component(model=nic_model, name="nic1")
-            # self.logger.info(f"Added nic1 interface using model {nic_model} to node {name}")
-            node_builder.add_component(model=nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
-            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface using model {nic_model} to node {name}")
-
             node = node_builder.build()
             self.nodes.append(node)
 
@@ -330,13 +328,12 @@ class FabricSlice:
                 self.notified_create = True
             return
 
-
         self._submit_and_wait()
         self.slice_created = True
 
-        self.logger.info(f"Going to sleep. DEEP. slice {self.provider.label}")
+        self.logger.info(f"Going to sleep {FABRIC_SLEEP_AFTER_SUBMIT_OK} seconds:slice {self.provider.label}")
         import time
-        time.sleep(120)
+        time.sleep(FABRIC_SLEEP_AFTER_SUBMIT_OK)
         self.logger.info(f"Back from sleeping ... slice {self.provider.label}")
 
         self._handle_node_networking()

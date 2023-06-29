@@ -147,6 +147,9 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
     if options:
         for k, v in options.items():
             for stitch_info in stitch_infos:
+                if k == 'port_name':
+                    k = 'name'
+
                 if stitch_info.stitch_port.get(k) == v:
                     logger.info(f"Using stitch port based on port: {k}={v} and providers={providers}:{stitch_info}")
                     return stitch_info
@@ -159,6 +162,9 @@ def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str],
                     return stitch_info
 
                 for g in [stitch_info.consumer_group, stitch_info.producer_group]:
+                    if k == 'group_name':
+                        k = 'name'
+
                     if g.get(k) == v:
                         logger.info(
                             f"Using stitch port based on group: {k}={v} and providers={providers}:{stitch_info}")
