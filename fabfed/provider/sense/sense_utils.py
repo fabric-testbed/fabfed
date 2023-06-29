@@ -15,6 +15,20 @@ from fabfed.util.utils import get_logger
 logger = get_logger()
 
 
+def get_image_info(image_spec, attr=None):
+    import os
+
+    path_file = os.path.join(os.path.dirname(__file__), 'inventory', 'sense_image_info.json')
+
+    with open(path_file, 'r') as fp:
+        infos = json.load(fp)
+
+    if not attr:
+        return infos.get(image_spec)
+
+    return infos.get(image_spec, dict()).get(attr)
+
+
 def describe_profile(*, client=None, uuid: str):
     client = client or get_client()
     profile_api = ProfileApi(req_wrapper=client)

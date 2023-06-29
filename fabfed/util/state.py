@@ -74,7 +74,7 @@ def dump_states(states, to_json: bool, summary: bool = False):
         for provider_state in states:
             for node_state in provider_state.node_states:
                 attributes = dict()
-                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6"]
+                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6", 'keyfile', 'jump_keyfile']
 
                 for prop in props:
                     if prop in node_state.attributes:
@@ -96,7 +96,7 @@ def dump_states(states, to_json: bool, summary: bool = False):
 
             for service_state in provider_state.service_states:
                 attributes = dict()
-                props = ['name', 'image']
+                props = ['name', 'image', 'controller_host', 'controller_web', 'controller_ssh_tunnel_cmd']
 
                 for prop in props:
                     if prop in service_state.attributes:
