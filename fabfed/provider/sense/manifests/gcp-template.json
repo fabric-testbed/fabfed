@@ -1,0 +1,14 @@
+{
+  "Nodes": [
+    {
+      "Node Name": "?vm_name?",
+      "Public IP": "?vm_public_ip?",
+      "Private IP": "?vm_private_ip?",
+      "Key Pair": "?vm_keyname?",
+      "Image": "?vm_image?",
+      "Pairing Key": "?pairing_key?",
+      "sparql": "SELECT DISTINCT ?vm_name ?vm_public_ip ?vm_private_ip ?vm_keyname ?vm_image ?pairing_key WHERE {?ec2 mrs:providesVM ?vm. ?vpc nml:hasNode ?vm. ?vm nml:name ?vm_name. ?vm mrs:hasNetworkAddress ?vm_public_na.?vm_public_na mrs:type \"ipv4:public\".  ?vm_public_na mrs:value ?vm_public_ip.  ?vm nml:hasBidirectionalPort ?vm_eth. ?vm_eth mrs:hasNetworkAddress ?vm_private_na. ?vm_private_na mrs:type \"ipv4:private\". ?vm_private_na mrs:value ?vm_private_ip. OPTIONAL{?vpc nml:hasBidirectionalPort ?vpngw. ?vpngw nml:name ?cloud_router. ?vpngw nml:isAlias ?vlan_attachment. ?vlan_attachment mrs:hasNetworkStatus \"pending_partner\". ?vlan_attachment mrs:hasNetworkAddress ?pairing_key_na. ?pairing_key_na mrs:type \"pairing-key\". ?pairing_key_na mrs:value ?pairing_key.} OPTIONAL{ ?vm mrs:type ?vm_keyname. FILTER (regex(?vm_keyname,'^keypair.+$'))} OPTIONAL{ ?vm mrs:type ?vm_image. FILTER (regex(?vm_image,'^image.+$'))}}",
+      "required": "true"
+    }
+  ]
+}

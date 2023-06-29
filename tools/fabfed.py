@@ -11,6 +11,15 @@ from fabfed.util.config import WorkflowConfig
 def manage_workflow(args):
     logger = utils.init_logger()
 
+    config_dir = utils.absolute_path(args.config_dir)
+    config_dir_from_meta = sutil.load_meta_data(args.session, 'config_dir')
+
+    if config_dir_from_meta and config_dir_from_meta != config_dir:
+        logger.error(f"attempt to use fabfed session {args.session} from the wrong config dir {config_dir} ...")
+        logger.warning(f"ATTN: The CORRECT config dir for session {args.session} is {config_dir_from_meta}!!!!!!!")
+        sys.exit(1)
+
+    sutil.save_meta_data(dict(config_dir=config_dir), args.session)
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
     from fabfed.controller.policy_helper import load_policy
@@ -19,7 +28,7 @@ def manage_workflow(args):
 
     if args.validate:
         try:
-            WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+            WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
             logger.info("config looks ok")
         except Exception as e:
             logger.error(f"Validation failed .... {type(e)} {e}")
@@ -27,7 +36,7 @@ def manage_workflow(args):
             sys.exit(1)
 
     if args.apply:
-        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
 
         try:
             controller = Controller(config=config, logger=logger, policy=policy)
@@ -47,6 +56,11 @@ def manage_workflow(args):
             controller.plan(provider_states=states)
         except ControllerException as e:
             logger.error(f"Exceptions while adding resources ... {e}")
+        except Exception as e:
+            logger.error(f"Exceptioin while planning ... {e}")
+        except KeyboardInterrupt as kie:
+            logger.error(f"Keyboard Interrupt while adding  resources ... {kie}")
+            sys.exit(1)
 
         try:
             controller.create(provider_states=states)
@@ -75,14 +89,14 @@ def manage_workflow(args):
         return
 
     if args.init:
-        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger, policy=policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
         return
 
     if args.plan:
-        config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config, logger=logger, policy=policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         states = sutil.load_states(args.session)
@@ -106,15 +120,22 @@ def manage_workflow(args):
 
         try:
             if states:
-                config = WorkflowConfig(dir_path=args.config_dir, var_dict=var_dict)
+                config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
                 controller = Controller(config=config, logger=logger, policy=policy)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)
+
+            if not states:
+                sutil.destroy_session(args.session)
+                return
         except ControllerException as e:
             logger.error(f"Exceptions while deleting resources ...{e}")
             import traceback
 
             logger.error(traceback.format_exc())
+        except KeyboardInterrupt as kie:
+            logger.error(f"Keyboard Interrupt while deleting resources ... {kie}")
+            sys.exit(1)
 
         sutil.save_states(states, args.session)
         return

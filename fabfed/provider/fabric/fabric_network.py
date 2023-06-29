@@ -29,12 +29,9 @@ class FabricNetwork(Network):
         ns = self._delegate.get_fim_network_service()
         self.interface = []
 
-        if self.peering:
-            cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
 
-            if cloud != "AWS":
-                raise Exception(f"unsupported cloud {cloud}")
-
+        # TODO This is only needed for sense-aws
+        if self.peering and Constants.RES_CLOUD_ACCOUNT in self.peering.attributes:
             account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
             key = self.slice_name + "-" + account_id
             self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
@@ -105,7 +102,8 @@ class NetworkBuilder:
         self.stitching_net = None
         self.label = label
         self.net = None
-        self.type = resource.get('net_type')
+        self.type = resource.get('net_type')     # TODO: type
+        self.discovered_stitch_info = {}
 
         if self.stitch_port:
             self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
@@ -147,7 +145,9 @@ class NetworkBuilder:
 
             if isinstance(interface, dict) and 'provider' in interface:
                 logger.info(f'Network {self.net_name} found stitching interface {interface}')
+
                 self.vlan = interface.get('vlan')
+                self.discovered_stitch_info = interface
 
                 if not self.device:
                     provider = interface['provider']
@@ -174,11 +174,16 @@ class NetworkBuilder:
             cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
             asn = self.peering.attributes.get(Constants.RES_REMOTE_ASN)
             account_id = self.peering.attributes.get(Constants.RES_CLOUD_ACCOUNT)
+
+            if account_id is None:
+                account_id = self.discovered_stitch_info.get("id")
+
             subnet = self.peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
             peer_subnet = self.peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
             region= self.peering.attributes.get(Constants.RES_CLOUD_REGION)
             device = self.peering.attributes.get(Constants.RES_LOCAL_DEVICE)
             port = self.peering.attributes.get(Constants.RES_LOCAL_PORT)
+            vlan = self.peering.attributes.get('cloud_vlan')
 
             if not device:
                 device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
@@ -193,10 +198,17 @@ class NetworkBuilder:
                 cloud = self.stitch_port.get(Constants.STITCH_PORT_SITE)
                 self.peering.attributes[Constants.RES_CLOUD_FACILITY] = cloud # TODO WORKAROUND FOR NOW
 
+            if not vlan:
+                vlan = self.stitch_port.get('vlan')   # TODO WORKAROUND GCP NEEDS THIS
+
             labels = Labels(ipv4_subnet=subnet)
 
-            if region:
-                labels = Labels.update(labels, region=region)
+            if vlan:
+                labels = Labels.update(labels, vlan=str(vlan))
+
+            # if region:
+            #     labels = Labels.update(labels, region=region)
+
             if device: 
                 labels = Labels.update(labels, device_name=device)
             if port: 
@@ -211,7 +223,7 @@ class NetworkBuilder:
             logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
 
             facility_port = self.slice_object.add_facility_port(
-                name='Cloud_Facility_' + cloud,
+                name='Cloud-Facility-' + cloud,
                 site=cloud,
                 labels=labels,
                 peer_labels=peer_labels,
