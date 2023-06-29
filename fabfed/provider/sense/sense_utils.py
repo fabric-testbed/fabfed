@@ -102,16 +102,13 @@ def get_profile_uuid(*, client=None, profile):
 def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, interfaces):
     client = client or get_client()
     profile_uuid = get_profile_uuid(client=client, profile=profile)
-
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
     workflow_api.instance_new()
     intent = {SENSE_PROFILE_UID: profile_uuid, "alias": alias}
-
+    edit_entries = []
     profile_details = describe_profile(client=client, uuid=profile_uuid)
 
     logger.debug(f'Profile Details: {profile_details}')
-
-    edit_entries = []
 
     if hasattr(profile_details, "edit"):
         edit_entries = profile_details.edit
@@ -119,16 +116,6 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
         logger.info(f'Edit Entries: {json.dumps(temp_entries, indent=2)}')
 
     edit_uri_entries = [e for e in edit_entries if e.path.endswith(SENSE_URI)]
-    
-    """ figure out the cloud service: aws, gcp and etc. """
-    xform = profile_details.intent.options[0]
-    if xform == "aws-form":
-        peering_mapping = SENSE_AWS_PEERING_MAPPING
-    elif xform == "gcp-form":
-        peering_mapping = SENSE_GCP_PEERING_MAPPING
-    else:
-        raise SenseException(f"invalide mapping ....{xform}")
-        
     options = []
 
     if interfaces:
@@ -138,6 +125,17 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
         options.append({f"data.connections[{0}].bandwidth.capacity": bandwidth})
 
     if peering:
+        try:
+            gateway_type = profile_details.intent.data.gateways[0].type.upper()
+            if "GCP" in gateway_type:
+                peering_mapping = SENSE_GCP_PEERING_MAPPING
+            elif "AWS" in gateway_type:
+                peering_mapping = SENSE_AWS_PEERING_MAPPING
+            else:
+                raise SenseException(f"Was not able to figure out peering mapping for {gateway_type}")
+        except Exception as e:
+            raise SenseException(f"Was not able to figure out peering mapping:{str(e)}")
+
         for k, v in peering_mapping.items():
             if peering.attributes.get(k):
                 path = "data.gateways[0].connects[0]." + v
