@@ -23,6 +23,12 @@ class SenseProvider(Provider):
 
         init_client(self.config)
 
+    @property
+    def private_key_file_location(self):
+        from .sense_constants import SENSE_SLICE_PRIVATE_KEY_LOCATION
+
+        return self.config.get(SENSE_SLICE_PRIVATE_KEY_LOCATION)
+
     def _handle_peering_config(self, resource):
         import fabfed.provider.api.dependency_util as util
         from fabfed.model import Network
@@ -66,7 +72,7 @@ class SenseProvider(Provider):
             node_name = f'{self.name}-{name_prefix}'
 
             for idx, vm in enumerate(vms):
-                node = SenseNode(label=label, name=f'{node_name}-{idx}', network=net.name, spec=vm)
+                node = SenseNode(label=label, name=f'{node_name}-{idx}', network=net.name, spec=vm, provider=self)
                 self._nodes.append(node)
 
                 if self.resource_listener:
