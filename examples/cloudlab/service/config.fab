@@ -1,0 +1,60 @@
+variable:
+  - cloudlab_profile:
+      default: fabfed-stitch-v2
+provider:
+  - cloudlab:
+      - cloudlab_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: cloudlab
+  - fabric:
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: fabric
+  - janus:
+      - janus_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: janus 
+
+config:
+  - layer3:
+      - my_layer:
+          subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
+          ip_start: 192.168.1.2
+          ip_end: 192.168.1.254
+resource:
+  - network:
+      - cnet:
+          provider: '{{cloudlab.cloudlab_provider }}'
+          profile: '{{ var.cloudlab_profile }}'
+          layer3: "{{ layer3.my_layer }}"
+          # Uncomment to override vlan
+          # interface:
+          #  - vlan: 3101
+  - node:
+      - cnode:
+          provider: '{{ cloudlab.cloudlab_provider }}'
+          network: "{{ network.cnet }}"
+          count: 1
+  - node:
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          site: CLEM  # UTAH
+          image: default_rocky_8
+          nic_model: NIC_ConnectX_5
+          count: 1
+  - network:
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+          interface: '{{ node.fabric_node }}'
+          stitch_with: '{{ network.cnet }}'
+          count: 1
+  - service:
+      - dtn_service:
+          provider: '{{ janus.janus_provider }}'
+          node: [ '{{ node.cnode }}', '{{ node.fabric_node }}' ]
+          controller: '{{ node.fabric_node }}'
+          image: dtnaas/tools
+          profile: fabfed
+          count: 1

@@ -2,6 +2,7 @@ from fabfed.model import Network
 from fabfed.util.utils import get_logger
 from . import sense_utils
 from .sense_constants import SERVICE_INSTANCE_KEYS, SENSE_DTN, SENSE_DTN_IP
+from .sense_exceptions import SenseException
 
 logger = get_logger()
 
@@ -35,16 +36,14 @@ class SenseNetwork(Network):
             logger.info(f"Found existing {self.name} {si_uuid} with status={status}")
 
         if 'FAILED' in status:
-            logger.warn(f"In Create: Deleting {self.name} {si_uuid} with status={status}")
-            sense_utils.delete_instance(si_uuid=si_uuid)
-            si_uuid, status = sense_utils.create_instance(profile=self.profile, bandwidth=self.bandwidth,
-                                                          alias=self.name,
-                                                          layer3=self.layer3, peering=self.peering,
-                                                          interfaces=self.interface)
+            raise SenseException(f"Found instance {si_uuid} with status={status}")
 
-        if 'FAILED' not in status and 'CREATE - READY' not in status:
+        if 'CREATE - READY' not in status:
             logger.debug(f"Provisioning {self.name}")
             status = sense_utils.instance_operate(si_uuid=si_uuid)
+
+        if 'CREATE - READY' not in status:
+            raise Exception(f"Creation failed for {si_uuid} {status}")
 
         logger.debug(f"Retrieving details {self.name} {status}")
         instance_dict = sense_utils.service_instance_details(si_uuid=si_uuid)
@@ -57,9 +56,6 @@ class SenseNetwork(Network):
             self.__setattr__(key, instance_dict.get(key))
 
         self.id = self.referenceUUID
-
-        if 'CREATE - READY' not in status:
-            raise Exception(f"Creation failed for {si_uuid} {status}")
 
         if self.intents[0]['json']['service'] == 'vcn':
             if "GCP" in self.intents[0]['json']['data']['gateways'][0]['type'].upper():
@@ -99,6 +95,16 @@ class SenseNetwork(Network):
                         self.dtn = [dtn[0: dtn.find('/')]]
                     else:
                         self.dtn = [dtn]
+                        
+        # if self.peering and self.intents[0]['json']['service'] == 'vcn':
+        #     try:
+        #         template_file = 'gcp-template.json'
+        #         details = sense_utils.manifest_create(si_uuid=si_uuid, template_file=template_file)
+        #         for node_details in details.get("Nodes", []):
+        #             self.peering.attributes['cloud_account'] = node_details.get("Pairing Key", [])
+        #             break
+        #     except:
+        #         pass
 
     def delete(self):
         from . import sense_utils

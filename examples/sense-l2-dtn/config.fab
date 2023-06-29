@@ -18,11 +18,11 @@ resource:
           # site: UKY
           layer3: "{{ layer3.my_layer }}"
           interface: '{{ node.fabric_node }}'
-          stitch_with: '{{ network.net1 }}' # 852 to 855 
-          stitch_option: 
+          stitch_with: '{{ network.net1 }}' # 852 to 855
+          stitch_option:
               # profile: 'FABRIC-L2-DTN'
-              # site: UKY 
-              # device_name : UKY-AL2S 
+              # site: UKY
+              # device_name : UKY-AL2S
               interface:
                 - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24
   - network:
@@ -34,7 +34,7 @@ resource:
           layer3: "{{ layer3.my_layer }}"
           # interface:
           #  - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24
-          # stitch_with: '{{ network.fabric_network }}' 
+          # stitch_with: '{{ network.fabric_network }}'
   - service:
       - dtn_service:
           provider: '{{ janus.janus_provider }}'

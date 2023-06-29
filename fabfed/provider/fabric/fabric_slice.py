@@ -100,6 +100,10 @@ class FabricSlice:
         if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
             temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
+        for node in temp:
+            node.delegate.add_component(model=node.nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
+            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface to node {node.name}")
+
         network_builder.handle_network(temp)
         net = network_builder.build()
         self.provider.networks.append(net)
@@ -110,17 +114,11 @@ class FabricSlice:
     def _add_node(self, resource: dict):
         node_count = resource.get(Constants.RES_COUNT, 1)
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-        nic_model = resource.get(Constants.RES_NIC_MODEL, 'NIC_Basic')
         label = resource.get(Constants.LABEL)
 
         for i in range(node_count):
             name = f"{name_prefix}{i}"
             node_builder = NodeBuilder(label, self.slice_object, name, resource)
-            # node_builder.add_component(model=nic_model, name="nic1")
-            # self.logger.info(f"Added nic1 interface using model {nic_model} to node {name}")
-            node_builder.add_component(model=nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
-            self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface using model {nic_model} to node {name}")
-
             node = node_builder.build()
             self.nodes.append(node)
 
@@ -229,58 +227,7 @@ class FabricSlice:
 
         self.provider._networks = temp
 
-    def _setup_networks(self, node, v4net_name, v6net_name):
-        v4_net = self.slice_object.get_network(name=v4net_name)
-        v4_net_available_ips = v4_net.get_available_ips()
-        v6_net = self.slice_object.get_network(name=v6net_name)
-        v6_net_available_ips = v6_net.get_available_ips()
-
-        iface_v4 = node.get_interface(network_name=v4net_name)
-        iface_v6 = node.get_interface(network_name=v6net_name)
-
-        # TODO ADD WARNINGS ....
-        if v4_net_available_ips:
-            addr_v4 = v4_net_available_ips.pop(0)
-            iface_v4.ip_addr_add(addr=addr_v4, subnet=v4_net.get_subnet())
-
-        if v6_net_available_ips:
-            addr_v6 = v6_net_available_ips.pop(0)
-            iface_v6.ip_addr_add(addr=addr_v6, subnet=v6_net.get_subnet())
-
-        node.ip_route_add(subnet=FABRIC_PRIVATE_IPV4_SUBNET, gateway=v4_net.get_gateway())
-        node.ip_route_add(subnet=FABRIC_PUBLIC_IPV6_SUBNET, gateway=v6_net.get_gateway())
-
-    def create_resource(self, *, resource: dict):
-        label = resource.get(Constants.LABEL)
-
-        if self.failed:
-            raise Exception(f"fabric slice {self.name} has some failures. Refusing to create {label}")
-
-        if self.slice_created:
-            state = self.slice_object.get_state()
-
-            if not self.notified_create:
-                self.logger.info(f"already provisioned. {self.name}: state={state}")
-            else:
-                self.logger.debug(f"already provisioned. {self.name}: state={state}")
-
-            if not self.notified_create and self.resource_listener:
-                for node in self.nodes:
-                    self.resource_listener.on_created(source=self, provider=self, resource=node)
-
-                for net in self.networks:
-                    self.resource_listener.on_created(source=self, provider=self, resource=net)
-
-                self.notified_create = True
-            return
-
-        if self.pending:
-            self.logger.warning(f"still have pending {len(self.pending)} resources")
-            return
-
-        self._submit_and_wait()
-        self.slice_created = True
-        self.logger.info(f"will check for management ips ...: {self.name}")
+    def _ensure_management_ips(self):
         for attempt in range(self.retry):
             mngmt_ips = []
             from fabrictestbed_extensions.fablib.fablib import fablib
@@ -295,7 +242,7 @@ class FabricSlice:
                     mngmt_ips.append(mgmt_ip)
 
             if len(self.nodes) == len(mngmt_ips):
-                self.logger.info(f"Got All management ips for slice {self.provider.label}")
+                self.logger.info(f"Got All management ips for slice {self.provider.label}:{mngmt_ips}")
                 break
 
             if attempt == self.retry:
@@ -306,17 +253,24 @@ class FabricSlice:
             import time
 
             self.logger.info(
-                f"Going to sleep. Will try checking node management ips ...slice {self.provider.label}")
+                f"Going to sleep. Will try checking node management ips ... slice {self.provider.label}")
 
             time.sleep(2)
 
+    def _handle_node_networking(self):
+        from fabrictestbed_extensions.fablib.fablib import fablib
+        from . import fabric_slice_helper
+
+        self._ensure_management_ips()
+
         if INCLUDE_FABNETS:
+            self.slice_object = fablib.get_slice(name=self.provider.name)
             for node in self.nodes:
-                delegate = self.slice_object.get_node(node.name)
-                self._setup_networks(delegate, node.v4net_name, node.v6net_name)
+                fabric_slice_helper.setup_fabric_networks(self.slice_object, node, node.v4net_name, node.v6net_name)
 
         if self.networks:
             from ipaddress import IPv4Network
+            # self.slice_object = fablib.get_slice(name=self.provider.name)
             available_ips = self.networks[0].available_ips()
 
             if available_ips and self.networks[0].subnet:
@@ -324,48 +278,65 @@ class FabricSlice:
                 subnet = IPv4Network(self.networks[0].subnet)
 
                 for node in self.nodes:
-                    delegate = self.slice_object.get_node(node.name)
-
-                    try:
-                        iface = delegate.get_interface(network_name=net_name)
-                        node_addr = available_ips.pop(0)
-                        iface.ip_addr_add(addr=node_addr, subnet=subnet)
-                    except:
-                        iface = delegate.get_interface(network_name=net_name + "_aux")
-                        node_addr = available_ips.pop(0)
-                        iface.ip_addr_add(addr=node_addr, subnet=subnet)
+                    node_addr = available_ips.pop(0)
+                    fabric_slice_helper.add_ip_address_to_network(self.slice_object,
+                                                                  node, net_name, node_addr, subnet, self.retry)
 
             gateway = self.networks[0].gateway
+            # self.slice_object = fablib.get_slice(name=self.provider.name)
 
             if gateway and self.networks[0].peer_layer3:
                 for peer_layer3 in self.networks[0].peer_layer3:
                     subnet = peer_layer3.attributes.get(Constants.RES_SUBNET)
 
-                    if not subnet:
-                        continue
+                    if subnet:
+                        vpc_subnet = fabric_slice_helper.to_vpc_subnet(subnet)
 
-                    from ipaddress import IPv4Network
-                    subnet = IPv4Network(subnet)
-                    vpc_subnet = subnet
-
-                    for i in [8, 4, 2]:
-                        if subnet.prefixlen - i > 0:
-                            vpc_subnet = subnet.supernet(i)
-                            break
-
-                    command = f"sudo ip route add {vpc_subnet} via {gateway}"
-
-                    for node in self.nodes:
-                        try:
-                            delegate = self.slice_object.get_node(node.name)
-                            _, _ = delegate.execute(command)
-                        except:
-                            import traceback
-
-                            traceback.print_exc()
+                        for node in self.nodes:
+                            fabric_slice_helper.add_route(self.slice_object, node, vpc_subnet, gateway, self.retry)
 
         self._reload_nodes()
         self._reload_networks()
+
+    def create_resource(self, *, resource: dict):
+        label = resource.get(Constants.LABEL)
+
+        if self.failed:
+            raise Exception(f"fabric slice {self.name} has some failures. Refusing to create {label}")
+
+        if self.pending:
+            self.logger.warning(f"still have pending {len(self.pending)} resources")
+            return
+
+        if self.slice_created:
+            state = self.slice_object.get_state()
+
+            if not self.notified_create:
+                self.logger.info(f"already provisioned. {self.name}: state={state}")
+            else:
+                self.logger.debug(f"already provisioned. {self.name}: state={state}")
+
+            if not self.notified_create and self.resource_listener:
+                self._handle_node_networking()
+
+                for node in self.nodes:
+                    self.resource_listener.on_created(source=self, provider=self, resource=node)
+
+                for net in self.networks:
+                    self.resource_listener.on_created(source=self, provider=self, resource=net)
+
+                self.notified_create = True
+            return
+
+        self._submit_and_wait()
+        self.slice_created = True
+
+        self.logger.info(f"Going to sleep {FABRIC_SLEEP_AFTER_SUBMIT_OK} seconds:slice {self.provider.label}")
+        import time
+        time.sleep(FABRIC_SLEEP_AFTER_SUBMIT_OK)
+        self.logger.info(f"Back from sleeping ... slice {self.provider.label}")
+
+        self._handle_node_networking()
 
         if self.resource_listener:
             for node in self.nodes:
