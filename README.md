@@ -21,7 +21,7 @@ The example below showcases network stitching across providers, a [chi](https://
   4       - chi_network:
   5             provider: '{{ chi.chi_provider }}'
   6             site: CHI@UC
-  7             vlans: []
+  7
   8   - network:
   9       - fabric_network:
  10            provider: '{{ fabric.fabric_provider }}'
