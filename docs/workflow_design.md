@@ -9,6 +9,7 @@
  - [Resources](#resources)
    - [Nodes](#nodes)
    - [Networks](#networks)
+   - [Services](#services)
  - [Dependencies](#dependencies)
  - [Network Stitching Policy](#stitching)
  - [Breaking The Configuration](#breaking)
