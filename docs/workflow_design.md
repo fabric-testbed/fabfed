@@ -10,7 +10,7 @@
  - [Nodes](#nodes)
  - [Networks](#networks)
  - [Dependencies](#dependencies)
- - [Network Stiching Policy](#stitching)
+ - [Network Stitching Policy](#stitching)
  - [Breaking The Configuration](#breaking)
 
 # <a name="descr"></a>Description
@@ -206,7 +206,7 @@ of the fabric_network.
 15             count: 1
 ```
 
- # <a name="stitching"></a>Network Stiching Policy
+ # <a name="stitching"></a>Network Stitching Policy
  
  The `stitch_with` dependency in line 6 above depicts an external dependency as it involves two resources from different providers. Fabfed 
  controller ensures that the ordering is correct for both internal and external dependencies. Normally the `fabric_network` 
