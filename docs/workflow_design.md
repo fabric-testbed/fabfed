@@ -104,7 +104,7 @@ chi:
 A config consists of a <i>type</i>, a <i>label</i> and a dictionary specifying its attributes. The parsing process guarantees that the combination of the type and the label is unique. One can think of Configs as glorifed variables. 
 We have two types `layer3` and `peering` and the Network Resources refer to these configs.
 
-# <a name="layer3"></a>Layer3
+### <a name="layer3"></a>Layer3
 
 In the example below the fabric and the chi networks share or point to the same layer3 config. The controller detects that and partitions the ip address space automatically. This results in a more concise and less error-prone configuration.
 
@@ -124,7 +124,7 @@ resource:
           layer3: "{{ layer3.my_layer }}"
 ```
 
-# <a name="peering"></a>Peering
+### <a name="peering"></a>Peering
 
 TODO:
 
@@ -133,7 +133,7 @@ A resource consists of a <i>type</i>, a <i>label</i> and a dictionary. The parsi
 
 As of now we support the following types: <i>node</i>, <i>network</i>, and <i>service</i>. The <i>label</i> can be any string and is used as the name of the resource if the <i>name</i> attribute is not present. Resources are declared under their own class named <i>resource<i>. 
  
-# <a name="nodes"></a>Nodes
+### <a name="nodes"></a>Nodes
 A <i>node</i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
  
 A <i>node</i> or a <i>network</i> would refer to this node using its type and label like so: ```'{{ node.fabric_node }}'```
@@ -147,7 +147,7 @@ resource:                                               # Class
             count: 1
             image: default_rocky_8                                  
 ```
-# <a name="networks"></a>Networks
+### <a name="networks"></a>Networks
 A <i>network</i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
  
 A <i>node</i> or a <i>network</i> would refer to this network using its type and label like so: ```'{{ network.fabric_network }}'```
@@ -160,7 +160,7 @@ resource:                                               # Class
             site: '{{ var.fabric_site }}'
             name: my_network
 ```
-# <a name="services"></a>Services
+### <a name="services"></a>Services
 A <i>service</i> <b>must</b> refer to a provider. Here it refers to a Janus provider for container management.
  
  
