@@ -194,7 +194,7 @@ of the fabric_network.
 3.      - chi_network:
 4.             provider: '{{ chi.chi_provider }}'
 5.             layer3: "{{ layer3.my_layer }}"
-6.             stitch_with: '{{ network.fabric_network }}'  # Externally Dependency. Normally this would mean fabric_network would be processed first. 
+6.             stitch_with: '{{ network.fabric_network }}'  # External Dependency. Normally this would mean fabric_network would be processed first. 
 7.      - fabric_network:
 8.             provider: '{{ fabric.fabric_provider }}'
 9.             interface: '{{ node.fabric_node }}'          # Internal dependency
