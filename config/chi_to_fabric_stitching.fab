@@ -31,7 +31,6 @@ resource:
           stitch_with: '{{ network.chi_network }}'
           interface: '{{ node.fabric_node }}'
           layer3: "{{ layer3.my_layer }}"
-resource:
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
