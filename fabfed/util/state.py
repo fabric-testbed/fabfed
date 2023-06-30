@@ -114,7 +114,7 @@ def dump_states(states, to_json: bool, summary: bool = False):
     else:
         import yaml
 
-        sys.stdout.write(yaml.dump(states, Dumper=get_dumper()))
+        sys.stdout.write(yaml.dump(states, Dumper=get_dumper(), width=float("inf")))
 
 
 def load_meta_data(friendly_name: str, attr=None):
