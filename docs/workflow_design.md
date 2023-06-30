@@ -67,7 +67,7 @@ A variable need not be declared at all as long as it is injected by supplying an
 # <a name="providers"></a>Providers
 A provider has its own class named <i>provider<i>. It consists of a <i>type</i>, a <i>label</i> and a dictionary. The snippet below declares a <i>fabric</i> provider. The `credential_file` and the `profile` attributes are used to configure the provider's environment.
 
-A <i>resource</i> msut refer to a provider using its type and its label like so: ```provider: '{{ fabric.fabric_provider }}'```
+A <i>resource</i> must refer to a provider using its type and its label like so: ```provider: '{{ fabric.fabric_provider }}'```
 
 ```
 provider:                                                    # Class 
