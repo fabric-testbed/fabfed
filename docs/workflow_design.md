@@ -36,7 +36,7 @@ The `resource` class support three types:
 - [ ] network
 - [ ] service
 
-The workflow model allows us to define resources and to express dependencies among them. This is explained in more details below. We recommend you read on but under the <i>config directory</i>, you can find a template credential and a complete chameleon to fabric stitching example.
+The workflow model allows us to define resources and to express dependencies among them. This is explained in more details below. We recommend you read on but you can get started quickly by copying find the template credential and a complete chameleon to fabric stitching example under the <i>config</i> directory. You would need to configure the chameleon and fabric sections in the credential file and install the fabfed tool. 
 
 - [fabfed credential file template](../config/fabfed_credentials_template.yml)
 - [stitching example](../config/chi_to_fabric_stitching.fab)
