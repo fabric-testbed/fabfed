@@ -209,19 +209,19 @@ of the fabric_network.
  # <a name="stitching"></a>Network Stiching Policy
  
  The `stitch_with` dependency in line 6 above depicts an external dependency as it involves two resources from different providers. Fabfed 
- controller ensures that the processing order is correct for both internal and external dependencies. Normally the `fabric_network` 
+ controller ensures that the ordering is correct for both internal and external dependencies. Normally the `fabric_network` 
  would be handled before the chi_network. However, the `stitch_with` is a <b>special</b> attribute that 
  declares that the two networks are to be stitched and it is handled differently. 
  
  The fabfed controller supports a policy-defined network stitching and consults a policy file to pick a suitable stitch_port 
- between two providers and to determine the producer/consumer relationship. For `chi` and `fabric`, it so happened that 
+ between two providers and determines the producer/consumer relationship. For `chi` and `fabric`, it so happened that 
  there is only one `stitch-port` and that the `chi network` is the producer. The `chi_network` produces a `vlan` that the 
  `fabric_network` uses to create a `facility port`. And so the controller would reorder the resources as needed to ensure 
  that the producer is processed first.
  
  Below is a snippet from the policy file showing the single `stitch-port` from `chi` to `fabric`. The groups are used to specify 
  the consumer/producer relationship. For sense and fabric, there are many stitch ports and bi-directional consumer/producer 
- relationships. The `stich-port` with the highest preference gets selected but one can use the `stitch_option` attribute to select a 
+ relationships. The `stich-port` with the highest preference gets selected but the `stitch_option` attribute can be usedto select a 
  desired `stitch-port`. See sense workflows under the examples directory.
  
  ```
