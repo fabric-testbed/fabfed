@@ -7,6 +7,11 @@ provider:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: fabric
+  - janus:
+      - janus_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: janus
+          url: "{{ node.fabric_node }}"
 config:
   - layer3:
       - fab_layer:
@@ -60,3 +65,11 @@ resource:
           peering: "{{ peering.my_peering }}"
           interface: '{{ node.fabric_node }}'
           count: 1
+  - service:
+      - dtn_service:
+          provider: '{{ janus.janus_provider }}'
+          node: [ '{{ node.sense_node }}', '{{ node.fabric_node }}' ]
+          controller: '{{ node.fabric_node }}'
+          image: dtnaas/tools
+          profile: fabfed
+          count: 0   # SET THIS TO 1 if you want use janus service
