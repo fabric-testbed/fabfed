@@ -1,0 +1,44 @@
+config:
+  - layer3:
+      - config_layer:
+          subnet:
+          gateway:
+          ip_start:
+          ip_end:
+
+  - peering:
+      - my_peering:
+          # FOR FABRIC
+          cloud_account:
+          cloud_facility:
+          local_device:
+          local_port:
+          cloud_region:
+
+          # FOR SENSE and FABRIC
+          local_asn:
+          local_address:
+          remote_asn:
+          remote_address:
+
+resource:
+  - node:
+      - sense_node:
+          provider:
+          name:
+          site:
+          network:
+          service:
+          image:
+          nic_model:
+          count:
+  - network:
+      - sense_net:
+          provider:
+          name:
+          layer3:
+          peering:
+          count:
+          stitch_with:
+          stitch_option: 
+          count:
