@@ -57,7 +57,15 @@ class SenseNode(Node):
         self.image = self.node_details[SenseConstants.SENSE_IMAGE]
         self.image = self.image[self.image.find("+") + 1:]
         self.keypair = self.node_details[SenseConstants.SENSE_KEYPAIR]
-        self.user = sense_utils.get_image_info(self.image, 'user') 
+
+        self.user = sense_utils.get_image_info(self.image, 'user')
+
+        if not self.user and "GCP" in gateway_type:
+            if "+" in self.keypair:
+                idx = self.keypair.index('+')
+                self.user = self.keypair[idx + 1:]
+
+        logger.info(f"node has user {self.user}")
 
         if self._provider:
             self.keyfile = self._provider.private_key_file_location
