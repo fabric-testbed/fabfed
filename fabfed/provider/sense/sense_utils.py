@@ -231,7 +231,7 @@ def delete_instance(*, client=None, si_uuid):
         raise SenseException("error deleting got " + status)
 
     if 'FAILED' in status:
-            raise SenseException(f'cannot delete instance - contact admin. {status}')
+        raise SenseException(f'cannot delete instance - contact admin. {status}')
 
     if "CREATE - COMPILED" in status:
         workflow_api.instance_delete(si_uuid=si_uuid)
@@ -353,6 +353,8 @@ def get_vms_specs_from_profile(*, client=None, profile_uuid):
 
 def manifest_create(*, client=None, template_file=None, alias=None, si_uuid=None):
     import os
+    import time
+    from json.decoder import JSONDecodeError
 
     client = client or get_client()
     si_uuid = si_uuid or find_instance_by_alias(alias=alias)
@@ -363,7 +365,17 @@ def manifest_create(*, client=None, template_file=None, alias=None, si_uuid=None
         template = json.load(fp)
 
     template = json.dumps(template)
-    response = workflow_api.manifest_create(template, si_uuid=si_uuid)
-    response = json.loads(response, object_hook=lambda dct: SimpleNamespace(**dct))
-    details = json.loads(response.jsonTemplate)
-    return details
+
+    for attempt in range(SENSE_RETRY):
+        response = workflow_api.manifest_create(template, si_uuid=si_uuid)
+
+        try:
+            response = json.loads(response, object_hook=lambda dct: SimpleNamespace(**dct))
+            details = json.loads(response.jsonTemplate)
+            return details
+        except JSONDecodeError:
+            logger.warning(f"Could not decode sense manifest from response={response}")
+
+        time.sleep(10)
+
+    raise SenseException(f"Unable to retrieve manifest using {template_file}")

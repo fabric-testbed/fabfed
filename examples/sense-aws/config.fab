@@ -11,7 +11,6 @@ provider:
       - janus_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: janus
-          url: "{{ node.fabric_node }}"
 
 config:
   - layer3:
