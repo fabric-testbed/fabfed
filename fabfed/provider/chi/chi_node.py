@@ -28,6 +28,8 @@ import time
 
 import chi
 import chi.server
+import chi.clients
+import chi.network
 
 from fabfed.model import Node
 import fabfed.provider.chi.chi_util as util
@@ -54,8 +56,10 @@ class ChiNode(Node):
         # TODO This should not be hardocded
         # chi.lease.add_node_reservation(self.reservations, count=1, node_type=self.flavor)
         chi.lease.add_node_reservation(self.reservations, count=1, node_type="compute_cascadelake_r")
+        # chi.lease.add_fip_reservation(self.reservations, count=1)
         self._lease_helper = util.LeaseHelper(lease_name=self.lease_name, logger=self.logger)
         self.id = ''
+        self.dataplane_ipv4 = None
 
     def get_reservation_id(self):
         return self._lease_helper.get_reservation_id()
@@ -74,6 +78,8 @@ class ChiNode(Node):
                 if a['OS-EXT-IPS:type'] == 'floating':
                     self.mgmt_ip = a['addr']
                     self.host = self.mgmt_ip
+                else:
+                    self.dataplane_ipv4 = a['addr']
 
         self.id = self.get_reservation_id()
 
@@ -120,7 +126,43 @@ class ChiNode(Node):
 
         if not self.mgmt_ip:
             self.logger.info(f"Associating the Floating IP to {self.name}!")
-            self.mgmt_ip = chi.server.associate_floating_ip(server_id=node.id)
+            # self.mgmt_ip = chi.server.associate_floating_ip(server_id=node.id)  This does not work anymore
+
+            _neutron = chi.clients.neutron()
+            ips = _neutron.list_floatingips()['floatingips']
+            unbound = (ip for ip in ips if ip['port_id'] is None)
+
+            try:
+                fip = next(unbound):
+                self.logger.info(f"Found Floating IP for {self.name}")
+            except StopIteration:
+                self.logger.info(f"Creating Floating IP for {self.name}")
+                fip = _neutron.create_floatingip({
+                    "floatingip": {
+                        "floating_network_id": chi.network.get_network_id(chi.network.PUBLIC_NETWORK),
+                    }
+                })["floatingip"]
+
+            ports = chi.network.list_ports()
+            port_id = None
+
+            for port in ports:
+                if port['fixed_ips'][0]['ip_address'] == self.dataplane_ipv4:
+                    port_id = port['id']
+                    break
+
+            if not port_id:
+                raise Exception(f"Did not find port id for {self.name} using dataplane_ipv4={self.dataplane_ipv4}")
+
+
+            _neutron.update_floatingip(fip["id"], body={
+                "floatingip": {
+                    "port_id": port_id,
+                    "fixed_ip_address": None,
+                }
+            })
+
+            self.mgmt_ip = fip['floating_ip_address']
 
     def delete(self):
         chi.set('project_name', self.project_name)
