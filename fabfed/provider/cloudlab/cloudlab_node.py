@@ -44,7 +44,9 @@ class CloudlabNode(Node):
         if status['status'] != 'ready':
             raise CloudlabException(message=f"Found experiment with status={status['status']}")
 
-        node_info = list(status[AGGREGATE_STATUS][NODE_URI][NODES].values())[0]  # [NODE]
+        node_uris = list(status[AGGREGATE_STATUS].keys())
+        node_uri = [uri for uri in  node_uris if 'stitch' not in uri][0]
+        node_info = list(status[AGGREGATE_STATUS][node_uri][NODES].values())[0]  # [NODE]
         logger.info(f"NODE_INFO: {node_info}")
 
         self.mgmt_ip = node_info[IPV4]
@@ -63,7 +65,7 @@ class CloudlabNode(Node):
         logger.debug(f"RSPEC: {json.dumps(data_dict['rspec'], indent=2)}")
 
         nodes = data_dict['rspec']['node']
-        nodes = [n for n in nodes if n['@component_manager_id'] == NODE_URI]
+        nodes = [n for n in nodes if 'stitch' not in['@component_manager_id']]
         idx = int(self.name[self.name.rindex('-') + 1:])
         n = nodes[idx]
 

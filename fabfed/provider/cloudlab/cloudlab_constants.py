@@ -5,7 +5,6 @@ CLOUDLAB_SLICE_PRIVATE_KEY_LOCATION = "slice-private-key-location"
 CLOUDLAB_SLEEP_TIME = 5
 CLOUDLAB_MAX_EXPERIMENT_NAME_SIZE = 16
 AGGREGATE_STATUS = "aggregate_status"
-NODE_URI = 'urn:publicid:IDN+emulab.net+authority+cm'
 NODES = 'nodes'
 NODE = 'node'
 
