@@ -171,7 +171,7 @@ class CloudlabProvider(Provider):
         interfaces = resource.get(Constants.RES_INTERFACES, list())
         layer3 = resource.get(Constants.RES_LAYER3)
         net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,
-                           layer3=layer3)
+                           layer3=layer3, cluster=None)
         net.delete()
         logger.info(f"Done Deleting network: {net_name}")
         self.resource_listener.on_deleted(source=self, provider=self, resource=net)
