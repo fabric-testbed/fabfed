@@ -106,39 +106,31 @@ class ChiNetwork(Network):
             self.logger.info(f'Attached subnet {self.subnet_name} to router  {self.router_name}')
             self.logger.debug(f'Router: {chameleon_router}')
 
-    def delete(self):
+    def _delete(self):
         chi.set('project_name', self.project_name)
         chi.set('project_domain_name', 'default')
         chi.use_site(self.site)
 
-        from neutronclient.common.exceptions import Conflict, NotFound
-        from keystoneauth1.exceptions.connection import ConnectFailure
-        import time
+        from neutronclient.common.exceptions import NotFound
 
-        while True:
-            try:
-                self.logger.debug(f"Removing subnet {self.subnet_name} from router {self.router_name}")
-                subnet_id = chi.network.get_subnet_id(self.subnet_name)
-                router_id = chi.network.get_router_id(self.router_name)
-                chi.network.remove_subnet_from_router(router_id, subnet_id)
-                self.logger.info(f"Removed subnet {self.subnet_name} from router {self.router_name}")
-                break
-            except (Conflict, ConnectFailure) as ce:
-                self.logger.warning(f"Error Removing subnet .will try again ...{ce}")
-                time.sleep(10)
-            except NotFound as nf:
-                self.logger.warning(f"Error Removing subnet ...{nf}")
-                break
-            except RuntimeError as re:
-                if "No subnets found with" in str(re) or "No routers found with" in str(re):
-                    break
-
+        try:
+            self.logger.debug(f"Removing subnet {self.subnet_name} from router {self.router_name}")
+            subnet_id = chi.network.get_subnet_id(self.subnet_name)
+            router_id = chi.network.get_router_id(self.router_name)
+            chi.network.remove_subnet_from_router(router_id, subnet_id)
+            self.logger.info(f"Removed subnet {self.subnet_name} from router {self.router_name}")
+        except NotFound:
+            pass
+        except RuntimeError as re:
+            if "No subnets found with" not in str(re) and "No routers found with" not in str(re):
                 raise re
 
         try:
             router_id = chi.network.get_router_id(self.router_name)
             chi.network.delete_router(router_id)
             self.logger.info(f"Deleted router  {self.router_name} net_id={router_id}")
+        except NotFound:
+            pass
         except RuntimeError as re:
             if "No routers found with" not in str(re):
                 raise re
@@ -147,6 +139,8 @@ class ChiNetwork(Network):
             subnet_id = chi.network.get_subnet_id(self.subnet_name)
             chi.network.delete_subnet(subnet_id)
             self.logger.info(f"Deleted subnet  {self.subnet_name} net_id={subnet_id}")
+        except NotFound:
+            pass
         except RuntimeError as re:
             if "No subnets found with" not in str(re):
                 raise re
@@ -155,8 +149,27 @@ class ChiNetwork(Network):
             net_id = chi.server.get_network_id(self.name)
             chi.network.delete_network(net_id)
             self.logger.info(f"Deleted network {self.name} net_id={net_id}")
+        except NotFound:
+            pass
         except RuntimeError as re:
             if "No networks found with" not in str(re):
                 raise re
 
         self._lease_helper.delete_lease()
+
+    def delete(self):
+        import time
+
+        ex = None
+
+        for attempt in range(self._retry):
+            try:
+                self._delete()
+                return
+            except Exception as e:
+                self.logger.warning(f"Error deleting network {self.name} {e}")
+                ex = e
+
+            time.sleep(12)
+
+        raise Exception(f"Error while deleting network {self.name}:{ex}")
