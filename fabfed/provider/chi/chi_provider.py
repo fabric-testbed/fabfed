@@ -137,6 +137,9 @@ class ChiProvider(Provider):
             for node in temp:
                 node.wait_for_active()
 
+            for node in temp:
+                node.wait_for_ssh()
+
                 if self.resource_listener:
                     self.resource_listener.on_created(source=self, provider=self, resource=node)
 
