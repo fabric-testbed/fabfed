@@ -28,6 +28,8 @@ import time
 
 import chi
 import chi.server
+import chi.clients
+import chi.network
 
 from fabfed.model import Node
 import fabfed.provider.chi.chi_util as util
@@ -51,11 +53,10 @@ class ChiNode(Node):
         self.lease_name = f'{self.name}-lease'
         self.addresses = []
         self.reservations = []
-        # TODO This should not be hardocded
-        # chi.lease.add_node_reservation(self.reservations, count=1, node_type=self.flavor)
         chi.lease.add_node_reservation(self.reservations, count=1, node_type="compute_cascadelake_r")
         self._lease_helper = util.LeaseHelper(lease_name=self.lease_name, logger=self.logger)
         self.id = ''
+        self.dataplane_ipv4 = None
 
     def get_reservation_id(self):
         return self._lease_helper.get_reservation_id()
@@ -74,6 +75,8 @@ class ChiNode(Node):
                 if a['OS-EXT-IPS:type'] == 'floating':
                     self.mgmt_ip = a['addr']
                     self.host = self.mgmt_ip
+                else:
+                    self.dataplane_ipv4 = a['addr']
 
         self.id = self.get_reservation_id()
 
@@ -120,7 +123,43 @@ class ChiNode(Node):
 
         if not self.mgmt_ip:
             self.logger.info(f"Associating the Floating IP to {self.name}!")
-            self.mgmt_ip = chi.server.associate_floating_ip(server_id=node.id)
+            # We do not use chi.server.associate_floating_ip(server_id=node.id) as it stopped working
+            _neutron = chi.clients.neutron()
+            ips = _neutron.list_floatingips()['floatingips']
+            unbound = (ip for ip in ips if ip['port_id'] is None)
+
+            try:
+                fip = next(unbound)
+                self.logger.info(f"Found Floating IP for {self.name}")
+            except StopIteration:
+                self.logger.info(f"Creating Floating IP for {self.name}")
+                fip = _neutron.create_floatingip({
+                    "floatingip": {
+                        "floating_network_id": chi.network.get_network_id(chi.network.PUBLIC_NETWORK),
+                    }
+                })["floatingip"]
+
+            ports = chi.network.list_ports()
+            port_id = None
+
+            for port in ports:
+                if port['fixed_ips'][0]['ip_address'] == self.dataplane_ipv4:
+                    port_id = port['id']
+                    break
+
+            if not port_id:
+                raise Exception(f"Did not find port id for {self.name} using dataplane_ipv4={self.dataplane_ipv4}")
+
+            _neutron.update_floatingip(fip["id"], body={
+                "floatingip": {
+                    "port_id": port_id,
+                    "fixed_ip_address": None,
+                }
+            })
+
+    def wait_for_ssh(self):
+        self.logger.info(f"Waiting on SSH. Node {self.name}: mgmt_ip={self.mgmt_ip}. This can take some time ...")
+        chi.server.wait_for_tcp(self.mgmt_ip, port=22)
 
     def delete(self):
         chi.set('project_name', self.project_name)
@@ -128,6 +167,23 @@ class ChiNode(Node):
 
         if self.site != "KVM@TACC":
             chi.use_site(self.site)
+
+        try:
+            self.logger.info(f"Disassociating floating ip if any. node: {self.name}")
+            node_id = chi.server.get_server_id(f"{self.name}")
+            node = chi.server.get_server(node_id)
+            node_info = node.to_dict()
+            addresses = node_info['addresses']
+            network = list(addresses.keys())[0]
+            addresses = node_info['addresses'][network]
+            addresses = [a['addr'] for a in addresses if a['OS-EXT-IPS:type'] == 'floating']
+            mgmt_ip = addresses[0] if addresses else None
+
+            if mgmt_ip:
+                chi.server.detach_floating_ip(node_id, mgmt_ip)
+                self.logger.info(f"Disassociated floating ip. node {self.name}")
+        except Exception as e:
+            self.logger.warning(f"Error occured while disassociating floating ip. node={self.name}:{e}")
 
         try:
             node_id = chi.server.get_server_id(f"{self.name}")
@@ -143,7 +199,7 @@ class ChiNode(Node):
 
     def upload_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):
         self.logger.debug(f"upload node: {self.name}, local_file_path: {local_file_path}")
-        key = util.get_paramiko_key(private_key_file=self.private_key_file)
+        key = util.get_paramiko_key(private_key_file=self.keyfile)
         helper = util.SshHelper(self.mgmt_ip, self.username, key)
 
         for attempt in range(retry):
@@ -158,7 +214,7 @@ class ChiNode(Node):
 
     def download_file(self, local_file_path, remote_file_path, retry=3, retry_interval=10):
         self.logger.debug(f"download node: {self.name}, remote_file_path: {remote_file_path}")
-        key = util.get_paramiko_key(private_key_file=self.private_key_file)
+        key = util.get_paramiko_key(private_key_file=self.keyfile)
         helper = util.SshHelper(self.mgmt_ip, self.username, key)
 
         for attempt in range(retry):
@@ -208,7 +264,7 @@ class ChiNode(Node):
 
     def execute(self, command, retry=3, retry_interval=10):
         self.logger.debug(f"execute node: {self.name}, management_ip: {self.mgmt_ip}, command: {command}")
-        key = util.get_paramiko_key(private_key_file=self.private_key_file)
+        key = util.get_paramiko_key(private_key_file=self.keyfile)
         helper = util.SshHelper(self.mgmt_ip, self.username, key)
         script = ' /tmp/chi_execute_script.sh'
         chmod_cmd = f'chmod +x {script}'
