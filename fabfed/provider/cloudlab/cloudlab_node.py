@@ -46,27 +46,27 @@ class CloudlabNode(Node):
 
         node_uris = list(status[AGGREGATE_STATUS].keys())
         node_uri = [uri for uri in  node_uris if 'stitch' not in uri][0]
-        node_info = list(status[AGGREGATE_STATUS][node_uri][NODES].values())[0]  # [NODE]
-        logger.info(f"NODE_INFO: {node_info}")
+        idx = int(self.name[self.name.rindex('-') + 1:])
+        node_info = status[AGGREGATE_STATUS][node_uri][NODES]["node" + str(idx)]
+        logger.info(f"NODE_INFO {self.name}: {node_info}")
 
         self.mgmt_ip = node_info[IPV4]
-        self.host = node_info[IPV4]  # node_info[HOSTNAME]
+        self.host = node_info[IPV4]
         exitval, response = api.experimentManifests(server, exp_params).apply()
 
         if exitval:
             raise CloudlabException(exitval=exitval, response=response)
 
         status = json.loads(response.value)
+
         logger.debug(json.dumps(status, indent=2))
 
         import xmltodict
 
-        data_dict = xmltodict.parse(status['urn:publicid:IDN+stitch.geniracks.net+authority+cm'])  # TODO
+        data_dict = xmltodict.parse(list(status.values())[0])
         logger.debug(f"RSPEC: {json.dumps(data_dict['rspec'], indent=2)}")
-
         nodes = data_dict['rspec']['node']
-        nodes = [n for n in nodes if 'stitch' not in['@component_manager_id']]
-        idx = int(self.name[self.name.rindex('-') + 1:])
+        nodes = [n for n in nodes if self._net.cluster == n['@component_manager_id']]
         n = nodes[idx]
 
         if n['interface']['ip']['@type'] == 'ipv4':
