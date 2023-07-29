@@ -1,0 +1,5 @@
+ACCESS_KEY=""
+SECRET_KEY=""
+REGION = 'us-east-1'
+RETRY = 60
+BGPKEY="0xzsEwC7xk6c1fK_h.xHyAdx"
