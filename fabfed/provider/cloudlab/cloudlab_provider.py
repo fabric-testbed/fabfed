@@ -60,6 +60,21 @@ class CloudlabProvider(Provider):
 
         return xmlrpc.EmulabXMLRPC(server_config)
 
+    @staticmethod
+    def get_info(device_name, attr=None):
+        import os
+        import json
+
+        path_file = os.path.join(os.path.dirname(__file__), 'inventory', 'port_mapping.json')
+
+        with open(path_file, 'r') as fp:
+            infos = json.load(fp)
+
+        if not attr:
+            return infos.get(device_name)
+
+        return infos.get(device_name, dict()).get(attr)
+
     def do_add_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
         rtype = resource.get(Constants.RES_TYPE)
@@ -99,10 +114,26 @@ class CloudlabProvider(Provider):
                         break
 
         assert profile, f"must provide a profile for {net_name}"
+
+        cluster = resource.get(Constants.RES_CLUSTER)
+
+        if not cluster:
+            stitch_info = resource.get(Constants.RES_STITCH_INFO)
+
+            if stitch_info:
+                for g in [stitch_info.consumer_group, stitch_info.producer_group]:
+                    if self.type == g[Constants.PROVIDER]:
+                        cluster = g.get(Constants.RES_CLUSTER)
+                        break
+
+                if not cluster:
+                    device_name = stitch_info.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
+                    cluster = CloudlabProvider.get_info(device_name, Constants.RES_CLUSTER)
+
         interfaces = resource.get(Constants.RES_INTERFACES, list())
         layer3 = resource.get(Constants.RES_LAYER3)
         net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,
-                           layer3=layer3)
+                           layer3=layer3, cluster=cluster)
         self._networks.append(net)
         self.resource_listener.on_added(source=self, provider=self, resource=net)
 
@@ -140,7 +171,7 @@ class CloudlabProvider(Provider):
         interfaces = resource.get(Constants.RES_INTERFACES, list())
         layer3 = resource.get(Constants.RES_LAYER3)
         net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,
-                           layer3=layer3)
+                           layer3=layer3, cluster=None)
         net.delete()
         logger.info(f"Done Deleting network: {net_name}")
         self.resource_listener.on_deleted(source=self, provider=self, resource=net)

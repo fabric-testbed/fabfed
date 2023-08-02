@@ -19,8 +19,6 @@ fabric:
       - name: AWS
         producer-for:
           - sense/AWS
-        consumer-for:
-          - sense/AWS
 
       - name: UTAH
         consumer-for:
@@ -60,8 +58,6 @@ sense:
       - name: AWS # referred to as "sense/aws"
         profile: FABRIC-AWS-DX-VGW # SENSE profile name
         consumer-for:
-          - fabric/AWS
-        producer-for:
           - fabric/AWS
       - name: UKY
         profile: FABRIC-L2-DTN
