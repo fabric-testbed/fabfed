@@ -75,7 +75,7 @@ provider:                                                    # Class
   - fabric:                                                  # Prvider Type: Must be one of these. [fabric, chi, sense, cloudlab, janus]
     - fabric_provider:                                       # Label: Can be any string
          credential_file: ~/.fabfed/fabfed_credentials.yml
-         profile: fabric                                     # This can be any string and is to point to a section in the credential file
+         profile: fabric                                     # This can be any string and it points to a section in the credential file
 ```
  
  The `credential_file` and the `profile` are attributes used to configure the provider's environment. The credential YAML file contains a section or a profile for each provider. Unlike the provider type, the profile is an arbitrary string used to point to a section in the credential file. And each section contains information specific to a user and to each provider. The example below shows a credential file for fabric and chi. Consult the [template credential file](../config/fabfed_credentials_template.yml) for all the providers we currently support

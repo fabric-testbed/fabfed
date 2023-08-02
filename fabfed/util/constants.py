@@ -44,6 +44,7 @@ class Constants:
     RES_INDEX = 'index'
 
     RES_PROFILE = "profile"
+    RES_CLUSTER = "cluster"
 
     RES_PEERING = 'peering'
     RES_ID = "id"
