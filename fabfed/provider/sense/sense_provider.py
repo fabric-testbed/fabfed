@@ -1,8 +1,10 @@
+from fabfed.policy.policy_helper import get_stitch_port_for_provider
 from fabfed.exceptions import ResourceTypeNotSupported
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
 from . import sense_utils
+from .sense_exceptions import SenseException
 
 logger = get_logger()
 
@@ -80,20 +82,11 @@ class SenseProvider(Provider):
 
             return
 
-        stitch_info = resource.get(Constants.RES_STITCH_INFO)
-        sense_group = dict()
-
-        if stitch_info:
-            groups = [stitch_info.consumer_group, stitch_info.producer_group]
-            sense_group = next(filter(lambda g: g[Constants.PROVIDER] == self.type, groups))
-
+        sense_stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
         interfaces = resource.get(Constants.RES_INTERFACES)
 
-        if not interfaces:
-            option = sense_group.get('option')
-
-            if option:
-                interfaces = option.get('interface')
+        if not interfaces and 'option' in sense_stitch_port:
+            interfaces = sense_stitch_port['option'].get('interface')
 
         if interfaces:
             for interface in interfaces:
@@ -103,10 +96,12 @@ class SenseProvider(Provider):
         net_name = f'{self.name}-{name_prefix}'
         profile = resource.get(Constants.RES_PROFILE)
 
-        if not profile and sense_group:
-            profile = sense_group.get(Constants.RES_PROFILE)
+        if not profile and sense_stitch_port:
+            profile = sense_stitch_port.get(Constants.RES_PROFILE)
 
-        assert profile, f"must provide a profile for {net_name}"
+        if not profile:
+            raise SenseException(f"Must have a profile for {net_name}")
+
         layer3 = resource.get(Constants.RES_LAYER3)
         peering = self._handle_peering_config(resource)
         bandwidth = resource.get(Constants.RES_BANDWIDTH)
