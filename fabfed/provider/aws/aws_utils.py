@@ -72,7 +72,52 @@ def get_direct_connect_gateway_id(directconnect_client):
             
     return direct_connect_gateway_id
             
+def get_vpn_id(directconnect_client, vpn_id: str):
+    try:
+        response = directconnect_client.describe_virtual_gateways()
+        if vpn_id in [ vpn['virtualGatewayId'] for vpn in response['virtualGateways'] ]:
+            print(f'vpn {vpn_id} is found')
+        else:
+            print(f'vpn {vpn_id} is not found')
+            raise
+    except Exception as e:
+        print(e)
+    return vpn_id
+        
+def associate_dxgw_vpn(directconnect_client, direct_connect_gateway_id, vpn_id):
+    try:
+        for i in range(RETRY):
+            response = directconnect_client.create_direct_connect_gateway_association(
+                directConnectGatewayId=direct_connect_gateway_id,
+                virtualGatewayId=vpn_id
+            )
+            state = response['directConnectGatewayAssociation']['associationState']
+            print(f'association state: {state}')
+            if state != 'associated':
+                time.sleep(30)
+            else:
+                break;  
+    except Exception as e:
+        raise e
+    
+    assocication_id = response['directConnectGatewayAssociation']['associationId'] 
+    return assocication_id
 
+def dissociate_dxgw_vpn(directconnect_client, assocication_id):
+    try:
+        for i in range(RETRY):
+            response = directconnect_client.delete_direct_connect_gateway_association(
+                associationId=assocication_id
+            )
+            state = response['directConnectGatewayAssociation']['associationState']
+            print(f'assocation state: {state}')
+            if state != 'disassociated':
+                time.sleep(20)
+            else:
+                break;
+    except Exception as e:
+        raise e
+        
 def sample():
     """ create directconnect client """
     try:
@@ -90,12 +135,7 @@ def sample():
     """ provided a VPC and assicated VPN """
     vpn_id = 'vgw-0eca5ca355af8a9dc'
     try:
-        response = directconnect_client.describe_virtual_gateways()
-        if vpn_id in [ vpn['virtualGatewayId'] for vpn in response['virtualGateways'] ]:
-            print(f'vpn {vpn_id} is found')
-        else:
-            print(f'vpn {vpn_id} is not found')
-            raise
+        vpn_id = get_vpn_id(directconnect_client=directconnect_client, vpn_id=vpn_id)
     except Exception as e:
         print(e)
         exit(1)
@@ -108,22 +148,15 @@ def sample():
     
     """ associate direct connect gateway to virtual private gateway """
     try:
-        for i in range(RETRY):
-            response = directconnect_client.create_direct_connect_gateway_association(
-                directConnectGatewayId=direct_connect_gateway_id,
-                virtualGatewayId=vpn_id
+        assocication_id = associate_dxgw_vpn(
+            directconnect_client=directconnect_client,
+            direct_connect_gateway_id = direct_connect_gateway_id,
+            vpn_id = vpn_id
             )
-            state = response['directConnectGatewayAssociation']['associationState']
-            print(f'association state: {state}')
-            if state != 'associated':
-                time.sleep(30)
-            else:
-                break;  
     except Exception as e:
         print(e)
         exit(1)
-    
-    assocication_id = response['directConnectGatewayAssociation']['associationId'] 
+        
     print(f"VPC associated with Direct Connect Connection: association_id={assocication_id}.")
     
     """ take a break """
@@ -131,18 +164,13 @@ def sample():
     
     """ dissociate direct connect gateway to virtual private gateway """
     try:
-        for i in range(RETRY):
-            response = directconnect_client.delete_direct_connect_gateway_association(
-                associationId=assocication_id
-            )
-            state = response['directConnectGatewayAssociation']['associationState']
-            print(f'assocation state: {state}')
-            if state != 'disassociated':
-                time.sleep(20)
-            else:
-                break;
+        dissociate_dxgw_vpn(
+            directconnect_client=directconnect_client,
+            assocication_id=assocication_id)
     except Exception as e:
-        print(e)
+        if 'Direct Connect Gateway Association does not exist' not in e.args[0]:
+            print(e)
+            exit(1)
     
     print(f"VPC dissociated with Direct Connect Connection: association_id={assocication_id}.")
 
