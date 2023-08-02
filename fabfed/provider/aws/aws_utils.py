@@ -21,9 +21,8 @@ from aws_constants import *
 def get_direct_connect_gateway_id(directconnect_client):
     try:
         response = directconnect_client.describe_direct_connect_gateways()
-    except Exception as e:
-        print(e)
-        exit(1)
+    except:
+        raise
         
     if response['directConnectGateways']:
         direct_connect_gateway_id = response['directConnectGateways'][0]['directConnectGatewayId']
@@ -35,8 +34,7 @@ def get_direct_connect_gateway_id(directconnect_client):
                 directConnectGatewayName=gateway_name,
                 amazonSideAsn=64512
             )
-        except Exception as e:
-            print(e)
+        except:
             raise
         
         direct_connect_gateway_id = response['directConnectGateway']['directConnectGatewayId']
@@ -66,8 +64,7 @@ def get_direct_connect_gateway_id(directconnect_client):
                     'enableSiteLink': False
                 }
             )
-        except Exception as e:
-            print(e)
+        except:
             raise
             
     return direct_connect_gateway_id
@@ -75,13 +72,11 @@ def get_direct_connect_gateway_id(directconnect_client):
 def get_vpn_id(directconnect_client, vpn_id: str):
     try:
         response = directconnect_client.describe_virtual_gateways()
-        if vpn_id in [ vpn['virtualGatewayId'] for vpn in response['virtualGateways'] ]:
-            print(f'vpn {vpn_id} is found')
-        else:
-            print(f'vpn {vpn_id} is not found')
-            raise
-    except Exception as e:
-        print(e)
+        if vpn_id not in [ vpn['virtualGatewayId'] for vpn in response['virtualGateways'] ]:
+            raise Exception(f'vpn {vpn_id} is not found')
+    except:
+        raise
+    
     return vpn_id
         
 def associate_dxgw_vpn(directconnect_client, direct_connect_gateway_id, vpn_id):
@@ -97,8 +92,8 @@ def associate_dxgw_vpn(directconnect_client, direct_connect_gateway_id, vpn_id):
                 time.sleep(30)
             else:
                 break;  
-    except Exception as e:
-        raise e
+    except:
+        raise
     
     assocication_id = response['directConnectGatewayAssociation']['associationId'] 
     return assocication_id
@@ -115,8 +110,8 @@ def dissociate_dxgw_vpn(directconnect_client, assocication_id):
                 time.sleep(20)
             else:
                 break;
-    except Exception as e:
-        raise e
+    except:
+        raise
         
 def sample():
     """ create directconnect client """
@@ -137,8 +132,10 @@ def sample():
     try:
         vpn_id = get_vpn_id(directconnect_client=directconnect_client, vpn_id=vpn_id)
     except Exception as e:
-        print(e)
+        print(e.args[-1])
         exit(1)
+        
+    print(f'vpn {vpn_id} is found')
     
     try:
         direct_connect_gateway_id = get_direct_connect_gateway_id(directconnect_client)
@@ -171,6 +168,8 @@ def sample():
         if 'Direct Connect Gateway Association does not exist' not in e.args[0]:
             print(e)
             exit(1)
+        else:
+            pass
     
     print(f"VPC dissociated with Direct Connect Connection: association_id={assocication_id}.")
 
