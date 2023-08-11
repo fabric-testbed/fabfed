@@ -1,1 +1,2 @@
-SERVICE_KEY_PATH='/Users/lzhang9/.gcp/service-account-file.json'
+SERVICE_KEY_PATH = 'SERVICE_KEY_PATH'
+PROJECT = 'PROJECT'
