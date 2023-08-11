@@ -97,5 +97,6 @@ class Constants:
         "janus": "fabfed.provider.janus.janus_provider.JanusProvider",
         "cloudlab": "fabfed.provider.cloudlab.cloudlab_provider.CloudlabProvider",
         "gcp": "fabfed.provider.gcp.gcp_provider.GcpProvider",
+        "aws": "fabfed.provider.aws.aws_provider.AwsProvider",
         "dummy": "fabfed.provider.dummy.dummy_provider.DummyProvider"
     }

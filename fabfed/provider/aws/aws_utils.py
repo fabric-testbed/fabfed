@@ -1,177 +1,209 @@
-
-"""
-    The sample script that attaches a given VPC to a direct connect gateway
-    
-    ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/index.html
-    
-    For credentials, create file ~/.aws/credentials, which is like
-    [default]
-    aws_access_key_id = xxx 
-    aws_secret_access_key = xxxx 
-    
-    author: lzhang9@es.net    July 28, 2023
-"""
-import sys
 import time
+
 import boto3
-from aws_constants import *
+
+from fabfed.util.utils import get_logger
+from .aws_constants import *
+from .aws_exceptions import AwsException
+
+logger = get_logger()
 
 
-""" get the direct connect gateway with attached virtual interface """
-def get_direct_connect_gateway_id(directconnect_client):
-    try:
-        response = directconnect_client.describe_direct_connect_gateways()
-    except:
-        raise
-        
-    if response['directConnectGateways']:
-        direct_connect_gateway_id = response['directConnectGateways'][0]['directConnectGatewayId']
-    else:
-        """ create a direct connetion gatway """
-        gateway_name = 'fab-gateway'
-        try:
-            response = directconnect_client.create_direct_connect_gateway(
-                directConnectGatewayName=gateway_name,
-                amazonSideAsn=64512
-            )
-        except:
-            raise
-        
+def create_ec2_client(*, region: str, access_key: str, secret_key: str):
+    ec2_client = boto3.client(
+        'ec2',
+        region_name=region,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key
+    )
+
+    return ec2_client
+
+
+def find_vpn_gateway_id(*, ec2_client, vpc_id: str):
+    response = ec2_client.describe_vpn_gateways()
+
+    if response and isinstance(response, dict) and 'VpnGateways' in response:
+        for gw in response['VpnGateways']:
+            attachments = gw['VpcAttachments']
+
+            for attachment in attachments:
+                if attachment['VpcId'] == vpc_id:
+                    return gw['VpnGatewayId']
+
+    return None
+
+
+def create_direct_connect_client(*, region: str, access_key: str, secret_key: str):
+    direct_connect_client = boto3.client(
+        'directconnect',
+        region_name=region,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key
+    )
+
+    return direct_connect_client
+
+
+def find_direct_connect_gateway_id(*, direct_connect_client, gateway_name: str):
+    response = direct_connect_client.describe_direct_connect_gateways()
+
+    if response and isinstance(response, dict) and 'directConnectGateways' in response:
+        for gw in response['directConnectGateways']:
+            if gw['directConnectGatewayName'] == gateway_name:
+                return gw['directConnectGatewayId']
+
+    return None
+
+
+def create_direct_connect_gateway_id(*, direct_connect_client, gateway_name: str, vif_name: str):
+    response = direct_connect_client.describe_direct_connect_gateways()
+
+    direct_connect_gateway_id = None
+
+    if response and isinstance(response, dict) and 'directConnectGateways' in response:
+        for gw in response['directConnectGateways']:
+            if gw['directConnectGatewayName'] == gateway_name:
+                direct_connect_gateway_id = gw['directConnectGatewayId']
+                break
+
+    if not direct_connect_gateway_id:
+        response = direct_connect_client.create_direct_connect_gateway(
+            directConnectGatewayName=gateway_name,
+            amazonSideAsn=64512
+        )
+
         direct_connect_gateway_id = response['directConnectGateway']['directConnectGatewayId']
-        
-        """ create virtual interfaces attached to this direct connect gateway """
-        try:
-            virtual_interface_name = 'fab-vif'
-            response = directconnect_client.create_private_virtual_interface(
-                connectionId='',
-                newPrivateVirtualInterface={
-                    'virtualInterfaceName': virtual_interface_name,
-                    'vlan': 100,
-                    'asn': 53800,
-                    'mtu': 9001,
-                    'authKey': BGPKEY,
-                    'amazonAddress': '192.168.1.1/30',
-                    'customerAddress': '192.168.1.2/30',
-                    'addressFamily': 'ipv4',
-                    'virtualGatewayId': 'string',
-                    'directConnectGatewayId': direct_connect_gateway_id,
-                    'tags': [
-                        {
-                            'key': 'string',
-                            'value': 'string'
-                        },
-                    ],
-                    'enableSiteLink': False
-                }
-            )
-        except:
-            raise
-            
+
+    response = direct_connect_client.describe_virtual_interfaces()
+    found = False
+
+    if response and isinstance(response, dict) and 'virtualInterfaces' in response:
+        for vif in response['virtualInterfaces']:
+            if vif['directConnectGatewayId'] == direct_connect_gateway_id and vif['virtualInterfaceName'] == vif_name:
+                found = True
+
+    if not found:
+        direct_connect_client.create_private_virtual_interface(
+            connectionId='',
+            newPrivateVirtualInterface={
+                'virtualInterfaceName': vif_name,
+                'vlan': 100,
+                'asn': 53800,
+                'mtu': 9001,
+                'authKey': BGPKEY,
+                'amazonAddress': '192.168.1.1/30',
+                'customerAddress': '192.168.1.2/30',
+                'addressFamily': 'ipv4',
+                'directConnectGatewayId': direct_connect_gateway_id,
+                'enableSiteLink': False
+            }
+        )
+
     return direct_connect_gateway_id
-            
-def get_vpn_id(directconnect_client, vpn_id: str):
-    try:
-        response = directconnect_client.describe_virtual_gateways()
-        if vpn_id not in [ vpn['virtualGatewayId'] for vpn in response['virtualGateways'] ]:
-            raise Exception(f'vpn {vpn_id} is not found')
-    except:
-        raise
-    
-    return vpn_id
-        
-def associate_dxgw_vpn(directconnect_client, direct_connect_gateway_id, vpn_id):
-    try:
-        for i in range(RETRY):
-            response = directconnect_client.create_direct_connect_gateway_association(
-                directConnectGatewayId=direct_connect_gateway_id,
-                virtualGatewayId=vpn_id
-            )
-            state = response['directConnectGatewayAssociation']['associationState']
-            print(f'association state: {state}')
-            if state != 'associated':
-                time.sleep(30)
-            else:
-                break;  
-    except:
-        raise
-    
-    assocication_id = response['directConnectGatewayAssociation']['associationId'] 
-    return assocication_id
 
-def dissociate_dxgw_vpn(directconnect_client, assocication_id):
-    try:
-        for i in range(RETRY):
-            response = directconnect_client.delete_direct_connect_gateway_association(
-                associationId=assocication_id
-            )
-            state = response['directConnectGatewayAssociation']['associationState']
-            print(f'assocation state: {state}')
-            if state != 'disassociated':
-                time.sleep(20)
-            else:
-                break;
-    except:
-        raise
-        
-def sample():
-    """ create directconnect client """
-    try:
-        directconnect_client = boto3.client(
-            'directconnect',
-            region_name=REGION,
-            #aws_access_key_id=ACCESS_KEY,
-            #aws_secret_access_key=SECRET_KEY
-            )
-    except Exception as e:
-        print(e)
-        exit(1)
-        
-    
-    """ provided a VPC and assicated VPN """
-    vpn_id = 'vgw-0eca5ca355af8a9dc'
-    try:
-        vpn_id = get_vpn_id(directconnect_client=directconnect_client, vpn_id=vpn_id)
-    except Exception as e:
-        print(e.args[-1])
-        exit(1)
-        
-    print(f'vpn {vpn_id} is found')
-    
-    try:
-        direct_connect_gateway_id = get_direct_connect_gateway_id(directconnect_client)
-    except Exception as e:
-        print(e)
-        exit(1)
-    
-    """ associate direct connect gateway to virtual private gateway """
-    try:
-        assocication_id = associate_dxgw_vpn(
-            directconnect_client=directconnect_client,
-            direct_connect_gateway_id = direct_connect_gateway_id,
-            vpn_id = vpn_id
-            )
-    except Exception as e:
-        print(e)
-        exit(1)
-        
-    print(f"VPC associated with Direct Connect Connection: association_id={assocication_id}.")
-    
-    """ take a break """
-    time.sleep(10)
-    
-    """ dissociate direct connect gateway to virtual private gateway """
-    try:
-        dissociate_dxgw_vpn(
-            directconnect_client=directconnect_client,
-            assocication_id=assocication_id)
-    except Exception as e:
-        if 'Direct Connect Gateway Association does not exist' not in e.args[0]:
-            print(e)
-            exit(1)
-        else:
-            pass
-    
-    print(f"VPC dissociated with Direct Connect Connection: association_id={assocication_id}.")
 
-if __name__ == "__main__":
-    sys.exit(sample())
+def find_association_dxgw_vpn(*, direct_connect_client, direct_connect_gateway_id: str, vpn_id: str):
+    response = direct_connect_client.describe_direct_connect_gateway_associations(
+        virtualGatewayId=vpn_id,
+        directConnectGatewayId=direct_connect_gateway_id,
+    )
+
+    if response and isinstance(response, dict) and 'directConnectGatewayAssociations' in response:
+        associations = response['directConnectGatewayAssociations']
+
+        if associations:
+            return associations[0]
+
+    return None
+
+
+def find_association_dxgw_vpn_id(*, direct_connect_client, direct_connect_gateway_id: str, vpn_id: str):
+    association = find_association_dxgw_vpn(
+        direct_connect_client=direct_connect_client,
+        direct_connect_gateway_id=direct_connect_gateway_id,
+        vpn_id=vpn_id
+    )
+
+    if association:
+        return association['associationId']
+
+    return None
+
+
+def associate_dxgw_vpn(direct_connect_client, direct_connect_gateway_id, vpn_id: str):
+    association = find_association_dxgw_vpn(
+        direct_connect_client=direct_connect_client,
+        direct_connect_gateway_id=direct_connect_gateway_id,
+        vpn_id=vpn_id
+    )
+
+    if association and association['associationState'] == 'associated':
+        return association['associationId']
+
+    response = direct_connect_client.create_direct_connect_gateway_association(
+        directConnectGatewayId=direct_connect_gateway_id,
+        virtualGatewayId=vpn_id
+    )
+
+    association = response['directConnectGatewayAssociation']
+    state = association['associationState']
+
+    if state == 'associated':
+        return association['associationId']
+
+    for i in range(RETRY):
+        association = find_association_dxgw_vpn(
+            direct_connect_client=direct_connect_client,
+            direct_connect_gateway_id=direct_connect_gateway_id,
+            vpn_id=vpn_id
+        )
+
+        logger.info(f'checking if association state is associated:{association}')
+        state = association['associationState']
+
+        if state == 'associated':
+            return association['associationId']
+
+        time.sleep(20)
+
+    raise AwsException(f"Timed out on creating direct_connect_gateway_association: state={state}")
+
+
+def dissociate_dxgw_vpn(*, direct_connect_client, association_id: str):
+    response = direct_connect_client.delete_direct_connect_gateway_association(
+        associationId=association_id
+    )
+
+    association = response['directConnectGatewayAssociation']
+
+    if not association or not isinstance(association, dict) or 'associationState' not in association:
+        return
+
+    state = association['associationState']
+
+    if state == 'disassociated':
+        return
+
+    direct_connect_gateway_id = association['directConnectGatewayId']
+    vpn_id = association['virtualGatewayId']
+
+    for i in range(RETRY):
+        association = find_association_dxgw_vpn(
+            direct_connect_client=direct_connect_client,
+            direct_connect_gateway_id=direct_connect_gateway_id,
+            vpn_id=vpn_id
+        )
+
+        if not association or not isinstance(association, dict) or 'associationState' not in association:
+            return
+
+        logger.info(f'checking if association state is disassociated: {association}')
+        state = association['associationState']
+
+        if state == 'disassociated':
+            return
+
+        time.sleep(20)
+
+    raise AwsException(f"Timed out on deleting direct_connect_gateway_association:id={association_id}:state={state}")
