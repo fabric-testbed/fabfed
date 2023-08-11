@@ -1,0 +1,39 @@
+provider:
+  - aws:
+      - aws_provider:
+          - credential_file: ~/.fabfed/fabfed_credentials.yml
+            profile: aws 
+config:
+  - layer3:
+      - fab_layer:
+          subnet: 192.168.10.0/24 # subnet: "10.0.0.0/24"  # for sense subnet.cidr
+          gateway: 192.168.10.1
+          ip_start: 192.168.10.2 # optional: auto generate if subnet is given
+          ip_end: 192.168.10.254
+      - sense_layer:
+          subnet: 10.200.1.0/24 # subnet.cidr and vpc.cidr
+  - peering:
+      - my_peering:
+          # FOR FABRIC
+          # cloud_account: "296256999979" # pairing key
+          # cloud_facility:
+          # local_device: "agg3.ashb.net.internet2.edu"
+          # local_port: "Bundle-Ether5"
+          # cloud_vlan: 
+
+          # FOR AWS and FABRIC  
+          cloud_region: "us-east-1"
+          cloud_vpc: "vpc-0c3dac3f42386a7a6"
+
+          #remote_asn: 16550 # google_asn
+          # local_asn: "55038" # customer_asn (hard coded for now) 
+          # local_address: "192.168.1.1/30" # customer_ip (ignore)
+          # remote_address: "192.168.1.2/30" # google_ip (ignore)
+resource:
+  - network:
+      - aws_net:
+          provider: '{{ aws.aws_provider }}'
+          name: aws-net
+          layer3: "{{ layer3.sense_layer }}"
+          peering: "{{ peering.my_peering }}"
+          count: 1 
