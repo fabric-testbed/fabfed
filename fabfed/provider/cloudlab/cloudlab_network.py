@@ -11,13 +11,14 @@ logger = get_logger()
 
 
 class CloudNetwork(Network):
-    def __init__(self, *, label, name: str, provider: CloudlabProvider, profile: str, interfaces, layer3):
+    def __init__(self, *, label, name: str, provider: CloudlabProvider, profile: str, interfaces, layer3, cluster):
         name = name[0:CLOUDLAB_MAX_EXPERIMENT_NAME_SIZE]
         super().__init__(label=label, name=name, site="")
         self.profile = profile
         self._provider = provider
         self.interface = interfaces or []
         self.layer3 = layer3 or {}
+        self.cluster = cluster
 
     @property
     def provider(self):
@@ -54,6 +55,10 @@ class CloudNetwork(Network):
             if self.interface:
                 vlan = self.interface[0]['vlan']
                 bindings['vlan'] = str(vlan)
+
+            if self.cluster:
+                bindings['cluster'] = self.cluster
+
 
             nodes = [n for n in self.provider.nodes if n.net == self]
             bindings['node_count'] = str(len(nodes))
@@ -138,11 +143,11 @@ class CloudNetwork(Network):
         link = data_dict['rspec']['link']
         self.interface = [dict(id='', provider=self.provider.type, vlan=link['@vlantag'])]
         all_nodes = data_dict['rspec']['node']
-        nodes = [n for n in all_nodes if n['@component_manager_id'] != NODE_URI]
+        nodes = [n for n in all_nodes if 'stitch' not in['@component_manager_id']]
         n = nodes[0]
         self.stich_node_ip = n['interface']['ip']['@address']
         self.stich_site = n['jacks:site']['@id']
-        nodes = [n for n in all_nodes if n['@component_manager_id'] == NODE_URI]
+        nodes = [n for n in all_nodes if 'stitch' not in n['@component_manager_id']]
         self.site = nodes[0]['jacks:site']['@id']
 
     def delete(self):
