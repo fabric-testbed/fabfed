@@ -1,6 +1,3 @@
-variable:
-  - cloudlab_profile:
-      default: fabfed-stitch-v2
 provider:
   - cloudlab:
       - cloudlab_provider:
@@ -26,11 +23,7 @@ resource:
   - network:
       - cnet:
           provider: '{{cloudlab.cloudlab_provider }}'
-          profile: '{{ var.cloudlab_profile }}'
           layer3: "{{ layer3.my_layer }}"
-          # Uncomment to override vlan
-          # interface:
-          #  - vlan: 3101
   - node:
       - cnode:
           provider: '{{ cloudlab.cloudlab_provider }}'
@@ -57,4 +50,4 @@ resource:
           controller: '{{ node.fabric_node }}'
           image: dtnaas/tools
           profile: fabfed
-          count: 1
+          count: 0
