@@ -180,7 +180,16 @@ def create_direct_connect_gateway(*, direct_connect_client, gateway_name: str, a
 
     return direct_connect_gateway_id
 
+# handle existing deleted interface ....
+# 1. we need to create a connection on oess portal (Fabfed cannot do it):
+# connectionId='dxcon-fgz7lrnh' We can lookup the connection and see if one is available
+# (Exceeded the maximum number of virtual interfaces on dxcon-fgz7lrnh. The limit is 1)
+# 2. accept it on amazon ...
+# 3. create virtual interface ...
 
+# TODO 1 why does the vif go to state down?
+# TODO 2: Can we have a higher limit? Or do we even need that?
+# TODO 3: Is there an way possible to create a DX connection?
 def create_private_virtual_interface(*, direct_connect_client, direct_connect_gateway_id: str, vif_name: str):
     response = direct_connect_client.describe_virtual_interfaces()
     details = {}
@@ -202,7 +211,7 @@ def create_private_virtual_interface(*, direct_connect_client, direct_connect_ga
             newPrivateVirtualInterface={
                 'virtualInterfaceName': vif_name,
                 'vlan': 2,
-                'asn': 53800,
+                'asn': 55038,  # remote oess asn
                 'mtu': 9001,
                 'authKey': BGPKEY,
                 'amazonAddress': '192.168.1.1/30',
@@ -220,6 +229,8 @@ def create_private_virtual_interface(*, direct_connect_client, direct_connect_ga
         response = direct_connect_client.describe_virtual_interfaces()
         vif = next(filter(lambda v: v[VIF_ID] == details[VIF_ID], response['virtualInterfaces']))
         state = vif[VIF_STATE]
+
+        logger.info(f"WAITING: private virtual interface {vif_name}:state={state}")
 
         if state == 'down' or state == 'available':
             logger.info(f"TODO: Breaking private virtual interface {vif_name}:state={state}")  # TODO fix the down state
