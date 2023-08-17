@@ -46,6 +46,12 @@ class GcpNetwork(Network):
                                                      region=region,
                                                      router_name=router_name,
                                                      attachment_name=attachment_name)
+            attachment = gcp_utils.find_interconnect_attachment(service_key_path=service_key_path,
+                                                                project=project,
+                                                                region=region,
+                                                                attachment_name=attachment_name)
+        """ TODO: save and pass the pairing_key to fabric """
+        print(f'pairing-key: {attachment.pairing_key}')
 
     def delete(self):
         project = self._provider.project
