@@ -28,7 +28,7 @@ def check_operation_result(*, credentials, project, region, operation_name):
         if str(response.status) == 'Status.DONE':
             break
 
-        logger.info(f"Status={response.status}")
+        logger.info(f"Status={str(response.status)}")
         time.sleep(5)
 
 
