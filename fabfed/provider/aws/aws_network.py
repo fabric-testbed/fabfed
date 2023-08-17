@@ -69,10 +69,11 @@ class AwsNetwork(Network):
             gateway_name=self.gateway_name,
             amazon_asn=amazon_asn)
 
+        # TODO This is where you change the name .....
         self.vif_details = aws_utils.create_private_virtual_interface(
             direct_connect_client=direct_connect_client,
             direct_connect_gateway_id=self.direct_connect_gateway_id,
-            vif_name="aes-" + self.vif_name)
+            vif_name=f"{self.vif_name}-lucky")
 
         self.association_id = aws_utils.associate_dxgw_vpn(
             direct_connect_client=direct_connect_client,
