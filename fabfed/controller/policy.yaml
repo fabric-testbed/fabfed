@@ -35,6 +35,23 @@ fabric:
       - name: GCP 
         consumer-for:
             - sense/GCP
+            - gcp/GCP
+
+
+gcp:
+  stitch-port:
+    - site: GCP 
+      member-of:
+        - GCP 
+      device_name: agg4.ashb.net.internet2.edu
+      local_name: Bundle-Ether5
+      region: us-east4
+      preference: 10 # higher is preferred
+      vlan: 3
+  group:
+      - name: GCP 
+        producer-for:
+          - fabric/GCP
 
 sense:
   stitch-port:
