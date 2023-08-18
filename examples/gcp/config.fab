@@ -3,6 +3,11 @@ provider:
       - gcp_provider:
           - credential_file: ~/.fabfed/fabfed_credentials.yml
             profile: gcp 
+  - fabric:
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: fabric
+
 config:
   - layer3:
       - fab_layer:
@@ -10,30 +15,42 @@ config:
           gateway: 192.168.10.1
           ip_start: 192.168.10.2 # optional: auto generate if subnet is given
           ip_end: 192.168.10.254
-      - sense_layer:
+      - gcp_layer:
           subnet: 10.200.1.0/24 # subnet.cidr and vpc.cidr
   - peering:
       - my_peering:
           # FOR FABRIC
-          # cloud_account: "296256999979" # pairing key
-          # cloud_facility:
-          # local_device: "agg3.ashb.net.internet2.edu"
-          # local_port: "Bundle-Ether5"
-          # cloud_vlan: 
+          cloud_account: REPLACE_ME_WITH_PAIRING_KEY  # HARCODE IT FOR NOW
 
-          # FOR GCP and FABRIC  
+          # FOR GCP  
           cloud_region: "us-east4"
           cloud_vpc:  "vpc-69acc1d9-8c24-47cd-90b8-33be57167dbf"
+
+          # FOR GCP AND FABRIC. 
           remote_asn: 16550 # google_asn
 
-          # local_asn: "55038" # customer_asn (hard coded for now) 
-          # local_address: "192.168.1.1/30" # customer_ip (ignore)
-          # remote_address: "192.168.1.2/30" # google_ip (ignore)
+          # FOR FABRIC
+          local_address: "192.168.1.1/30" # customer_ip
+          remote_address: "192.168.1.2/30" # google_ip
 resource:
   - network:
       - gcp_net:
           provider: '{{ gcp.gcp_provider }}'
           name: gcp-net
-          layer3: "{{ layer3.sense_layer }}"
+          layer3: "{{ layer3.gcp_layer }}"
           peering: "{{ peering.my_peering }}"
+          stitch_with: '{{ network.fabric_network }}'
           count: 1 
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.fab_layer }}"
+          peering: "{{ peering.my_peering }}"
+          interface: '{{ node.fabric_node }}'
+          count: 1 
+  - node:
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          site: MAX
+          image: default_rocky_8
+          count: 1 
+          nic_model: NIC_Basic

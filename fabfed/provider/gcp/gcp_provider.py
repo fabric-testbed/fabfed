@@ -58,11 +58,10 @@ class GcpProvider(Provider):
         for net in [net for net in self._networks if net.label == label]:
             self.logger.debug(f"Creating network: {vars(net)}")
             net.create()
+            self.logger.debug(f"Created network: {vars(net)}")
 
             if self.resource_listener:
                 self.resource_listener.on_created(source=self, provider=self, resource=net)
-
-            self.logger.debug(f"Created network: {vars(net)}")
 
     def do_delete_resource(self, *, resource: dict):
         rtype = resource.get(Constants.RES_TYPE)
