@@ -47,6 +47,7 @@ class AwsNetwork(Network):
         logger.info(f'Vpc {self.vpc_id} is available')
         self.vpn_id = aws_utils.find_attached_vpn_gateway(ec2_client=ec2_client, vpc_id=self.vpc_id)
         amazon_asn = self.peering.attributes.get(Constants.RES_REMOTE_ASN)
+        bgp_asn = self.peering.attributes.get(Constants.RES_LOCAL_ASN)
 
         if not self.vpn_id:
             logger.info(f'Creating and attaching vpn gateway: name={self.vpn_gateway_name}:vpc={self.vpc_id}')
@@ -69,11 +70,11 @@ class AwsNetwork(Network):
             gateway_name=self.gateway_name,
             amazon_asn=amazon_asn)
 
-        # TODO This is where you change the name .....
         self.vif_details = aws_utils.create_private_virtual_interface(
             direct_connect_client=direct_connect_client,
             direct_connect_gateway_id=self.direct_connect_gateway_id,
-            vif_name=f"{self.vif_name}-lucky")
+            vif_name=f"{self.vif_name}-lucky",
+            bgp_asn=bgp_asn)
 
         self.association_id = aws_utils.associate_dxgw_vpn(
             direct_connect_client=direct_connect_client,

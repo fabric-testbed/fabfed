@@ -187,10 +187,16 @@ def create_direct_connect_gateway(*, direct_connect_client, gateway_name: str, a
 # 2. accept it on amazon ...
 # 3. create virtual interface ...
 
+# 'virtualInterfaceState': 'confirming'|'verifying'|'pending'|'available'|'down'|'deleting'|'deleted'|'rejected'|'unknown',
+
 # TODO 1 why does the vif go to state down?
 # TODO 2: Can we have a higher limit? Or do we even need that?
 # TODO 3: Is there an way possible to create a DX connection?
-def create_private_virtual_interface(*, direct_connect_client, direct_connect_gateway_id: str, vif_name: str):
+def create_private_virtual_interface(*,
+                                     direct_connect_client,
+                                     direct_connect_gateway_id: str,
+                                     vif_name: str,
+                                     bgp_asn):
     response = direct_connect_client.describe_virtual_interfaces()
     details = {}
 
@@ -211,7 +217,7 @@ def create_private_virtual_interface(*, direct_connect_client, direct_connect_ga
             newPrivateVirtualInterface={
                 'virtualInterfaceName': vif_name,
                 'vlan': 2,
-                'asn': 55038,  # remote oess asn
+                'asn': bgp_asn,  # remote oess asn
                 'mtu': 9001,
                 'authKey': BGPKEY,
                 'amazonAddress': '192.168.1.1/30',
@@ -225,19 +231,29 @@ def create_private_virtual_interface(*, direct_connect_client, direct_connect_ga
         for k in VIF_DETAILS:
             details[k] = vif[k]
 
+    if details[VIF_STATE] == 'available':
+        logger.info(f"Private virtual interface {vif_name} is {details[VIF_STATE]}")
+        return details
+
     for i in range(RETRY):
-        response = direct_connect_client.describe_virtual_interfaces()
-        vif = next(filter(lambda v: v[VIF_ID] == details[VIF_ID], response['virtualInterfaces']))
-        state = vif[VIF_STATE]
-
-        logger.info(f"WAITING: private virtual interface {vif_name}:state={state}")
-
-        if state == 'down' or state == 'available':
-            logger.info(f"TODO: Breaking private virtual interface {vif_name}:state={state}")  # TODO fix the down state
-            break
-
+        logger.warning(f"Waiting on private virtual interface {vif_name}:state={details[VIF_STATE]}:attempt={i + 1}")
         time.sleep(20)
 
+        response = direct_connect_client.describe_virtual_interfaces()
+        vif = next(filter(lambda v: v[VIF_ID] == details[VIF_ID], response['virtualInterfaces']))
+
+        for k in VIF_DETAILS:
+            details[k] = vif[k]
+
+        state = details[VIF_STATE]
+
+        if state == 'available':
+            break
+
+    if details[VIF_STATE] != 'available':
+        raise AwsException(f"Virtual interface {vif_name}:state={details[VIF_STATE]}")
+
+    logger.info(f"Private virtual interface {vif_name} is {details[VIF_STATE]}")
     return details
 
 
@@ -277,33 +293,37 @@ def associate_dxgw_vpn(direct_connect_client, direct_connect_gateway_id, vpn_id:
     )
 
     if association and association['associationState'] == 'associated':
+        logger.info(f'association is associated:{association}')
         return association['associationId']
 
-    response = direct_connect_client.create_direct_connect_gateway_association(
-        directConnectGatewayId=direct_connect_gateway_id,
-        virtualGatewayId=vpn_id
-    )
+    if not association:
+        response = direct_connect_client.create_direct_connect_gateway_association(
+            directConnectGatewayId=direct_connect_gateway_id,
+            virtualGatewayId=vpn_id
+        )
+        association = response['directConnectGatewayAssociation']
 
-    association = response['directConnectGatewayAssociation']
     state = association['associationState']
 
     if state == 'associated':
+        logger.info(f'association is associated:{association}')
         return association['associationId']
 
     for i in range(RETRY):
+        logger.warning(f'Waiting on association. state={state}: association:{association}')
+        time.sleep(20)
+
         association = find_association_dxgw_vpn(
             direct_connect_client=direct_connect_client,
             direct_connect_gateway_id=direct_connect_gateway_id,
             vpn_id=vpn_id
         )
 
-        logger.info(f'checking if association state is associated:{association}')
         state = association['associationState']
 
         if state == 'associated':
+            logger.info(f'association is associated:{association}')
             return association['associationId']
-
-        time.sleep(20)
 
     raise AwsException(f"Timed out on creating direct_connect_gateway_association: state={state}")
 

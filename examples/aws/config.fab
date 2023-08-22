@@ -25,6 +25,7 @@ config:
           cloud_region: "us-east-1"
           cloud_vpc: "vpc-0c3dac3f42386a7a6"
           remote_asn: 64512 # amazon_asn
+          local_asn: 55038  # customer_asn (hard coded for now)
 resource:
   - network:
       - aws_net:
