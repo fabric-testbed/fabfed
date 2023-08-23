@@ -19,6 +19,7 @@ fabric:
       - name: AWS
         producer-for:
           - sense/AWS
+          - aws/AWS
 
       - name: UTAH
         consumer-for:
@@ -37,6 +38,11 @@ fabric:
             - sense/GCP
             - gcp/GCP
 
+aws:
+  group:
+    - name: AWS
+      consumer-for:
+        - fabric/AWS
 
 gcp:
   stitch-port:
