@@ -47,7 +47,7 @@ gcp:
       local_name: Bundle-Ether5
       region: us-east4
       preference: 10 # higher is preferred
-      vlan: 3
+      vlan: 4
   group:
       - name: GCP 
         producer-for:

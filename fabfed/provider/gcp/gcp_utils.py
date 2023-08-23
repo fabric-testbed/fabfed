@@ -14,6 +14,19 @@ from fabfed.util.utils import get_logger
 logger = get_logger()
 
 
+def find_vpc(*, service_key_path, project, vpc):
+    credentials = service_account.Credentials.from_service_account_file(service_key_path)
+    network_client = compute_v1.NetworksClient(credentials=credentials)
+    request = compute_v1.GetNetworkRequest(project=project, network=vpc)
+
+    from google.api_core.exceptions import NotFound
+
+    try:
+        return network_client.get(request=request)
+    except NotFound:
+        return None
+
+
 def check_operation_result(*, credentials, project, region, operation_name):
     client = compute_v1.RegionOperationsClient(credentials=credentials)
     request = compute_v1.GetRegionOperationRequest(
@@ -35,7 +48,6 @@ def check_operation_result(*, credentials, project, region, operation_name):
 def find_router(*, service_key_path, project, region, router_name):
     credentials = service_account.Credentials.from_service_account_file(service_key_path)
     compute_client = compute_v1.RoutersClient(credentials=credentials)
-
     request = compute_v1.GetRouterRequest(
                     project=project,
                     region=region,
