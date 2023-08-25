@@ -37,13 +37,13 @@ resource:
           name: gcp-net
           peering: "{{ peering.my_peering }}"
           stitch_with: '{{ network.fabric_network }}'
-          count: 1 
+          count: 1
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
           peering: "{{ peering.my_peering }}"
           interface: '{{ node.fabric_node }}'
-          count: 1 
+          count: 1
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
