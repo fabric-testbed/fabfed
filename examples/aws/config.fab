@@ -16,7 +16,7 @@ config:
           ip_start: 192.168.10.2 # optional: auto generate if subnet is given
           ip_end: 192.168.10.254
       - aws_layer:
-          subnet: 10.200.1.0/24 # subnet.cidr and vpc.cidr
+          subnet: 100.0.0.0/24
   - peering:
       - my_peering:
           # FOR FABRIC
@@ -42,7 +42,7 @@ resource:
           stitch_with: '{{ network.fabric_network }}'
           stitch_option:
               port_name: AGG4
-          count: 0 
+          count: 1 
 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'

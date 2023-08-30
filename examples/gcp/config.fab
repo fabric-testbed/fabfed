@@ -15,6 +15,8 @@ config:
           gateway: 192.168.10.1
           ip_start: 192.168.10.2
           ip_end: 192.168.10.254
+      - gcp_layer:
+          subnet: 10.100.0.0/24 # subnet.cidr and vpc.cidr
   - peering:
       - my_peering:
           # FOR GCP  
@@ -35,6 +37,7 @@ resource:
       - gcp_net:
           provider: '{{ gcp.gcp_provider }}'
           name: gcp-net
+          layer3: "{{ layer3.gcp_layer }}"
           peering: "{{ peering.my_peering }}"
           stitch_with: '{{ network.fabric_network }}'
           count: 1 

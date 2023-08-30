@@ -3,6 +3,7 @@ import time
 import boto3
 
 from fabfed.util.utils import get_logger
+from fabfed.util.constants import Constants
 from .aws_constants import *
 from .aws_exceptions import AwsException
 
@@ -37,6 +38,44 @@ def is_vpc_available(*, ec2_client, vpc_id: str):
             raise AwsException(f"Vpc not found {vpc_id}")
 
     return False
+
+
+def find_available_dx_connection(*, direct_connect_client, name: str):
+    response = direct_connect_client.describe_connections()
+
+    if not isinstance(response, dict) and 'connections' not in response:
+        raise AwsException(f'did not find dx connection {name}')
+
+    connection = next(filter(lambda con: con['connectionName'] == name, response['connections']), None)
+
+    if not connection:
+        raise AwsException(f'did not find dx connection {name}')
+
+    logger.info(f'Found dx connection {connection}')
+
+    state = connection['connectionState']
+    vlan = connection['vlan']
+    connection_id = connection['connectionId']
+
+    if state == 'available':
+        return connection_id, vlan
+
+    if state == 'ordering':
+        response = direct_connect_client.confirm_connection(connectionId=connection_id)
+        logger.info(f'response from confirm dx connection {response}')
+
+    for i in range(RETRY):
+        response = direct_connect_client.describe_connections(connectionId=connection_id)
+        connection = next(filter(lambda con: con['connectionName'] == name, response['connections']))
+        state = connection['connectionState']
+        logger.info(f'state={state}. dx connection {connection}')
+
+        if state == 'available':
+            return connection_id, vlan
+
+        time.sleep(20)
+
+    raise AwsException(f'Timed out. dx connection {name}:state={state}')
 
 
 def find_attached_vpn_gateway(*, ec2_client, vpc_id: str):
@@ -180,6 +219,7 @@ def create_direct_connect_gateway(*, direct_connect_client, gateway_name: str, a
 
     return direct_connect_gateway_id
 
+
 # handle existing deleted interface ....
 # 1. we need to create a connection on oess portal (Fabfed cannot do it):
 # connectionId='dxcon-fgz7lrnh' We can lookup the connection and see if one is available
@@ -187,7 +227,8 @@ def create_direct_connect_gateway(*, direct_connect_client, gateway_name: str, a
 # 2. accept it on amazon ...
 # 3. create virtual interface ...
 
-# 'virtualInterfaceState': 'confirming'|'verifying'|'pending'|'available'|'down'|'deleting'|'deleted'|'rejected'|'unknown',
+# 'virtualInterfaceState':
+# 'confirming'|'verifying'|'pending'|'available'|'down'|'deleting'|'deleted'|'rejected'|'unknown',
 
 # TODO 1 why does the vif go to state down?
 # TODO 2: Can we have a higher limit? Or do we even need that?
@@ -195,8 +236,10 @@ def create_direct_connect_gateway(*, direct_connect_client, gateway_name: str, a
 def create_private_virtual_interface(*,
                                      direct_connect_client,
                                      direct_connect_gateway_id: str,
-                                     vif_name: str,
-                                     bgp_asn):
+                                     connection_id,
+                                     vlan,
+                                     peering,
+                                     vif_name: str):
     response = direct_connect_client.describe_virtual_interfaces()
     details = {}
 
@@ -211,17 +254,22 @@ def create_private_virtual_interface(*,
                 break
 
     if not details:
-        logger.info(f"Creating private virtual interface {vif_name}")
+        logger.info(f"Creating private virtual interface {vif_name}:connection_id={connection_id}:vlan={vlan}")
+
+        bgp_asn = peering.attributes.get(Constants.RES_LOCAL_ASN)
+        local_address = peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
+        remote_address = peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
+
         vif = direct_connect_client.create_private_virtual_interface(
-            connectionId='dxcon-fgz7lrnh',
+            connectionId=connection_id,
             newPrivateVirtualInterface={
                 'virtualInterfaceName': vif_name,
-                'vlan': 2,
+                'vlan': vlan,
                 'asn': bgp_asn,  # remote oess asn
                 'mtu': 9001,
                 'authKey': BGPKEY,
-                'amazonAddress': '192.168.1.1/30',
-                'customerAddress': '192.168.1.2/30',
+                'amazonAddress': local_address,
+                'customerAddress': remote_address,
                 'addressFamily': 'ipv4',
                 'directConnectGatewayId': direct_connect_gateway_id,
                 'enableSiteLink': False
