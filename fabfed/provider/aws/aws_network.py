@@ -21,15 +21,19 @@ class AwsNetwork(Network):
 
     @property
     def gateway_name(self):
-        return 'fab-gateway'
+        return f'{self._provider.name}-fab-direct-connect-gateway'
 
     @property
     def vpn_gateway_name(self):
-        return "fab-vpn-gateway"
+        return f'{self._provider.name}-fab-vpn-gateway'
 
     @property
     def vif_name(self):
-        return 'fab-vif'
+        return f'{self._provider.name}-fab-vif'
+
+    @property
+    def connection_name(self):
+        return f'{self._provider.name}-{self.peering.attributes.get(Constants.RES_CLOUD_ACCOUNT)}'
 
     def create(self):
         region = self.peering.attributes.get(Constants.RES_CLOUD_REGION)
@@ -45,9 +49,19 @@ class AwsNetwork(Network):
             raise AwsException(f"Vpc is not available:{self.vpc_id}")
 
         logger.info(f'Vpc {self.vpc_id} is available')
+
+        direct_connect_client = aws_utils.create_direct_connect_client(
+            region=region,
+            access_key=self._provider.access_key,
+            secret_key=self._provider.secret_key)
+
+        connection_id, vlan = aws_utils.find_available_dx_connection(
+            direct_connect_client=direct_connect_client,
+            name=self.connection_name)
+
+        logger.info(f'connection {self.connection_name} is available:connection_id={connection_id}')
         self.vpn_id = aws_utils.find_attached_vpn_gateway(ec2_client=ec2_client, vpc_id=self.vpc_id)
         amazon_asn = self.peering.attributes.get(Constants.RES_REMOTE_ASN)
-        bgp_asn = self.peering.attributes.get(Constants.RES_LOCAL_ASN)
 
         if not self.vpn_id:
             logger.info(f'Creating and attaching vpn gateway: name={self.vpn_gateway_name}:vpc={self.vpc_id}')
@@ -60,11 +74,6 @@ class AwsNetwork(Network):
         else:
             logger.info(f'Found attached vpn gateway {self.vpn_id}')
 
-        direct_connect_client = aws_utils.create_direct_connect_client(
-            region=region,
-            access_key=self._provider.access_key,
-            secret_key=self._provider.secret_key)
-
         self.direct_connect_gateway_id = aws_utils.create_direct_connect_gateway(
             direct_connect_client=direct_connect_client,
             gateway_name=self.gateway_name,
@@ -73,8 +82,10 @@ class AwsNetwork(Network):
         self.vif_details = aws_utils.create_private_virtual_interface(
             direct_connect_client=direct_connect_client,
             direct_connect_gateway_id=self.direct_connect_gateway_id,
-            vif_name=f"{self.vif_name}-lucky",
-            bgp_asn=bgp_asn)
+            connection_id=connection_id,
+            vlan=vlan,
+            peering=self.peering,
+            vif_name=f"{self.vif_name}")
 
         self.association_id = aws_utils.associate_dxgw_vpn(
             direct_connect_client=direct_connect_client,
