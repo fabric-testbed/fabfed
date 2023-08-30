@@ -57,8 +57,10 @@ resource:
           peering: "{{ peering.my_peering }}"
           count: 1 
           stitch_with: '{{ network.fabric_network }}'
+          profile: FABRIC-GCP-INTERCON
           stitch_option:
-              profile: FABRIC-GCP-INTERCON
+              group_name: GCP
+              # profile: GCP-INTERCONN
 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
