@@ -78,21 +78,21 @@ def find_available_dx_connection(*, direct_connect_client, name: str):
     raise AwsException(f'Timed out. dx connection {name}:state={state}')
 
 
-def find_attached_vpn_gateway(*, ec2_client, vpc_id: str):
+def find_vpn_gateway(*, ec2_client, name: str):
     response = ec2_client.describe_vpn_gateways()
 
     if isinstance(response, dict) and 'VpnGateways' in response:
         for gw in response['VpnGateways']:
-            attachments = gw['VpcAttachments']
-            attachment = next(filter(lambda a: a['VpcId'] == vpc_id and a['State'] == 'attached', attachments), None)
+            if 'Tags' in gw and gw['Tags']:
+                name_tag = next(filter(lambda t: t['Key'] == 'Name' and t['Value'] == name, gw['Tags']), None)
 
-            if attachment:
-                return gw['VpnGatewayId']
+                if name_tag:
+                    return gw['VpnGatewayId']
 
     return None
 
 
-def find_vpn_gateway(*, ec2_client, vpn_id: str):
+def _find_vpn_gateway_by_id(*, ec2_client, vpn_id: str):
     response = ec2_client.describe_vpn_gateways()
 
     if response and isinstance(response, dict) and 'VpnGateways' in response:
@@ -103,13 +103,13 @@ def find_vpn_gateway(*, ec2_client, vpn_id: str):
     return None
 
 
-def attach_vpn_gateway(*, ec2_client, vpn_id: str, vpc_id: str):
-    vpn_gateway = find_vpn_gateway(ec2_client=ec2_client, vpn_id=vpn_id)
+def attach_vpn_gateway_if_needed(*, ec2_client, vpn_id: str, vpc_id: str):
+    vpn_gateway = _find_vpn_gateway_by_id(ec2_client=ec2_client, vpn_id=vpn_id)
     attachments = vpn_gateway['VpcAttachments']
 
     for attachment in attachments:
         if attachment['VpcId'] == vpc_id:
-            raise Exception(f"Already attached ...{attachment['State']}")
+            return
 
     response = ec2_client.attach_vpn_gateway(
         VpcId=vpc_id,
@@ -123,7 +123,7 @@ def attach_vpn_gateway(*, ec2_client, vpn_id: str, vpc_id: str):
         return
 
     for i in range(RETRY):
-        vpn_gateway = find_vpn_gateway(ec2_client=ec2_client, vpn_id=vpn_id)
+        vpn_gateway = _find_vpn_gateway_by_id(ec2_client=ec2_client, vpn_id=vpn_id)
         attachments = vpn_gateway['VpcAttachments']
 
         for attachment in attachments:
@@ -137,6 +137,43 @@ def attach_vpn_gateway(*, ec2_client, vpn_id: str, vpc_id: str):
         time.sleep(20)
 
     raise AwsException(f"Timed out on attaching vpn_gateway: state={state}")
+
+
+def detach_vpn_gateway_if_needed(*, ec2_client, vpn_id: str, vpc_id: str):
+    vpn_gateway = _find_vpn_gateway_by_id(ec2_client=ec2_client, vpn_id=vpn_id)
+    attachments = vpn_gateway['VpcAttachments']
+    attachment = None
+
+    for a in attachments:
+        if a['VpcId'] == vpc_id:
+            attachment = a
+
+    if not attachment:
+        return
+
+    ec2_client.detach_vpn_gateway(
+        VpcId=vpc_id,
+        VpnGatewayId=vpn_id
+    )
+
+    state = None
+
+    for i in range(RETRY):
+        vpn_gateway = _find_vpn_gateway_by_id(ec2_client=ec2_client, vpn_id=vpn_id)
+        attachments = vpn_gateway['VpcAttachments']
+        state = None
+
+        for attachment in attachments:
+            if attachment['VpcId'] == vpc_id:
+                state = attachment['State']
+                break
+
+        if not state or state == 'detached':
+            return
+
+        time.sleep(20)
+
+    raise AwsException(f"Timed out on detaching vpn_gateway: state={state}")
 
 
 def create_vpn_gateway(*, ec2_client, name: str, amazon_asn: int):
@@ -164,10 +201,33 @@ def create_vpn_gateway(*, ec2_client, name: str, amazon_asn: int):
         return vpn_id
 
     for i in range(RETRY):
-        vpn_gateway = find_vpn_gateway(ec2_client=ec2_client, vpn_id=vpn_id)
+        vpn_gateway = _find_vpn_gateway_by_id(ec2_client=ec2_client, vpn_id=vpn_id)
         state = vpn_gateway['State']
 
         if state == 'available':
+            return vpn_id
+
+        time.sleep(20)
+
+    raise AwsException(f"Timed out on creating vpn_gateway: state={state}")
+
+
+def delete_vpn_gateway(*, ec2_client, name: str):
+    vpn_id = find_vpn_gateway(ec2_client=ec2_client, name=name)
+
+    if not vpn_id:
+        return
+
+    ec2_client.delete_vpn_gateway(VpnGatewayId=vpn_id)
+    state = None
+
+    for i in range(RETRY):
+        vpn_gateway = _find_vpn_gateway_by_id(ec2_client=ec2_client, vpn_id=vpn_id)
+
+        if vpn_gateway:
+            state = vpn_gateway['State']
+
+        if not state or state == 'deleted':
             return vpn_id
 
         time.sleep(20)
@@ -186,7 +246,7 @@ def create_direct_connect_client(*, region: str, access_key: str, secret_key: st
     return direct_connect_client
 
 
-def find_direct_connect_gateway_id(*, direct_connect_client, gateway_name: str):
+def find_direct_connect_gateway_by_name(*, direct_connect_client, gateway_name: str):
     response = direct_connect_client.describe_direct_connect_gateways()
 
     if response and isinstance(response, dict) and 'directConnectGateways' in response:
@@ -198,15 +258,9 @@ def find_direct_connect_gateway_id(*, direct_connect_client, gateway_name: str):
 
 
 def create_direct_connect_gateway(*, direct_connect_client, gateway_name: str, amazon_asn: int):
-    response = direct_connect_client.describe_direct_connect_gateways()
-    direct_connect_gateway_id = None
-
-    if response and isinstance(response, dict) and 'directConnectGateways' in response:
-        for gw in response['directConnectGateways']:
-            if gw['directConnectGatewayName'] == gateway_name:
-                logger.info(f"Found directConnectGateway {gw}")
-                direct_connect_gateway_id = gw['directConnectGatewayId']
-                break
+    direct_connect_gateway_id = find_direct_connect_gateway_by_name(
+        direct_connect_client=direct_connect_client,
+        gateway_name=gateway_name)
 
     if not direct_connect_gateway_id:
         response = direct_connect_client.create_direct_connect_gateway(
@@ -220,19 +274,23 @@ def create_direct_connect_gateway(*, direct_connect_client, gateway_name: str, a
     return direct_connect_gateway_id
 
 
-# handle existing deleted interface ....
-# 1. we need to create a connection on oess portal (Fabfed cannot do it):
-# connectionId='dxcon-fgz7lrnh' We can lookup the connection and see if one is available
-# (Exceeded the maximum number of virtual interfaces on dxcon-fgz7lrnh. The limit is 1)
-# 2. accept it on amazon ...
-# 3. create virtual interface ...
+def delete_direct_connect_gateway(*, direct_connect_client, gateway_name: str):
+    direct_connect_gateway_id = find_direct_connect_gateway_by_name(
+        direct_connect_client=direct_connect_client,
+        gateway_name=gateway_name)
+
+    if direct_connect_gateway_id:
+        response = direct_connect_client.delete_direct_connect_gateway(
+            directConnectGatewayId=direct_connect_gateway_id
+        )
+
+        logger.info(f"Deleted directConnectGateway {response}")
+
+    return direct_connect_gateway_id
+
 
 # 'virtualInterfaceState':
 # 'confirming'|'verifying'|'pending'|'available'|'down'|'deleting'|'deleted'|'rejected'|'unknown',
-
-# TODO 1 why does the vif go to state down?
-# TODO 2: Can we have a higher limit? Or do we even need that?
-# TODO 3: Is there an way possible to create a DX connection?
 def create_private_virtual_interface(*,
                                      direct_connect_client,
                                      direct_connect_gateway_id: str,
@@ -268,10 +326,11 @@ def create_private_virtual_interface(*,
                 'asn': bgp_asn,  # remote oess asn
                 'mtu': 9001,
                 'authKey': BGPKEY,
-                'amazonAddress': local_address,
-                'customerAddress': remote_address,
+                'amazonAddress': remote_address,   # local_address,
+                'customerAddress': local_address,  # remote_address,
                 'addressFamily': 'ipv4',
                 'directConnectGatewayId': direct_connect_gateway_id,
+                # 'virtualGatewayId': direct_connect_gateway_id,
                 'enableSiteLink': False
             }
         )
@@ -299,6 +358,56 @@ def create_private_virtual_interface(*,
             break
 
     if details[VIF_STATE] != 'available':
+        raise AwsException(f"Virtual interface {vif_name}:state={details[VIF_STATE]}")
+
+    logger.info(f"Private virtual interface {vif_name} is {details[VIF_STATE]}")
+    return details
+
+
+def delete_private_virtual_interface(*,
+                                     direct_connect_client,
+                                     vif_name: str):
+    response = direct_connect_client.describe_virtual_interfaces()
+    details = {}
+
+    if isinstance(response, dict) and 'virtualInterfaces' in response:
+        for vif in response['virtualInterfaces']:
+            if vif['virtualInterfaceName'] == vif_name:
+                logger.info(f"Found existing private virtual interface {vif_name}")
+
+                for k in VIF_DETAILS:
+                    details[k] = vif[k]
+
+                break
+
+    if not details:
+        return
+
+    if details[VIF_STATE] == 'deleted':
+        logger.info(f"Private virtual interface {vif_name} is {details[VIF_STATE]}")
+        return details
+
+    logger.info(f"Deleting private virtual interface {vif_name}:{details}")
+    direct_connect_client.delete_virtual_interface(
+        virtualInterfaceId=details[VIF_ID]
+    )
+
+    for i in range(RETRY):
+        logger.warning(f"Waiting on private virtual interface {vif_name}:state={details[VIF_STATE]}:attempt={i + 1}")
+        time.sleep(20)
+
+        response = direct_connect_client.describe_virtual_interfaces()
+        vif = next(filter(lambda v: v[VIF_ID] == details[VIF_ID], response['virtualInterfaces']))
+
+        for k in VIF_DETAILS:
+            details[k] = vif[k]
+
+        state = details[VIF_STATE]
+
+        if state == 'deleted':
+            break
+
+    if details[VIF_STATE] != 'deleted':
         raise AwsException(f"Virtual interface {vif_name}:state={details[VIF_STATE]}")
 
     logger.info(f"Private virtual interface {vif_name} is {details[VIF_STATE]}")
