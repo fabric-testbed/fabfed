@@ -46,34 +46,39 @@ def find_available_dx_connection(*, direct_connect_client, name: str):
     if not isinstance(response, dict) and 'connections' not in response:
         raise AwsException(f'did not find dx connection {name}')
 
-    connection = next(filter(lambda con: con['connectionName'] == name, response['connections']), None)
+    # connection = next(filter(lambda con: con['connectionName'] == name, response['connections']), None)
+    connections = list(filter(lambda con: con['connectionName'] == name, response['connections']))
 
-    if not connection:
+    if not connections:
         raise AwsException(f'did not find dx connection {name}')
 
-    logger.info(f'Found dx connection {connection}')
-
-    state = connection['connectionState']
-    vlan = connection['vlan']
-    connection_id = connection['connectionId']
-
-    if state == 'available':
-        return connection_id, vlan
-
-    if state == 'ordering':
-        response = direct_connect_client.confirm_connection(connectionId=connection_id)
-        logger.info(f'response from confirm dx connection {response}')
-
-    for i in range(RETRY):
-        response = direct_connect_client.describe_connections(connectionId=connection_id)
-        connection = next(filter(lambda con: con['connectionName'] == name, response['connections']))
+    for connection in connections:
+        logger.info(f'Found dx connection {connection}')
+    
         state = connection['connectionState']
-        logger.info(f'state={state}. dx connection {connection}')
-
+        vlan = connection['vlan']
+        connection_id = connection['connectionId']
+        
+        if state in ['down', 'deleting', 'deleted', 'rejected', 'unknown']:
+            continue
+    
         if state == 'available':
             return connection_id, vlan
-
-        time.sleep(20)
+    
+        if state == 'ordering':
+            response = direct_connect_client.confirm_connection(connectionId=connection_id)
+            logger.info(f'response from confirm dx connection {response}')
+    
+        for i in range(RETRY):
+            response = direct_connect_client.describe_connections(connectionId=connection_id)
+            connection = next(filter(lambda con: con['connectionName'] == name, response['connections']))
+            state = connection['connectionState']
+            logger.info(f'state={state}. dx connection {connection}')
+    
+            if state == 'available':
+                return connection_id, vlan
+    
+            time.sleep(20)
 
     raise AwsException(f'Timed out. dx connection {name}:state={state}')
 
