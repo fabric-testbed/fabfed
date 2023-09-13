@@ -190,7 +190,7 @@ class NetworkBuilder:
                 labels = Labels.update(labels, local_name=port)
 
             peer_labels = Labels(ipv4_subnet=peer_subnet,
-                                 asn=asn,
+                                 asn=str(asn),
                                  bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
                                  account_id=account_id)
 

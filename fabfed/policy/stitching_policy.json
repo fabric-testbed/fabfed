@@ -111,7 +111,8 @@
       {
         "name": "GCP",
         "consumer-for": [
-          "sense"
+          "sense",
+	  "gcp"
         ]
       }
     ]
@@ -184,11 +185,43 @@
     ]
   },
   "aws": {
+    "stitch-port": [
+      {
+        "name": "AGG4_FOR_AWS",
+        "member-of": [
+          "AWS"
+        ]
+      },
+      {
+        "name": "AGG3_FOR_AWS",
+        "member-of": [
+          "AWS"
+        ]
+      }
+    ],
     "group": [
       {
         "name": "AWS",
         "consumer-for": [
-          "fabric/AWS"
+          "fabric"
+        ]
+      }
+    ]
+  },
+  "gcp": {
+    "stitch-port": [
+      {
+        "name": "AGG4_FOR_GCP",
+        "member-of": [
+          "GCP"
+        ]
+      }
+    ],
+    "group": [
+      {
+        "name": "GCP",
+        "producer-for": [
+          "fabric"
         ]
       }
     ]
