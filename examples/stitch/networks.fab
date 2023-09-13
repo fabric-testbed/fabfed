@@ -10,7 +10,6 @@ resource:
   - network:
       - chi_network:
           provider: '{{ chi.chi_provider }}'
-          site: '{{ var.chi_site }}'
           name: stitch_net
           layer3: "{{ layer3.my_layer }}"
 
@@ -19,3 +18,4 @@ resource:
           stitch_with: '{{ network.chi_network }}'
           interface: '{{ node.fabric_node }}'
           layer3: "{{ layer3.my_layer }}"
+          count: 1

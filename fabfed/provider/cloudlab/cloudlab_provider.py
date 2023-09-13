@@ -3,6 +3,8 @@ from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
 from .cloudlab_constants import *
+from .cloudlab_exceptions import CloudlabException
+from fabfed.policy.policy_helper import get_stitch_port_for_provider
 
 logger = get_logger()
 
@@ -60,21 +62,6 @@ class CloudlabProvider(Provider):
 
         return xmlrpc.EmulabXMLRPC(server_config)
 
-    @staticmethod
-    def get_info(device_name, attr=None):
-        import os
-        import json
-
-        path_file = os.path.join(os.path.dirname(__file__), 'inventory', 'port_mapping.json')
-
-        with open(path_file, 'r') as fp:
-            infos = json.load(fp)
-
-        if not attr:
-            return infos.get(device_name)
-
-        return infos.get(device_name, dict()).get(attr)
-
     def do_add_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
         rtype = resource.get(Constants.RES_TYPE)
@@ -103,34 +90,29 @@ class CloudlabProvider(Provider):
 
         net_name = f'{self.name}-{name_prefix}'
         profile = resource.get(Constants.RES_PROFILE)
+        cloudlab_stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
+
+        if not profile and cloudlab_stitch_port:
+            profile = cloudlab_stitch_port.get(Constants.RES_PROFILE)
 
         if not profile:
-            stitch_info = resource.get(Constants.RES_STITCH_INFO)
-
-            if stitch_info:
-                for g in [stitch_info.consumer_group, stitch_info.producer_group]:
-                    if self.type == g[Constants.PROVIDER]:
-                        profile = g.get(Constants.RES_PROFILE)
-                        break
-
-        assert profile, f"must provide a profile for {net_name}"
+            raise CloudlabException(message=f"must have a profile for {net_name}")
 
         cluster = resource.get(Constants.RES_CLUSTER)
 
+        if not cluster and cloudlab_stitch_port:
+            if 'option' in cloudlab_stitch_port and Constants.RES_CLUSTER in cloudlab_stitch_port['option']:
+                cluster = cloudlab_stitch_port['option'][Constants.RES_CLUSTER]
+
         if not cluster:
-            stitch_info = resource.get(Constants.RES_STITCH_INFO)
-
-            if stitch_info:
-                for g in [stitch_info.consumer_group, stitch_info.producer_group]:
-                    if self.type == g[Constants.PROVIDER]:
-                        cluster = g.get(Constants.RES_CLUSTER)
-                        break
-
-                if not cluster:
-                    device_name = stitch_info.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
-                    cluster = CloudlabProvider.get_info(device_name, Constants.RES_CLUSTER)
+            logger.warning(f"no cluster was was found for {net_name}")
 
         interfaces = resource.get(Constants.RES_INTERFACES, list())
+
+        if not interfaces:
+            if 'option' in cloudlab_stitch_port and Constants.RES_INTERFACES in cloudlab_stitch_port['option']:
+                interfaces = cloudlab_stitch_port['option'][Constants.RES_INTERFACES]
+
         layer3 = resource.get(Constants.RES_LAYER3)
         net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,
                            layer3=layer3, cluster=cluster)

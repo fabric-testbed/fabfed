@@ -25,7 +25,7 @@ def manage_workflow(args):
 
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
-    from fabfed.controller.policy_helper import load_policy
+    from fabfed.policy.policy_helper import load_policy
 
     policy = load_policy(policy_file=args.policy_file) if args.policy_file else {}
 
