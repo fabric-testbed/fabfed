@@ -112,7 +112,9 @@ class Controller:
         for peers in peering_to_network_mapping.values():
             for network in peers:
                 for other in [peer for peer in peers if peer.label != network.label]:
-                    network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
+                    # TODO For now GCP example does not seem to require a layer 3 config
+                    if Constants.RES_LAYER3 in other.attributes:
+                        network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
         for network in networks:
             self.logger.info(f"{network}: stitch_info={network.attributes.get(Constants.RES_STITCH_INFO)}")

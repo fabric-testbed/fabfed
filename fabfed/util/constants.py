@@ -57,6 +57,7 @@ class Constants:
     RES_CLOUD_FACILITY = "cloud_facility"
     RES_CLOUD_ACCOUNT = "cloud_account"
     RES_CLOUD_REGION = "cloud_region"
+    RES_CLOUD_VPC = "cloud_vpc"
 
     RES_LOCAL_DEVICE = "local_device"
     RES_LOCAL_PORT = "local_port"
@@ -95,5 +96,7 @@ class Constants:
         "sense": "fabfed.provider.sense.sense_provider.SenseProvider",
         "janus": "fabfed.provider.janus.janus_provider.JanusProvider",
         "cloudlab": "fabfed.provider.cloudlab.cloudlab_provider.CloudlabProvider",
+        "gcp": "fabfed.provider.gcp.gcp_provider.GcpProvider",
+        "aws": "fabfed.provider.aws.aws_provider.AwsProvider",
         "dummy": "fabfed.provider.dummy.dummy_provider.DummyProvider"
     }
