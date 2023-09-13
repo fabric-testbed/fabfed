@@ -1,0 +1,89 @@
+{
+   "fabric": {
+      "Utah-Cloudlab-Powder": {
+         "device_name": "Utah-Cloudlab-Powder",
+         "site": "UTAH"
+      },
+      "Clemson-Cloudlab": {
+         "device_name": "CloudLab-Clemson",
+         "site": "CLEM"
+      },
+       "OCT-MGHPCC": {
+         "device_name": "OCT-MGHPCC",
+         "site": "MASS"
+      },
+      "Cloud-Facility-AWS": [
+         {
+            "name": "AGG4_FOR_AWS",
+            "device_name": "agg4.ashb.net.internet2.edu",
+            "local_name": "HundredGigE0/0/0/7",
+            "site": "AWS"
+         },
+         {
+            "name": "AGG3_FOR_AWS",
+            "device_name": "agg3.ashb.net.internet2.edu",
+            "local_name": "TenGigE0/0/0/11/3",
+            "site": "AWS"
+         }
+      ],
+      "Chameleon-StarLight": {
+         "device_name": "Chameleon-StarLight",
+         "site": "STAR"
+      }
+   },
+   "chi": {
+      "fabric": [
+        {
+          "name": "Chameleon-StarLight",
+          "site": "CHI@UC"
+        }
+      ]
+   },
+   "cloudlab": {
+      "fabfed-stitch-v2": [
+         {
+            "name": "Cloudlab-Utah",
+            "option": {
+               "cluster": "urn:publicid:IDN+utah.cloudlab.us+authority+cm"
+            }
+         },
+         {
+            "name": "CloudLab-Clemson",
+            "option": {
+               "cluster": "urn:publicid:IDN+clemson.cloudlab.us+authority+cm"
+            }
+         },
+         {
+            "name": "MASS-OCT-MGHPCC",
+            "option": {
+               "cluster": "urn:publicid:IDN+cloudlab.umass.edu+authority+cm",
+               "interface": [
+                  {
+                     "vlan": 3110
+                  }
+               ]
+            }
+         }
+      ]
+   },
+   "sense": {
+      "GCP-INTERCONN": [
+         {
+            "name": "AGG4_FOR_GCP",
+            "vlan": 3
+         }
+      ],
+      "FABRIC-L2-DTN": [
+         {
+            "name": "UKY-AL2S",
+            "option": {
+               "interface": [
+                  {
+                     "id": "urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24"
+                  }
+               ]
+            }
+         }
+      ]
+   }
+}

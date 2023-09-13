@@ -107,7 +107,7 @@ class Provider(ABC):
 
                 except Exception as e:
                     self.logger.warning(
-                        f"Exception occurred while adding pending resource: {e} using {self.label}")
+                        f"Exception occurred while adding pending resource: {label} using {self.label}")
                     self.logger.warning(e, exc_info=True)
 
     def add_resource(self, *, resource: dict):

@@ -7,6 +7,8 @@ from fabfed.model import Network
 from fabfed.util.constants import Constants
 from ...util.config_models import Config
 from fabfed.exceptions import FabfedException
+from .fabric_provider import FabricProvider
+from fabfed.policy.policy_helper import get_stitch_port_for_provider
 
 from fabfed.util.utils import get_logger
 
@@ -74,23 +76,11 @@ class FabricNetwork(Network):
         return self._delegate.get_site()
 
 
-class FabricUtil:
-    @staticmethod
-    def get_facility_ports():
-        import os
-        import json
-
-        port_file = os.path.join(os.path.dirname(__file__), 'inventory', "facility_ports.json")
-        with open(port_file, 'r') as fp:
-            ports = json.load(fp)
-        return ports
-
-
 class NetworkBuilder:
-    def __init__(self, label, slice_object: Slice, name, resource: dict):
+    def __init__(self, label, provider: FabricProvider, slice_object: Slice, name, resource: dict):
         self.slice_object = slice_object
         self.stitch_info = resource.get(Constants.RES_STITCH_INFO)
-        self.stitch_port = self.stitch_info.stitch_port if self.stitch_info else dict()
+        self.stitch_port = get_stitch_port_for_provider(resource=resource, provider=provider.type)
         self.vlan = None
         self.site = resource.get(Constants.RES_SITE)
         self.interfaces = []
@@ -145,23 +135,8 @@ class NetworkBuilder:
 
             if isinstance(interface, dict) and 'provider' in interface:
                 logger.info(f'Network {self.net_name} found stitching interface {interface}')
-
                 self.vlan = interface.get('vlan')
                 self.discovered_stitch_info = interface
-
-                if not self.device:
-                    provider = interface['provider']
-                    ports = FabricUtil.get_facility_ports()
-
-                    if provider not in ports or not ports[provider]:
-                        raise FabfedException(f"no facility ports for provider {provider}:available_ports={ports}")
-
-                    provider_ports = ports[provider]
-
-                    if self.site not in provider_ports:
-                        raise FabfedException(f"no facility ports for provider {provider} and site {self.site}")
-
-                    self.device = provider_ports[self.site]['name']
 
     def handle_facility_port(self):
         from fim.slivers.capacities_labels import Labels, Capacities

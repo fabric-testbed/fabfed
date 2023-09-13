@@ -35,6 +35,22 @@ class FabricProvider(Provider):
         os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = config.get(FABRIC_SLICE_PRIVATE_KEY_LOCATION)
         os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = config.get(FABRIC_SLICE_PUBLIC_KEY_LOCATION)
 
+        from fabrictestbed_extensions.fablib.fablib import fablib
+        from fabfed.util.utils import get_log_level, get_log_location
+
+        location = get_log_location()
+
+        if fablib.get_default_fablib_manager().get_log_file() != location:
+            self.logger.debug("Initializing fablib extensions logging ...")
+            fablib.get_default_fablib_manager().set_log_file(location)
+            fablib.get_default_fablib_manager().set_log_level(get_log_level())
+
+            for handler in logging.root.handlers.copy():
+                logging.root.removeHandler(handler)
+
+            for handler in self.logger.handlers:
+                logging.root.addHandler(handler)
+
     def _init_slice(self):
         if not self.slice:
             self.logger.info(f"Initializing slice {self.name}")
