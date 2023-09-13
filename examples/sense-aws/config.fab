@@ -58,7 +58,7 @@ resource:
           count: 1
           stitch_with: '{{ network.fabric_network }}'
           stitch_option: 
-              port_name: AGG4 
+              port_name: AGG4_FOR_AWS 
 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
