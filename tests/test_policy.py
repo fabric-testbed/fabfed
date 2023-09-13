@@ -1,4 +1,4 @@
-from fabfed.controller.policy_helper import load_policy, find_stitch_port
+from fabfed.policy.policy_helper import load_policy, find_stitch_port
 from fabfed.util.constants import Constants
 from fabfed.exceptions import StitchPortNotFound
 
@@ -241,7 +241,7 @@ resource:
 
     config = WorkflowConfig(content=config_str)
     policy = load_policy(content=policy_str)
-    from fabfed.controller.policy_helper import handle_stitch_info
+    from fabfed.policy.policy_helper import handle_stitch_info
 
     resources = handle_stitch_info(config, policy, config.get_resource_configs())
 
@@ -306,7 +306,7 @@ resource:
 
     config = WorkflowConfig(content=config_str)
     policy = load_policy(content=policy_str)
-    from fabfed.controller.policy_helper import handle_stitch_info
+    from fabfed.policy.policy_helper import handle_stitch_info
 
     resources = handle_stitch_info(config, policy, config.get_resource_configs())
 
@@ -361,7 +361,7 @@ resource:
 
     config = WorkflowConfig(content=config_str)
     policy = load_policy(content=policy_str)
-    from fabfed.controller.policy_helper import handle_stitch_info
+    from fabfed.policy.policy_helper import handle_stitch_info
 
     with pytest.raises(StitchPortNotFound):
         handle_stitch_info(config, policy, config.get_resource_configs())

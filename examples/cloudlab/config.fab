@@ -18,7 +18,6 @@ resource:
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: UTAH
           image: default_rocky_8
           nic_model: NIC_Basic
           count: 1

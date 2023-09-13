@@ -1,0 +1,281 @@
+{
+  "fabric": {
+    "stitch-port": [
+      {
+        "name": "Cloudlab-Utah",
+        "profile": "Utah-Cloudlab-Powder",
+        "preference": 200,
+        "member-of": [
+          "CLOUDLAB"
+        ]
+      },
+      {
+        "name": "CloudLab-Clemson",
+        "profile": "Clemson-Cloudlab",
+        "preference": 100,
+        "member-of": [
+          "CLOUDLAB"
+        ]
+      },
+      {
+        "name": "MASS-OCT-MGHPCC",
+        "profile": "OCT-MGHPCC",
+        "preference": 10,
+        "member-of": [
+          "CLOUDLAB"
+        ]
+      },
+      {
+        "name": "Chameleon-StarLight",
+        "profile": "Chameleon-StarLight",
+        "preference": 200,
+        "member-of": [
+          "CHAMELEON"
+        ]
+      },
+      {
+        "name": "Internet2-StarLight",
+        "profile": "Internet2-StarLight",
+        "preference": 100,
+        "member-of": [
+          "CHAMELEON"
+        ]
+      },
+      {
+        "name": "Chameleon-TACC",
+        "profile": "Internet2-StarLight",
+        "preference": 10,
+        "member-of": [
+          "CHAMELEON"
+        ]
+      },
+      {
+        "name": "AGG4_FOR_AWS",
+        "profile": "Cloud-Facility-AWS",
+        "preference": 250,
+        "member-of": [
+          "AWS"
+        ]
+      },
+      {
+        "name": "AGG3_FOR_AWS",
+        "profile": "Cloud-Facility-AWS",
+        "preference": 200,
+        "member-of": [
+          "AWS"
+        ]
+      },
+      {
+        "name": "UKY-AL2S-dev",
+        "profile": "UKY-AL2S",
+        "preference": 10,
+        "member-of": [
+          "UKY"
+        ]
+      },
+      {
+        "name": "AGG4_FOR_GCP",
+        "profile": "Cloud-Facility-GCP",
+        "preference": 100,
+        "member-of": [
+          "GCP"
+        ]
+      }
+    ],
+    "group": [
+      {
+        "name": "CLOUDLAB",
+        "consumer-for": [
+          "cloudlab"
+        ]
+      },
+      {
+        "name": "CHAMELEON",
+        "consumer-for": [
+          "chi"
+        ]
+      },
+      {
+        "name": "AWS",
+        "producer-for": [
+          "sense",
+          "aws"
+        ]
+      },
+      {
+        "name": "UKY",
+        "consumer-for": [
+          "sense"
+        ]
+      },
+      {
+        "name": "GCP",
+        "consumer-for": [
+          "sense",
+	  "gcp"
+        ]
+      }
+    ]
+  },
+  "cloudlab": {
+    "stitch-port": [
+      {
+        "name": "Cloudlab-Utah",
+        "profile": "fabfed-stitch-v2",
+        "preference": 500,
+        "member-of": [
+          "CLOUDLAB"
+        ]
+      },
+      {
+        "name": "CloudLab-Clemson",
+        "profile": "fabfed-stitch-v2",
+        "member-of": [
+          "CLOUDLAB"
+        ]
+      },
+      {
+        "name": "MASS-OCT-MGHPCC",
+        "profile": "fabfed-stitch-v2",
+        "member-of": [
+          "CLOUDLAB"
+        ]
+      }
+    ],
+    "group": [
+      {
+        "name": "CLOUDLAB",
+        "producer-for": [
+          "fabric"
+        ]
+      }
+    ]
+  },
+  "chi": {
+    "stitch-port": [
+      {
+        "name": "Chameleon-StarLight",
+        "profile": "fabric",
+        "member-of": [
+          "CHAMELEON"
+        ]
+      },
+      {
+        "name": "Internet2-StarLight",
+        "profile": "fabric",
+        "member-of": [
+          "CHAMELEON"
+        ]
+      },
+      {
+        "name": "Chameleon-TACC",
+        "profile": "fabric",
+        "member-of": [
+          "CHAMELEON"
+        ]
+      }
+    ],
+    "group": [
+      {
+        "name": "CHAMELEON",
+        "producer-for": [
+          "fabric"
+        ]
+      }
+    ]
+  },
+  "aws": {
+    "stitch-port": [
+      {
+        "name": "AGG4_FOR_AWS",
+        "member-of": [
+          "AWS"
+        ]
+      },
+      {
+        "name": "AGG3_FOR_AWS",
+        "member-of": [
+          "AWS"
+        ]
+      }
+    ],
+    "group": [
+      {
+        "name": "AWS",
+        "consumer-for": [
+          "fabric"
+        ]
+      }
+    ]
+  },
+  "gcp": {
+    "stitch-port": [
+      {
+        "name": "AGG4_FOR_GCP",
+        "member-of": [
+          "GCP"
+        ]
+      }
+    ],
+    "group": [
+      {
+        "name": "GCP",
+        "producer-for": [
+          "fabric"
+        ]
+      }
+    ]
+  },
+  "sense": {
+    "stitch-port": [
+      {
+        "name": "AGG4_FOR_AWS",
+        "profile": "FABRIC-AWS-DX-VGW",
+        "member-of": [
+          "AWS"
+        ]
+      },
+      {
+        "name": "AGG3_FOR_AWS",
+        "profile": "FABRIC-AWS-DX-VGW",
+        "member-of": [
+          "AWS"
+        ]
+      },
+      {
+        "name": "AGG4_FOR_GCP",
+        "profile": "GCP-INTERCONN",
+        "member-of": [
+          "GCP"
+        ]
+      },
+      {
+        "name": "UKY-AL2S",
+        "profile": "FABRIC-L2-DTN",
+        "member-of": [
+          "UKY"
+        ]
+      }
+    ],
+    "group": [
+      {
+        "name": "AWS",
+        "consumer-for": [
+          "fabric"
+        ]
+      },
+      {
+        "name": "UKY",
+        "producer-for": [
+          "fabric"
+        ]
+      },
+      {
+        "name": "GCP",
+        "producer-for": [
+          "fabric"
+        ]
+      }
+    ]
+  }
+}
