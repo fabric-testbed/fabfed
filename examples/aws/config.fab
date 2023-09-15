@@ -11,12 +11,12 @@ provider:
 config:
   - layer3:
       - fab_layer:
-          subnet: 192.168.10.0/24 # subnet: "10.0.0.0/24"  # for sense subnet.cidr
+          subnet: 192.168.10.0/24
           gateway: 192.168.10.1
-          ip_start: 192.168.10.2 # optional: auto generate if subnet is given
+          ip_start: 192.168.10.2
           ip_end: 192.168.10.254
       - aws_layer:
-          subnet: 100.0.0.0/24
+          subnet: 10.0.1.0/24
   - peering:
       - my_peering:
           # FOR FABRIC
@@ -24,9 +24,10 @@ config:
 
           # FOR AWS and FABRIC  
           cloud_region: "us-east-1"
-          cloud_vpc: "vpc-0c3dac3f42386a7a6"
+
+          cloud_vpc: "vpc-0c641c70ee2ec1790"
           remote_asn: 64512 # amazon_asn
-          local_asn: 55038  # customer_asn (hard coded for now)
+          local_asn: 55038  # customer_asn
 
           # FOR FABRIC
           local_address: "192.168.1.1/30" # customer_ip
@@ -41,7 +42,7 @@ resource:
           peering: "{{ peering.my_peering }}"
           stitch_with: '{{ network.fabric_network }}'
           stitch_option:
-              port_name: AGG4_FOR_AWS
+             port_name: AGG4_FOR_AWS
           count: 1 
 
       - fabric_network:
@@ -49,7 +50,7 @@ resource:
           layer3: "{{ layer3.fab_layer }}"
           peering: "{{ peering.my_peering }}"
           interface: '{{ node.fabric_node }}'
-          count: 1
+          count: 1 
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
