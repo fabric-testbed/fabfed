@@ -20,10 +20,6 @@ class AwsNetwork(Network):
         self.vif_details = {}
 
     @property
-    def gateway_name(self):
-        return f'{self._provider.name}-fab-direct-connect-gateway'
-
-    @property
     def vpn_gateway_name(self):
         return f'{self._provider.name}-fab-vpn-gateway'
 
@@ -76,19 +72,14 @@ class AwsNetwork(Network):
 
         aws_utils.attach_vpn_gateway_if_needed(ec2_client=ec2_client, vpn_id=self.vpn_id, vpc_id=self.vpc_id)
 
-        self.direct_connect_gateway_id = aws_utils.create_direct_connect_gateway(
-            direct_connect_client=direct_connect_client,
-            gateway_name=self.gateway_name,
-            amazon_asn=amazon_asn)
-
-        self.association_id = aws_utils.associate_dxgw_vpn(
-            direct_connect_client=direct_connect_client,
-            direct_connect_gateway_id=self.direct_connect_gateway_id,
-            vpn_id=self.vpn_id)
+        aws_utils.create_route_if_needed(ec2_client=ec2_client,
+                                         cidr=self.layer3.attributes['subnet'],
+                                         vpc_id=self.vpc_id,
+                                         vpn_id=self.vpn_id)
 
         self.vif_details = aws_utils.create_private_virtual_interface(
             direct_connect_client=direct_connect_client,
-            direct_connect_gateway_id=self.direct_connect_gateway_id,  # self.vpn_id,
+            vpn_gateway_id=self.vpn_id,
             connection_id=connection_id,
             vlan=vlan,
             peering=self.peering,
@@ -113,28 +104,9 @@ class AwsNetwork(Network):
             region=region,
             access_key=self._provider.access_key,
             secret_key=self._provider.secret_key)
-        gateway_name = self.gateway_name
-        direct_connect_gateway_id = aws_utils.find_direct_connect_gateway_by_name(
-            direct_connect_client=direct_connect_client,
-            gateway_name=gateway_name)
-
-        if direct_connect_gateway_id:
-            association_id = aws_utils.find_association_dxgw_vpn_id(
-                direct_connect_client=direct_connect_client,
-                direct_connect_gateway_id=direct_connect_gateway_id,
-                vpn_id=vpn_id
-            )
-
-            if association_id:
-                aws_utils.dissociate_dxgw_vpn(direct_connect_client=direct_connect_client,
-                                              association_id=association_id)
 
         aws_utils.delete_private_virtual_interface(direct_connect_client=direct_connect_client,
                                                    vif_name=f"{self.vif_name}")
-
-        aws_utils.delete_direct_connect_gateway(
-            direct_connect_client=direct_connect_client,
-            gateway_name=self.gateway_name)
 
         aws_utils.detach_vpn_gateway_if_needed(ec2_client=ec2_client, vpn_id=vpn_id, vpc_id=vpc_id)
         aws_utils.delete_vpn_gateway(ec2_client=ec2_client, name=self.vpn_gateway_name)
