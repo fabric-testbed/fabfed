@@ -111,53 +111,29 @@ def print_route_tables(ec2_client, vpc_id):
 
     print()
 
+
 def create_route_if_needed(ec2_client, cidr, vpc_id, vpn_id):
-    subnet_id = create_subnet_if_needed(ec2_client=ec2_client, cidr=cidr, vpc_id=vpc_id)
+    subnet_id = None # create_subnet_if_needed(ec2_client=ec2_client, cidr=cidr, vpc_id=vpc_id)
     route_tables = find_route_tables(ec2_client=ec2_client, vpc_id=vpc_id)
-    main_route_table = None
 
     for route_table in route_tables:
         for asso in route_table['Associations']:
-            if asso['Main'] == True:
-                main_route_table = route_table
-
-    if not main_route_table:  # TODO Test case where vpc does not have a main route table ???
-        response = ec2_client.create_route_table(VpcId=vpc_id)
-        route_table = response['RouteTable']
-        route_table_id = route_table['RouteTableId']
-        response = ec2_client.associate_route_table(RouteTableId=route_table_id, SubnetId=subnet_id)
-        logger.info(f'associate_created_route_table:response={response}')
-        response = ec2_client.enable_vgw_route_propagation(GatewayId=vpn_id, RouteTableId=route_table_id)
-        logger.info(f'enable_vgw_route_propagation_to_created_table:response={response}')
-        return
-
-    for route_table in route_tables:
-        for asso in route_table['Associations']:
-            if not asso['Main'] and asso.get('SubnetId') == subnet_id:
+            if asso.get('SubnetId') == subnet_id:
                 response = ec2_client.disassociate_route_table(
-                    AssociationId = asso['RouteTableAssociationId']
+                    AssociationId=asso['RouteTableAssociationId']
                 )
 
-                logger.info(f'disassociate_route_table:main=false:response={response}')
+                logger.info(f'disassociate_route_table from subnet=false:response={response}')
+                break
 
-    for route_table in route_tables:
-        for asso in route_table['Associations']:
-            if asso['Main']:
-                if True or asso.get('SubnetId')  != subnet_id:
-                    response = ec2_client.associate_route_table(
-                        RouteTableId=route_table['RouteTableId'],
-                        SubnetId=subnet_id
-                    )
-
-                    logger.info(f'associate_main_route_table:response={response}')
-
-                if True or {'GatewayId': vpn_id} not in route_table['PropagatingVgws']:
-                    response = ec2_client.enable_vgw_route_propagation(
-                        GatewayId=vpn_id,
-                        RouteTableId=route_table['RouteTableId']
-                    )
-                    logger.info(f'enable_vgw_route_propagation_to_main:response={response}')
-
+    logger.info(f'Creating route_table vpc={vpc_id}')
+    response = ec2_client.create_route_table(VpcId=vpc_id)
+    route_table = response['RouteTable']
+    route_table_id = route_table['RouteTableId']
+    response = ec2_client.associate_route_table(RouteTableId=route_table_id, SubnetId=subnet_id)
+    logger.info(f'associate_created_route_table:response={response}')
+    response = ec2_client.enable_vgw_route_propagation(GatewayId=vpn_id, RouteTableId=route_table_id)
+    logger.info(f'enable_vgw_route_propagation_to_created_table:response={response}')
     print_route_tables(ec2_client=ec2_client, vpc_id=vpc_id)
 
 
@@ -277,12 +253,13 @@ def detach_vpn_gateway_if_needed(*, ec2_client, vpn_id: str, vpc_id: str):
         return
 
     try:
+        logger.info(f"Detaching vpn:id={vpn_id}")
         ec2_client.detach_vpn_gateway(
             VpcId=vpc_id,
             VpnGatewayId=vpn_id
         )
-    except:
-        pass
+    except Exception as e:
+        logger.warning(f"failed to detach vpn: {e}")
 
     state = None
 

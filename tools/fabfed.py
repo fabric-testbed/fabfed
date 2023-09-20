@@ -42,7 +42,10 @@ def manage_workflow(args):
         config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
 
         try:
-            controller = Controller(config=config, logger=logger, policy=policy)
+            controller = Controller(config=config,
+                                    logger=logger,
+                                    policy=policy,
+                                    use_local_policy=not args.use_remote_policy)
         except Exception as e:
             logger.error(f"Exceptions while initializing controller .... {e}")
             sys.exit(1)
@@ -93,14 +96,20 @@ def manage_workflow(args):
 
     if args.init:
         config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
-        controller = Controller(config=config, logger=logger, policy=policy)
+        controller = Controller(config=config,
+                                logger=logger,
+                                policy=policy,
+                                use_local_policy=not args.use_remote_policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
         return
 
     if args.plan:
         config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
-        controller = Controller(config=config, logger=logger, policy=policy)
+        controller = Controller(config=config,
+                                logger=logger,
+                                policy=policy,
+                                use_local_policy=not args.use_remote_policy)
         controller.init(session=args.session, provider_factory=default_provider_factory)
         states = sutil.load_states(args.session)
 
@@ -124,13 +133,16 @@ def manage_workflow(args):
         try:
             if states:
                 config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
-                controller = Controller(config=config, logger=logger, policy=policy)
+                controller = Controller(config=config,
+                                        logger=logger,
+                                        policy=policy,
+                                        use_local_policy=True)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)
 
             if not states:
                 if args.session in sessions:
-                     logger.info(f"Destroying session {args.session} ...")
+                    logger.info(f"Destroying session {args.session} ...")
 
                 sutil.destroy_session(args.session)
                 return
@@ -153,9 +165,87 @@ def manage_sessions(args):
         return
 
 
+def display_stitch_info(args):
+    logger = utils.init_logger()
+
+    if not args.use_remote_policy:
+        from fabfed.policy.policy_helper import load_policy
+
+        policy = load_policy()
+        logger.info(f"loaded local stitching policy.")
+    else:
+        from fabfed.policy.policy_helper import load_remote_policy
+
+        attrs = {'credential_file': args.credential_file, 'profile': args.profile}
+        default_provider_factory.init_provider(type='fabric',
+                                               label='no_label',
+                                               name='no_name',
+                                               attributes=attrs,
+                                               logger=logger)
+        policy = load_remote_policy()
+        logger.info(f"loaded remote stitching policy.")
+
+    providers = args.providers.split(",")
+
+    if len(providers) != 2:
+        logger.error("please input two providers")
+        sys.exit(1)
+
+    for provider in providers:
+        if provider not in policy:
+            logger.error(f"unknown provider {provider}")
+            sys.exit(1)
+
+    from fabfed.policy.policy_helper import find_stitch_port_for_providers, peer_stitch_ports
+
+    stitch_infos = find_stitch_port_for_providers(policy, providers)
+    stitch_infos.sort(key=lambda si: si.stitch_port['preference'], reverse=True)
+    peer_stitch_ports(stitch_infos)
+
+    stitch_info_dict = {}
+    for stitch_info in stitch_infos:
+        name = stitch_info.stitch_port['name']
+
+        if name not in stitch_info_dict:
+            stitch_info_dict[name] = stitch_info
+
+    stitch_infos = list(stitch_info_dict.values())
+    attrs = ["preference", "member-of"]
+
+    for stitch_info in stitch_infos:
+        for attr in attrs:
+            if attr in stitch_info.stitch_port:
+                stitch_info.stitch_port.pop(attr)
+        if "name" in stitch_info.stitch_port:
+            stitch_info.stitch_port.pop("name")
+
+        if 'peer' in stitch_info.stitch_port:
+            for attr in attrs:
+                if attr in stitch_info.stitch_port['peer']:
+                    stitch_info.stitch_port['peer'].pop(attr)
+
+            if "name" in stitch_info.stitch_port['peer']:
+                stitch_info.stitch_port['peer'].pop("name")
+
+    import yaml
+
+    for i, stitch_info in enumerate(stitch_infos):
+        producer = stitch_info.producer
+        consumer = stitch_info.consumer
+        stitch_port = stitch_info.stitch_port
+        c = {"config": [{"stitch": [{f"si_{producer}_{consumer}_{i}": {"producer": producer,
+                                                                       "consumer": consumer,
+                                                                       "stitch_port": stitch_port}}]}]}
+        rep = yaml.dump(c, default_flow_style=False)
+        rep = rep.replace('\n', '\n  ')
+        print(rep)
+
+
 def main(argv=None):
     argv = argv or sys.argv[1:]
-    parser = utils.build_parser(manage_workflow=manage_workflow, manage_sessions=manage_sessions)
+    parser = utils.build_parser(manage_workflow=manage_workflow,
+                                manage_sessions=manage_sessions,
+                                display_stitch_info=display_stitch_info)
     args = parser.parse_args(argv)
 
     if len(args.__dict__) == 0:
