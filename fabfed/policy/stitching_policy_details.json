@@ -26,6 +26,14 @@
             "site": "AWS"
          }
       ],
+      "Cloud-Facility-GCP": [
+         {
+            "name": "AGG4_FOR_GCP",
+            "device_name": "agg4.ashb.net.internet2.edu",
+            "local_name": "Bundle-Ether5",
+            "site": "GCP"
+         }
+      ],
       "Chameleon-StarLight": {
          "device_name": "Chameleon-StarLight",
          "site": "STAR"
