@@ -27,6 +27,12 @@ class GcpProvider(Provider):
         profile = self.config.get(Constants.PROFILE)
         config = utils.load_yaml_from_file(credential_file)
         self.config = config[profile]
+        normalized_config = {}
+
+        for k, v in self.config.items():
+            normalized_config[k.upper()] = v
+
+        self.config = normalized_config
         assert self.config.get(gcp_constants.SERVICE_KEY_PATH)
         assert self.config.get(gcp_constants.PROJECT)
 

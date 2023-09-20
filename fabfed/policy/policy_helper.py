@@ -38,7 +38,8 @@ class ProviderPolicy:
         return self.__str__()
 
 
-StitchInfo = namedtuple("StitchInfo", "stitch_port producer consumer producer_group consumer_group")
+DetailedStitchInfo = namedtuple("DetailedStitchInfo", "stitch_port producer consumer producer_group consumer_group")
+StitchInfo = namedtuple("StitchInfo", "stitch_port producer consumer")
 
 
 def parse_policy(policy, policy_details) -> Dict[str, ProviderPolicy]:
@@ -79,8 +80,20 @@ def parse_policy(policy, policy_details) -> Dict[str, ProviderPolicy]:
 def load_remote_policy() -> Dict[str, ProviderPolicy]:
     from fabrictestbed_extensions.fablib.fablib import fablib
 
+    # print("******************")
+    # fablib.list_facility_ports()
+    # print("*******************")
+
+    print("*************** BEGIN *************")
+    facility_ports = fablib.get_facility_ports()
+
+    print("******************")
+    print(facility_ports)
+    print("*******************")
+    print("*************** END *************")
+
     policy = fablib.get_stitching_policy()
-    policy_details = fablib.get_stitching_policy_details()
+    policy_details = get_facility_ports()
     return parse_policy(policy, policy_details)
 
 
@@ -116,7 +129,7 @@ def get_facility_ports():
     return ports
 
 
-def find_stitch_port_for_providers(policy: Dict[str, ProviderPolicy], providers: List[str]) -> List[StitchInfo]:
+def find_stitch_port_for_providers(policy: Dict[str, ProviderPolicy], providers: List[str]) -> List[DetailedStitchInfo]:
     provider1 = providers[0]
     provider2 = providers[1]
     stitch_infos = []
@@ -127,21 +140,21 @@ def find_stitch_port_for_providers(policy: Dict[str, ProviderPolicy], providers:
                 if provider1 in producer_group[PRODUCER_FOR]:
                     for stitch_port in policy[g['provider']].stitch_ports:
                         if g['name'] in stitch_port[MEMBER_OF]:
-                            stitch_info = StitchInfo(stitch_port=stitch_port,
-                                                     producer=producer_group[Constants.PROVIDER],
-                                                     consumer=g[Constants.PROVIDER],
-                                                     producer_group=producer_group,
-                                                     consumer_group=g)
+                            stitch_info = DetailedStitchInfo(stitch_port=stitch_port,
+                                                             producer=producer_group[Constants.PROVIDER],
+                                                             consumer=g[Constants.PROVIDER],
+                                                             producer_group=producer_group,
+                                                             consumer_group=g)
 
                             stitch_infos.append(stitch_info)
 
                     for stitch_port in policy[producer_group['provider']].stitch_ports:
                         if producer_group['name'] in stitch_port[MEMBER_OF]:
-                            stitch_info = StitchInfo(stitch_port=stitch_port,
-                                                     producer=producer_group[Constants.PROVIDER],
-                                                     consumer=g[Constants.PROVIDER],
-                                                     producer_group=producer_group,
-                                                     consumer_group=g)
+                            stitch_info = DetailedStitchInfo(stitch_port=stitch_port,
+                                                             producer=producer_group[Constants.PROVIDER],
+                                                             consumer=g[Constants.PROVIDER],
+                                                             producer_group=producer_group,
+                                                             consumer_group=g)
 
                             stitch_infos.append(stitch_info)
 
@@ -153,20 +166,20 @@ def find_stitch_port_for_providers(policy: Dict[str, ProviderPolicy], providers:
 
                     for stitch_port in policy[g['provider']].stitch_ports:
                         if g['name'] in stitch_port[MEMBER_OF]:
-                            stitch_info = StitchInfo(stitch_port=stitch_port,
-                                                     producer=g[Constants.PROVIDER],
-                                                     consumer=consumer_group[Constants.PROVIDER],
-                                                     producer_group=g,
-                                                     consumer_group=consumer_group)
+                            stitch_info = DetailedStitchInfo(stitch_port=stitch_port,
+                                                             producer=g[Constants.PROVIDER],
+                                                             consumer=consumer_group[Constants.PROVIDER],
+                                                             producer_group=g,
+                                                             consumer_group=consumer_group)
                             stitch_infos.append(stitch_info)
 
                     for stitch_port in policy[consumer_group['provider']].stitch_ports:
                         if consumer_group['name'] in stitch_port[MEMBER_OF]:
-                            stitch_info = StitchInfo(stitch_port=stitch_port,
-                                                     producer=g[Constants.PROVIDER],
-                                                     consumer=consumer_group[Constants.PROVIDER],
-                                                     producer_group=g,
-                                                     consumer_group=consumer_group)
+                            stitch_info = DetailedStitchInfo(stitch_port=stitch_port,
+                                                             producer=g[Constants.PROVIDER],
+                                                             consumer=consumer_group[Constants.PROVIDER],
+                                                             producer_group=g,
+                                                             consumer_group=consumer_group)
                             stitch_infos.append(stitch_info)
 
     return stitch_infos
@@ -196,7 +209,7 @@ def check_options(k, v, adict):
     return False, None
 
 
-def peer_stitch_ports(stitch_infos: List[StitchInfo]):
+def peer_stitch_ports(stitch_infos: List[DetailedStitchInfo]):
     stitch_ports = []
 
     for si in stitch_infos:
@@ -216,7 +229,7 @@ def peer_stitch_ports(stitch_infos: List[StitchInfo]):
 
 
 def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str], site=None,
-                     profile=None, options=None) -> StitchInfo or None:
+                     profile=None, options=None) -> DetailedStitchInfo or None:
     from fabfed.util.utils import get_logger
 
     logger = get_logger()
@@ -334,6 +347,22 @@ def find_site(network, resources):
     return site
 
 
+def clean_up_port(stitch_port):
+    attrs = ["preference", "member-of"]
+
+    for attr in attrs:
+        if attr in stitch_port:
+            stitch_port.pop(attr)
+
+    if 'peer' in stitch_port:
+        for attr in attrs:
+            if attr in stitch_port['peer']:
+                stitch_port['peer'].pop(attr)
+
+        if "name" in stitch_port['peer']:
+            stitch_port['peer'].pop("name")
+
+
 def handle_stitch_info(config, policy, resources):
     has_stitch_with = False
 
@@ -354,15 +383,29 @@ def handle_stitch_info(config, policy, resources):
             other_network = network_dependency.resource
             assert other_network.is_network, "only network stitching is supported"
 
-            site = find_site(network, resources)
-            profile = find_profile(network, resources)
-            options = network.attributes.get(Constants.NETWORK_STITCH_OPTION, list())
+            if Constants.RES_STITCH_CONFIG not in network.attributes:
+                site = find_site(network, resources)
+                profile = find_profile(network, resources)
+                options = network.attributes.get(Constants.NETWORK_STITCH_OPTION, list())
 
-            stitch_info = find_stitch_port(policy=policy,
-                                           providers=[network.provider.type, other_network.provider.type],
-                                           site=site,
-                                           profile=profile,
-                                           options=options)
+                stitch_info = find_stitch_port(policy=policy,
+                                               providers=[network.provider.type, other_network.provider.type],
+                                               site=site,
+                                               profile=profile,
+                                               options=options)
+
+                clean_up_port(stitch_info.stitch_port)
+                stitch_info = StitchInfo(consumer=stitch_info.consumer,
+                                         producer=stitch_info.producer,
+                                         stitch_port=stitch_info.stitch_port)
+            else:
+                stitch_config = network.attributes[Constants.RES_STITCH_CONFIG]
+                stitch_info = StitchInfo(consumer=stitch_config.attributes['consumer'],
+                                         producer=stitch_config.attributes['producer'],
+                                         stitch_port=stitch_config.attributes['stitch_port'])
+                network.attributes.pop(Constants.RES_STITCH_CONFIG)
+
+
             network.attributes.pop(Constants.NETWORK_STITCH_WITH)
 
             from fabfed.util.config_models import DependencyInfo

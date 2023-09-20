@@ -20,7 +20,7 @@ class Constants:
     RES_TYPE_NETWORK = "network"
     RES_TYPE_SERVICE = "service"
     RES_SUPPORTED_TYPES = [RES_TYPE_NODE, RES_TYPE_NETWORK, RES_TYPE_SERVICE]
-    CONFIG_SUPPORTED_TYPES = ["network", "layer3", "peering"]
+    CONFIG_SUPPORTED_TYPES = ["stitch", "layer3", "peering"]
 
     RES_TYPE_VM = "VM"
     RES_TYPE_BM = "Baremetal"
@@ -67,6 +67,7 @@ class Constants:
     STITCH_PORT_REGION = 'region'
     STITCH_PORT_SITE = 'site'
 
+    RES_STITCH_CONFIG = "stitch_config"
     RES_STITCH_INFO = "stitch_info"
     RES_STITCH_INTERFACE = "stitch_interface"
 
