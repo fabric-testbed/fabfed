@@ -43,7 +43,7 @@
       },
       {
         "name": "Chameleon-TACC",
-        "profile": "Internet2-StarLight",
+        "profile": "Chameleon-TACC",
         "preference": 10,
         "member-of": [
           "CHAMELEON"
@@ -250,7 +250,7 @@
         ]
       },
       {
-        "name": "UKY-AL2S",
+        "name": "UKY-AL2S-dev",
         "profile": "FABRIC-L2-DTN",
         "member-of": [
           "UKY"
