@@ -225,15 +225,16 @@ def display_stitch_info(args):
             peer.pop(attr, None)
 
     import yaml
+    from fabfed.util.constants import Constants
 
     for i, stitch_info in enumerate(stitch_infos):
         producer = stitch_info.producer
         consumer = stitch_info.consumer
         stitch_port = stitch_info.stitch_port
-        c = {"config": [{"stitch": [{f"si_from_{names[i]}": {"producer": producer,
-                                                                       "consumer": consumer,
-                                                                       "stitch_port": stitch_port}}]}]}
-        rep = yaml.dump(c, default_flow_style=False)
+        c = {"config": [{Constants.NETWORK_STITCH_CONFIG: [{f"si_from_{names[i]}": {"producer": producer,
+                                                                                    "consumer": consumer,
+                                                                                    "stitch_port": stitch_port}}]}]}
+        rep = yaml.dump(c, default_flow_style=False, sort_keys=False)
         rep = rep.replace('\n', '\n  ')
         print(rep)
 

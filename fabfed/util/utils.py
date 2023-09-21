@@ -55,15 +55,15 @@ def build_parser(*, manage_workflow, manage_sessions, display_stitch_info):
     sessions_parser.add_argument('-show', action='store_true', default=False, help='display sessions')
     sessions_parser.add_argument('-json', action='store_true', default=False, help='use json format')
     sessions_parser.set_defaults(dispatch_func=manage_sessions)
-    stitch_parser = subparsers.add_parser('stitch-config', help='Display stitch info')
+    stitch_parser = subparsers.add_parser('stitch-policy', help='Display stitch policy between two poviders')
     stitch_parser.add_argument('-providers', type=str, required=True,
-                               default="", help='list of at least two comma seperated providers ')
+                               default="", help='two comma separated providers from chi,fabric,cloudlab, or sense')
     stitch_parser.add_argument('-c', '--credential-file', type=str, default='~/.fabfed/fabfed_credentials.yml',
-                                 help='config directory with .fab files. Defaults to current directory.',
-                                 required=False)
+                               help='fabfed credential file. Defaults to ~/.fabfed/fabfed_credentials.yml',
+                               required=False)
     stitch_parser.add_argument('-p', '--profile', type=str, default='fabric',
-                                 help="Yaml file with key-value pairs to override the variables' default values",
-                                 required=False)
+                               help="fabric profile from credential file. Defaults to fabric",
+                               required=False)
     stitch_parser.add_argument('-use-remote-policy', action='store_true', default=False, help='use remote policy')
     stitch_parser.set_defaults(dispatch_func=display_stitch_info)
     return parser
