@@ -210,22 +210,19 @@ def display_stitch_info(args):
             stitch_info_dict[name] = stitch_info
 
     stitch_infos = list(stitch_info_dict.values())
-    attrs = ["preference", "member-of"]
+    attrs = ["preference", "member-of", 'name']
+    names = []
 
     for stitch_info in stitch_infos:
+        names.append(stitch_info.stitch_port.get("name"))
+
         for attr in attrs:
-            if attr in stitch_info.stitch_port:
-                stitch_info.stitch_port.pop(attr)
-        if "name" in stitch_info.stitch_port:
-            stitch_info.stitch_port.pop("name")
+            stitch_info.stitch_port.pop(attr, None)
 
-        if 'peer' in stitch_info.stitch_port:
-            for attr in attrs:
-                if attr in stitch_info.stitch_port['peer']:
-                    stitch_info.stitch_port['peer'].pop(attr)
+        peer = stitch_info.stitch_port.get('peer', {})
 
-            if "name" in stitch_info.stitch_port['peer']:
-                stitch_info.stitch_port['peer'].pop("name")
+        for attr in attrs:
+            peer.pop(attr, None)
 
     import yaml
 
@@ -233,7 +230,7 @@ def display_stitch_info(args):
         producer = stitch_info.producer
         consumer = stitch_info.consumer
         stitch_port = stitch_info.stitch_port
-        c = {"config": [{"stitch": [{f"si_{producer}_{consumer}_{i}": {"producer": producer,
+        c = {"config": [{"stitch": [{f"si_from_{names[i]}": {"producer": producer,
                                                                        "consumer": consumer,
                                                                        "stitch_port": stitch_port}}]}]}
         rep = yaml.dump(c, default_flow_style=False)

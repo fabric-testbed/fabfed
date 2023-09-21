@@ -8,16 +8,16 @@ logger = get_logger()
 
 
 class AwsNetwork(Network):
-    def __init__(self, *, label, name: str, provider: AwsProvider, layer3, peering):
+    def __init__(self, *, label, name: str, provider: AwsProvider, layer3, peering, state=None):
         super().__init__(label=label, name=name, site="")
         self._provider = provider
         self.layer3 = layer3
         self.peering = peering
-        self.association_id = None
         self.vpc_id = None
         self.vpn_id = None
-        self.direct_connect_gateway_id = None
         self.vif_details = {}
+        self.route_table_details = {}
+        self._state = state
 
     @property
     def vpn_gateway_name(self):
@@ -29,7 +29,7 @@ class AwsNetwork(Network):
 
     @property
     def connection_name(self):
-        return f'{self._provider.name}-{self.peering.attributes.get(Constants.RES_CLOUD_ACCOUNT)}'
+        return self.peering.attributes.get(Constants.RES_ID)
 
     def create(self):
         region = self.peering.attributes.get(Constants.RES_CLOUD_REGION)
@@ -72,10 +72,10 @@ class AwsNetwork(Network):
 
         aws_utils.attach_vpn_gateway_if_needed(ec2_client=ec2_client, vpn_id=self.vpn_id, vpc_id=self.vpc_id)
 
-        aws_utils.create_route_if_needed(ec2_client=ec2_client,
-                                         cidr=self.layer3.attributes['subnet'],
-                                         vpc_id=self.vpc_id,
-                                         vpn_id=self.vpn_id)
+        self.route_table_details = aws_utils.create_route_table_if_needed(ec2_client=ec2_client,
+                                                                    cidr=self.layer3.attributes['subnet'],
+                                                                    vpc_id=self.vpc_id,
+                                                                    vpn_id=self.vpn_id)
 
         self.vif_details = aws_utils.create_private_virtual_interface(
             direct_connect_client=direct_connect_client,
@@ -95,10 +95,21 @@ class AwsNetwork(Network):
         if not vpc_id:
             return
 
+        if not aws_utils.is_vpc_available(ec2_client=ec2_client, vpc_id=vpc_id):
+            return
+
         vpn_id = aws_utils.find_vpn_gateway(ec2_client=ec2_client, name=self.vpn_gateway_name)
 
         if not vpn_id:
             return
+
+        route_table_details = {}
+
+        if self._state:
+            route_table_details = self._state.attributes.get('route_table_details', {})
+
+        route_table_id = route_table_details.get('RouteTableId')
+        aws_utils.delete_route_table_if_needed(ec2_client=ec2_client, vpc_id=vpc_id, route_table_id=route_table_id)
 
         direct_connect_client = aws_utils.create_direct_connect_client(
             region=region,

@@ -39,6 +39,7 @@ def is_vpc_available(*, ec2_client, vpc_id: str):
 
     return False
 
+
 def find_route_tables(*, ec2_client, vpc_id):
     response = ec2_client.describe_route_tables()
     route_tables = []
@@ -112,9 +113,15 @@ def print_route_tables(ec2_client, vpc_id):
     print()
 
 
-def create_route_if_needed(ec2_client, cidr, vpc_id, vpn_id):
-    subnet_id = None # create_subnet_if_needed(ec2_client=ec2_client, cidr=cidr, vpc_id=vpc_id)
+def create_route_table_if_needed(*, ec2_client, cidr, vpc_id, vpn_id):
+    subnet_id = create_subnet_if_needed(ec2_client=ec2_client, cidr=cidr, vpc_id=vpc_id)
     route_tables = find_route_tables(ec2_client=ec2_client, vpc_id=vpc_id)
+
+    for route_table in route_tables:
+        if {'GatewayId': vpn_id} in route_table['PropagatingVgws']:
+            logger.info(f'Already associated to vpn {vpn_id}')
+            print_route_tables(ec2_client=ec2_client, vpc_id=vpc_id)
+            return route_table
 
     for route_table in route_tables:
         for asso in route_table['Associations']:
@@ -123,7 +130,7 @@ def create_route_if_needed(ec2_client, cidr, vpc_id, vpn_id):
                     AssociationId=asso['RouteTableAssociationId']
                 )
 
-                logger.info(f'disassociate_route_table from subnet=false:response={response}')
+                logger.info(f'disassociated_route_table from subnet={subnet_id}:response={response}')
                 break
 
     logger.info(f'Creating route_table vpc={vpc_id}')
@@ -134,6 +141,42 @@ def create_route_if_needed(ec2_client, cidr, vpc_id, vpn_id):
     logger.info(f'associate_created_route_table:response={response}')
     response = ec2_client.enable_vgw_route_propagation(GatewayId=vpn_id, RouteTableId=route_table_id)
     logger.info(f'enable_vgw_route_propagation_to_created_table:response={response}')
+    print_route_tables(ec2_client=ec2_client, vpc_id=vpc_id)
+    return route_table
+
+
+def delete_route_table_if_needed(*, ec2_client, vpc_id, route_table_id):
+    logger.info(f'deleting route_table:{route_table_id}')
+    route_tables = find_route_tables(ec2_client=ec2_client, vpc_id=vpc_id)
+    route_table = next(filter(lambda rt: rt['RouteTableId'] == route_table_id, route_tables), None)
+
+    if not route_table:
+        logger.info(f'route_table not found:{route_table_id}')
+        return
+
+    for route_table in route_tables:
+        for asso in route_table['Associations']:
+            if asso.get('SubnetId'):
+                subnet_id = asso.get('SubnetId')
+                response = ec2_client.disassociate_route_table(
+                    AssociationId=asso['RouteTableAssociationId']
+                )
+
+                logger.info(f'disassociated_route_table from subnet={subnet_id}: response={response}')
+
+    response = ec2_client.delete_route_table(RouteTableId=route_table_id)
+    logger.info(f'deleted route_table:{route_table_id}:response={response}')
+
+    for i in range(RETRY):
+        route_tables = find_route_tables(ec2_client=ec2_client, vpc_id=vpc_id)
+        route_table = next(filter(lambda rt: rt['RouteTableId'] == route_table_id, route_tables), None)
+
+        if not route_table:
+            break
+        logger.info(f'waiting on deleting route_table:{route_table_id}:response={response}')
+        time.sleep(20)
+
+    logger.info(f'done deleting route_table:{route_table_id}:response={response}')
     print_route_tables(ec2_client=ec2_client, vpc_id=vpc_id)
 
 
@@ -425,6 +468,7 @@ def create_private_virtual_interface(*,
         bgp_asn = peering.attributes.get(Constants.RES_LOCAL_ASN)
         local_address = peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
         remote_address = peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
+        bgp_key = peering.attributes.get(Constants.RES_SECURITY)
 
         vif = direct_connect_client.create_private_virtual_interface(
             connectionId=connection_id,
@@ -433,7 +477,7 @@ def create_private_virtual_interface(*,
                 'vlan': vlan,
                 'asn': bgp_asn,  # remote oess asn
                 'mtu': 9001,
-                'authKey': BGPKEY,
+                'authKey': bgp_key,
                 'amazonAddress': remote_address,   # local_address,
                 'customerAddress': local_address,  # remote_address,
                 'addressFamily': 'ipv4',

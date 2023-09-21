@@ -20,7 +20,6 @@ class Constants:
     RES_TYPE_NETWORK = "network"
     RES_TYPE_SERVICE = "service"
     RES_SUPPORTED_TYPES = [RES_TYPE_NODE, RES_TYPE_NETWORK, RES_TYPE_SERVICE]
-    CONFIG_SUPPORTED_TYPES = ["stitch", "layer3", "peering"]
 
     RES_TYPE_VM = "VM"
     RES_TYPE_BM = "Baremetal"
@@ -67,7 +66,6 @@ class Constants:
     STITCH_PORT_REGION = 'region'
     STITCH_PORT_SITE = 'site'
 
-    RES_STITCH_CONFIG = "stitch_config"
     RES_STITCH_INFO = "stitch_info"
     RES_STITCH_INTERFACE = "stitch_interface"
 
@@ -89,7 +87,9 @@ class Constants:
 
     NETWORK_STITCH_WITH = "stitch_with"
     NETWORK_STITCH_OPTION = "stitch_option"
+    NETWORK_STITCH_CONFIG = "policy"
     PROVIDER = 'provider'
+    CONFIG_SUPPORTED_TYPES = [NETWORK_STITCH_CONFIG, "layer3", "peering"]
 
     PROVIDER_CLASSES = {
         "fabric": "fabfed.provider.fabric.fabric_provider.FabricProvider",
