@@ -351,19 +351,19 @@ def clean_up_port(stitch_port):
     attrs = ["preference", "member-of"]
 
     for attr in attrs:
-        if attr in stitch_port:
-            stitch_port.pop(attr)
+        stitch_port.pop(attr, None)
 
-    if 'peer' in stitch_port:
-        for attr in attrs:
-            if attr in stitch_port['peer']:
-                stitch_port['peer'].pop(attr)
+    peer = stitch_port.get('peer', {})
+    attrs = ["preference", "member-of", "name"]
 
-        if "name" in stitch_port['peer']:
-            stitch_port['peer'].pop("name")
+    for attr in attrs:
+        peer.pop(attr, None)
 
 
 def handle_stitch_info(config, policy, resources):
+    from fabfed.util.utils import get_logger
+
+    logger = get_logger()
     has_stitch_with = False
 
     for network in [resource for resource in resources if resource.is_network]:
@@ -383,7 +383,13 @@ def handle_stitch_info(config, policy, resources):
             other_network = network_dependency.resource
             assert other_network.is_network, "only network stitching is supported"
 
-            if Constants.RES_STITCH_CONFIG not in network.attributes:
+            stitch_config = None
+            option = network.attributes.get(Constants.NETWORK_STITCH_OPTION)
+
+            if option:
+                stitch_config = option.get(Constants.NETWORK_STITCH_CONFIG)
+
+            if not stitch_config:
                 site = find_site(network, resources)
                 profile = find_profile(network, resources)
                 options = network.attributes.get(Constants.NETWORK_STITCH_OPTION, list())
@@ -399,14 +405,13 @@ def handle_stitch_info(config, policy, resources):
                                          producer=stitch_info.producer,
                                          stitch_port=stitch_info.stitch_port)
             else:
-                stitch_config = network.attributes[Constants.RES_STITCH_CONFIG]
+                logger.info(f"using supplied {Constants.NETWORK_STITCH_CONFIG}:{stitch_config.attributes}")
                 stitch_info = StitchInfo(consumer=stitch_config.attributes['consumer'],
                                          producer=stitch_config.attributes['producer'],
                                          stitch_port=stitch_config.attributes['stitch_port'])
-                network.attributes.pop(Constants.RES_STITCH_CONFIG)
-
 
             network.attributes.pop(Constants.NETWORK_STITCH_WITH)
+            network.attributes.pop(Constants.NETWORK_STITCH_OPTION, None)
 
             from fabfed.util.config_models import DependencyInfo
 
