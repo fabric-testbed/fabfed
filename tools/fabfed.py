@@ -199,17 +199,7 @@ def display_stitch_info(args):
     from fabfed.policy.policy_helper import find_stitch_port_for_providers, peer_stitch_ports
 
     stitch_infos = find_stitch_port_for_providers(policy, providers)
-    stitch_infos.sort(key=lambda si: si.stitch_port['preference'], reverse=True)
-    peer_stitch_ports(stitch_infos)
-
-    stitch_info_dict = {}
-    for stitch_info in stitch_infos:
-        name = stitch_info.stitch_port['name']
-
-        if name not in stitch_info_dict:
-            stitch_info_dict[name] = stitch_info
-
-    stitch_infos = list(stitch_info_dict.values())
+    stitch_infos = peer_stitch_ports(stitch_infos)
     attrs = ["preference", "member-of", 'name']
     names = []
 
