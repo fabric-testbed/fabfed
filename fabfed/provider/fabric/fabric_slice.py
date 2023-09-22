@@ -22,20 +22,20 @@ class FabricSlice:
 
     def init(self):
         from fabrictestbed_extensions.fablib.fablib import fablib
-        from fabfed.util.utils import get_log_level, get_log_location
-
-        location = get_log_location()
-
-        if fablib.get_default_fablib_manager().get_log_file() != location:
-            self.logger.debug("Initializing fablib extensions logging ...")
-            fablib.get_default_fablib_manager().set_log_file(location)
-            fablib.get_default_fablib_manager().set_log_level(get_log_level())
-
-            for handler in logging.root.handlers.copy():
-                logging.root.removeHandler(handler)
-
-            for handler in self.logger.handlers:
-                logging.root.addHandler(handler)
+        # from fabfed.util.utils import get_log_level, get_log_location
+        #
+        # location = get_log_location()
+        #
+        # if fablib.get_default_fablib_manager().get_log_file() != location:
+        #     self.logger.debug("Initializing fablib extensions logging ...")
+        #     fablib.get_default_fablib_manager().set_log_file(location)
+        #     fablib.get_default_fablib_manager().set_log_level(get_log_level())
+        #
+        #     for handler in logging.root.handlers.copy():
+        #         logging.root.removeHandler(handler)
+        #
+        #     for handler in self.logger.handlers:
+        #         logging.root.addHandler(handler)
 
         # noinspection PyBroadException
         try:
@@ -92,7 +92,7 @@ class FabricSlice:
         if net_count > 1:
             raise Exception(f"Count {net_count} > 1 is not supported for {net_type} {name_prefix}")
 
-        network_builder = NetworkBuilder(label, self.slice_object, name_prefix, resource)
+        network_builder = NetworkBuilder(label, self.provider, self.slice_object, name_prefix, resource)
         network_builder.handle_facility_port()
 
         temp = []
