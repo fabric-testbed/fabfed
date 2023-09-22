@@ -30,6 +30,13 @@ class ChiProvider(Provider):
 
             profile = config.get(Constants.PROFILE)
             config = utils.load_yaml_from_file(credential_file)
+
+            if profile not in config:
+                from fabfed.exceptions import ProviderException
+
+                raise ProviderException(
+                    f"credential file {credential_file} does not have a section for keyword {profile}")
+            
             self.config = config = config[profile]
 
         site_id = self.__get_site_identifier(site=site)
