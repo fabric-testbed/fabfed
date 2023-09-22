@@ -62,7 +62,10 @@ def build_parser(*, manage_workflow, manage_sessions, display_stitch_info):
     stitch_parser.add_argument('-c', '--credential-file', type=str, default='~/.fabfed/fabfed_credentials.yml',
                                help='fabfed credential file. Defaults to ~/.fabfed/fabfed_credentials.yml',
                                required=False)
-    stitch_parser.add_argument('-p', '--profile', type=str, default='fabric',
+    stitch_parser.add_argument('-p', '--policy-file', type=str, default='',
+                                 help="Yaml stitching policy file",
+                                 required=False)
+    stitch_parser.add_argument('--profile', type=str, default='fabric',
                                help="fabric profile from credential file. Defaults to fabric",
                                required=False)
     stitch_parser.add_argument('-use-remote-policy', action='store_true', default=False, help='use remote policy')

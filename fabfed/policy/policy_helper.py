@@ -127,7 +127,7 @@ def load_remote_policy() -> Dict[str, ProviderPolicy]:
     return parse_policy(policy, policy_details, fp_dict)
 
 
-def load_policy(*, policy_file=None, content=None) -> Dict[str, ProviderPolicy]:
+def load_policy(*, policy_file=None, content=None, load_details=True) -> Dict[str, ProviderPolicy]:
     import os
     import yaml
     import json
@@ -145,8 +145,11 @@ def load_policy(*, policy_file=None, content=None) -> Dict[str, ProviderPolicy]:
         else:
             policy = yaml.load(fp, Loader=yaml.FullLoader)
 
-    policy_details = get_facility_ports()
-    return parse_policy(policy, policy_details)
+    if load_details:
+        policy_details = get_facility_ports()
+        return parse_policy(policy, policy_details)
+    else:
+        return parse_policy(policy, dict())
 
 
 def get_facility_ports():
