@@ -35,6 +35,7 @@ You can install using the following command
 pip install -r requirements.txt 
 pip install -e .
 fabfed --help
+fabfed stitch-policy --help
 fabfed workflow --help
 fabfed sessions --help
 ```
@@ -46,8 +47,12 @@ the <i>--config-dir</i>.  If this option is not present, the current directory i
 - The --var-file option can be used to override the default value of any variable. It consists of a set of key-value pairs with each pair written as ```key: value```. At runtime, all variables found in an assembled configuration must have a value other than ```None```. The parser will halt and throw an exeption otherwise. 
 - The --session is a friendly name used to track a given workflow.  
 - Use the --help options shown above if in doubt. 
+- When stitching networks across provider use `stitch-policy` to discover available stitch information 
 
 ```
+# Example to view stitch policy from cloudlab to fabric
+fabfed stitch-policy -providers "fabric,cloudlab"
+
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -validate
 
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -init [-summary] [-json]
@@ -60,6 +65,7 @@ fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session s
 
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -destroy
 
+# Use this option to manage your workflow sessions
 fabfed sessions -show
 ```
 

@@ -130,7 +130,7 @@ class ChiNode(Node):
 
             try:
                 fip = next(unbound)
-                self.logger.info(f"Found Floating IP for {self.name}")
+                self.logger.info(f"Found Floating IP for {self.name}:{fip}")
             except StopIteration:
                 self.logger.info(f"Creating Floating IP for {self.name}")
                 fip = _neutron.create_floatingip({
@@ -138,6 +138,7 @@ class ChiNode(Node):
                         "floating_network_id": chi.network.get_network_id(chi.network.PUBLIC_NETWORK),
                     }
                 })["floatingip"]
+                self.logger.info(f"Created Floating IP for {self.name}:{fip}")
 
             ports = chi.network.list_ports()
             port_id = None
@@ -150,6 +151,7 @@ class ChiNode(Node):
             if not port_id:
                 raise Exception(f"Did not find port id for {self.name} using dataplane_ipv4={self.dataplane_ipv4}")
 
+            self.logger.info(f"Updating Floating IP for {self.name}:{fip}")
             _neutron.update_floatingip(fip["id"], body={
                 "floatingip": {
                     "port_id": port_id,
@@ -157,7 +159,12 @@ class ChiNode(Node):
                 }
             })
 
+            self.mgmt_ip = fip['floating_ip_address']
+
     def wait_for_ssh(self):
+        if not self.mgmt_ip:
+            raise Exception(f"Node {self.name} unable to test ssh connection. No management ip")
+
         self.logger.info(f"Waiting on SSH. Node {self.name}: mgmt_ip={self.mgmt_ip}. This can take some time ...")
         chi.server.wait_for_tcp(self.mgmt_ip, port=22)
 
