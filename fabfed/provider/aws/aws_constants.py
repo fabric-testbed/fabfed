@@ -10,3 +10,4 @@ VIF_ID = 'virtualInterfaceId'
 VIF_STATE = 'virtualInterfaceState'
 
 VIF_DETAILS = [VLAN, AMAZON_SIDE_ASN, ASN, VIF_ID, VIF_STATE]
+DO_NOT_USE_MAIN_ROUTING_TABLE = True

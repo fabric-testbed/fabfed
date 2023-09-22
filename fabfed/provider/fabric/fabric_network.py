@@ -32,7 +32,7 @@ class FabricNetwork(Network):
         self.interface = []
 
 
-        # TODO This is only needed for sense-aws
+        # TODO This is only needed for sense-aws and aws
         if self.peering and Constants.RES_CLOUD_ACCOUNT in self.peering.attributes:
             account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
             key = self.slice_name + "-" + account_id

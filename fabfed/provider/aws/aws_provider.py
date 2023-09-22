@@ -26,9 +26,46 @@ class AwsProvider(Provider):
         credential_file = self.config.get(Constants.CREDENTIAL_FILE)
         profile = self.config.get(Constants.PROFILE)
         config = utils.load_yaml_from_file(credential_file)
+
+        if profile not in config:
+            from fabfed.exceptions import ProviderException
+
+            raise ProviderException(
+                f"credential file {credential_file} does not have a section for keyword {profile}"
+            )
+
         self.config = config[profile]
+        normalized_config = {}
+
+        for k, v in self.config.items():
+            normalized_config[k.upper()] = v
+
+        self.config = normalized_config
         assert self.access_key
         assert self.secret_key
+
+    def _handle_peering_config(self, resource):
+        import fabfed.provider.api.dependency_util as util
+        from fabfed.model import Network
+
+        peering = resource.get(Constants.RES_PEERING)
+        prop = 'stitch_interface'
+
+        if peering and util.has_resolved_external_dependencies(resource=resource, attribute=prop):
+            net = util.get_single_value_for_dependency(resource=resource, attribute=prop)
+
+            if isinstance(net, Network):
+                iface = net.interface
+
+                if isinstance(iface, list):
+                    iface = iface[0]
+
+                if isinstance(iface, dict) and iface.get("provider") == "fabric":
+                    peering.attributes[Constants.RES_ID] = iface[Constants.RES_ID]
+                    peering.attributes[Constants.RES_SECURITY] = iface[Constants.RES_SECURITY]
+                    self.logger.info(f"Added id and password to peering config:id={iface[Constants.RES_ID]}")
+
+        return peering
 
     def do_add_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
@@ -40,7 +77,7 @@ class AwsProvider(Provider):
         name_prefix = resource.get(Constants.RES_NAME_PREFIX)
         net_name = f'{self.name}-{name_prefix}'
         layer3 = resource.get(Constants.RES_LAYER3)
-        peering = resource.get(Constants.RES_PEERING)
+        peering = self._handle_peering_config(resource)
 
         from .aws_network import AwsNetwork
 
@@ -73,6 +110,8 @@ class AwsProvider(Provider):
             # DO NOTHING
             return
 
+        states = resource.get(Constants.SAVED_STATES, [])
+        state = next(filter(lambda s: s.label == label, states), None)
         net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
         logger.debug(f"Deleting network: {net_name}")
 
@@ -80,7 +119,7 @@ class AwsProvider(Provider):
 
         layer3 = resource.get(Constants.RES_LAYER3)
         peering = resource.get(Constants.RES_PEERING)
-        net = AwsNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering)
+        net = AwsNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering, state=state)
         net.delete()
         logger.debug(f"Done Deleting network: {net_name}")
 
