@@ -27,7 +27,7 @@ def manage_workflow(args):
 
     from fabfed.policy.policy_helper import load_policy
 
-    policy = load_policy(policy_file=args.policy_file) if args.policy_file else {}
+    policy = load_policy(policy_file=args.policy_file, load_details=False) if args.policy_file else {}
 
     if args.validate:
         try:
@@ -168,10 +168,10 @@ def manage_sessions(args):
 def display_stitch_info(args):
     logger = utils.init_logger()
 
-    if not args.use_remote_policy:
+    if not args.use_remote_policy or args.policy_file:
         from fabfed.policy.policy_helper import load_policy
 
-        policy = load_policy()
+        policy = load_policy(policy_file=args.policy_file, load_details=args.policy_file is not None)
         logger.info(f"loaded local stitching policy.")
     else:
         from fabfed.policy.policy_helper import load_remote_policy
@@ -193,7 +193,7 @@ def display_stitch_info(args):
 
     for provider in providers:
         if provider not in policy:
-            logger.error(f"unknown provider {provider}")
+            logger.error(f"Did not find provider {provider} in policy file")
             sys.exit(1)
 
     from fabfed.policy.policy_helper import find_stitch_port_for_providers, peer_stitch_ports
