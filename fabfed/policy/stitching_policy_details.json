@@ -4,7 +4,7 @@
          "device_name": "Utah-Cloudlab-Powder",
          "site": "UTAH"
       },
-      "Clemson-Cloudlab": {
+      "CloudLab-Clemson": {
          "device_name": "CloudLab-Clemson",
          "site": "CLEM"
       },
@@ -14,13 +14,11 @@
       },
       "Cloud-Facility-AWS": [
          {
-            "name": "AGG4_FOR_AWS",
             "device_name": "agg4.ashb.net.internet2.edu",
             "local_name": "HundredGigE0/0/0/7",
             "site": "AWS"
          },
          {
-            "name": "AGG3_FOR_AWS",
             "device_name": "agg3.ashb.net.internet2.edu",
             "local_name": "TenGigE0/0/0/11/3",
             "site": "AWS"
@@ -28,7 +26,6 @@
       ],
       "Cloud-Facility-GCP": [
          {
-            "name": "AGG4_FOR_GCP",
             "device_name": "agg4.ashb.net.internet2.edu",
             "local_name": "Bundle-Ether5",
             "vlan" : 5,
@@ -38,6 +35,14 @@
       "Chameleon-StarLight": {
          "device_name": "Chameleon-StarLight",
          "site": "STAR"
+      },
+      "Internet2-StarLight": {
+         "device_name": "Internet2-StarLight",
+         "site": "STAR"
+      },
+      "Chameleon-TACC": {
+         "device_name": "Chameleon-StarLight",
+         "site": "TACC"
       }
    },
    "chi": {
@@ -45,6 +50,14 @@
         {
           "name": "Chameleon-StarLight",
           "site": "CHI@UC"
+        },
+        {
+          "name": "Internet2-StarLight",
+          "site": "CHI@FIX_ME"
+        },
+        {
+          "name": "Chameleon-TACC",
+          "site": "CHI@TACC"
         }
       ]
    },
@@ -76,15 +89,9 @@
       ]
    },
    "sense": {
-      "GCP-INTERCONN": [
-         {
-            "name": "AGG4_FOR_GCP",
-            "vlan": 3
-         }
-      ],
       "FABRIC-L2-DTN": [
          {
-            "name": "UKY-AL2S",
+            "name": "UKY-AL2S-dev",
             "option": {
                "interface": [
                   {

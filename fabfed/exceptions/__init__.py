@@ -28,6 +28,11 @@ class ProviderTypeNotSupported(FabfedException):
 class StitchPortNotFound(FabfedException):
     pass
 
+
+class ProviderException(FabfedException):
+    pass
+
+
 class ControllerException(FabfedException):
     def __init__(self, exceptions):
         self.exceptions = exceptions

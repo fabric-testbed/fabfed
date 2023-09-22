@@ -25,6 +25,12 @@ class SenseClient(RequestWrapper):
             super().getConfig()
             return
 
-        self.config = self.temp_config
+        normalized_config = {}
+        for k, v in self.temp_config.items():
+            if k == 'verify':
+                normalized_config['verify'] = v
+            else:
+                normalized_config[k.upper()] = v
+        self.config = normalized_config
         self._validateConfig()
         self._setDefaults()

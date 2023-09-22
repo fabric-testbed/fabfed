@@ -62,7 +62,7 @@ def dump_resources(*, resources, to_json: bool, summary: bool = False):
         import yaml
         from fabfed.model.state import get_dumper
 
-        sys.stdout.write(yaml.dump(resources, Dumper=get_dumper()))
+        sys.stdout.write(yaml.dump(resources, Dumper=get_dumper(), default_flow_style=False, sort_keys=False))
 
 
 def dump_states(states, to_json: bool, summary: bool = False):
@@ -114,7 +114,8 @@ def dump_states(states, to_json: bool, summary: bool = False):
     else:
         import yaml
 
-        sys.stdout.write(yaml.dump(states, Dumper=get_dumper(), width=float("inf")))
+        sys.stdout.write(
+            yaml.dump(states, Dumper=get_dumper(), width=float("inf"), default_flow_style=False, sort_keys=False))
 
 
 def load_meta_data(friendly_name: str, attr=None):
@@ -187,7 +188,7 @@ def save_states(states: List[ProviderState], friendly_name):
 
     with open(temp_file_path, "w") as stream:
         try:
-            stream.write(yaml.dump(states, Dumper=get_dumper()))
+            stream.write(yaml.dump(states, Dumper=get_dumper(), default_flow_style=False, sort_keys=False))
         except Exception as e:
             from fabfed.exceptions import StateException
 
