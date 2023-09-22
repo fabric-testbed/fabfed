@@ -324,7 +324,7 @@ fabfed stitch-policy -providers "fabric,aws"
  ```
  To view the stitch port that would be selected use the -init option before you -apply. 
  ```
-fabfed workflow -s my-aws-test -init 
+fabfed workflow -s my-aws-test -init -summary
  ```
  ```
   - network:
@@ -397,7 +397,7 @@ This approach can be useful when designing a new policy with several new stitch 
 fabfed stitch-policy -providers "fabric,chi" -p my-policy.yaml
 
 # Test your workflow and verify the selected stitch point 
-fabfed workflow -s my-session  -init -p my-policy.yaml
+fabfed workflow -s my-session  -init -p my-policy.yaml -summary
 
 # Apply your workflow
 fabfed workflow -s my-session -apply -p my-policy.yaml
