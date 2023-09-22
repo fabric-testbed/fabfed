@@ -13,15 +13,14 @@ from ..util.config_models import ResourceConfig
 
 class Controller:
     def __init__(self, *, config: WorkflowConfig, logger: logging.Logger,
-                 policy: Union[Dict[str, ProviderPolicy], None] = None):
+                 policy: Union[Dict[str, ProviderPolicy], None] = None,
+                 use_local_policy=True):
         self.config = config
         self.logger = logger
         self.provider_factory = None
         self.resources: List[ResourceConfig] = []
-
-        from fabfed.policy.policy_helper import load_policy
-
         self.policy = policy
+        self.use_local_policy = use_local_policy
 
     def init(self, *, session: str, provider_factory: ProviderFactory):
         for provider_config in self.config.get_provider_config():
@@ -34,17 +33,16 @@ class Controller:
                                            logger=self.logger)
 
         if not self.policy:
-            from fabfed.policy.policy_helper import load_remote_policy
-
-            try:
-                self.policy = load_remote_policy()
-                self.logger.info(f"loaded remote stitching policy.")
-            except Exception as e:
-                self.logger.warning(f"loading remote stitching policy failed: {e}. Will use local stitching policy")
+            if self.use_local_policy:
                 from fabfed.policy.policy_helper import load_policy
 
                 self.policy = load_policy()
                 self.logger.info(f"loaded local stitching policy.")
+            else:
+                from fabfed.policy.policy_helper import load_remote_policy
+
+                self.policy = load_remote_policy()
+                self.logger.info(f"loaded remote stitching policy.")
 
         self.provider_factory = provider_factory
         providers = self.provider_factory.providers

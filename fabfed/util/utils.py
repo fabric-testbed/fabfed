@@ -11,7 +11,7 @@ def create_parser(usage='%(prog)s [options]',
     return ArgumentParser(usage=usage, description=description, formatter_class=formatter_class)
 
 
-def build_parser(*, manage_workflow, manage_sessions):
+def build_parser(*, manage_workflow, manage_sessions, display_stitch_info):
     description = (
         'Fabfed'
         '\n'
@@ -22,6 +22,7 @@ def build_parser(*, manage_workflow, manage_sessions):
         '\n'
         "      fabfed workflow --config-dir . --session test-chi -validate"
         '\n'
+        '      fabfed stitch-policy -providers "fabric,sense"'
     )
 
     parser = create_parser(description=description)
@@ -43,6 +44,7 @@ def build_parser(*, manage_workflow, manage_sessions):
     workflow_parser.add_argument('-apply', action='store_true', default=False, help='create resources')
     workflow_parser.add_argument('-init', action='store_true', default=False, help='display resource ordering')
     workflow_parser.add_argument('-plan', action='store_true', default=False, help='shows plan')
+    workflow_parser.add_argument('-use-remote-policy', action='store_true', default=False, help='use remote policy')
     workflow_parser.add_argument('-show', action='store_true', default=False, help='display resources')
     workflow_parser.add_argument('-summary', action='store_true', default=False, help='display resources')
     workflow_parser.add_argument('-json', action='store_true', default=False,
@@ -54,6 +56,20 @@ def build_parser(*, manage_workflow, manage_sessions):
     sessions_parser.add_argument('-show', action='store_true', default=False, help='display sessions')
     sessions_parser.add_argument('-json', action='store_true', default=False, help='use json format')
     sessions_parser.set_defaults(dispatch_func=manage_sessions)
+    stitch_parser = subparsers.add_parser('stitch-policy', help='Display stitch policy between two poviders')
+    stitch_parser.add_argument('-providers', type=str, required=True,
+                               default="", help='two comma separated providers from chi,fabric,cloudlab, or sense')
+    stitch_parser.add_argument('-c', '--credential-file', type=str, default='~/.fabfed/fabfed_credentials.yml',
+                               help='fabfed credential file. Defaults to ~/.fabfed/fabfed_credentials.yml',
+                               required=False)
+    stitch_parser.add_argument('-p', '--policy-file', type=str, default='',
+                                 help="Yaml stitching policy file",
+                                 required=False)
+    stitch_parser.add_argument('--profile', type=str, default='fabric',
+                               help="fabric profile from credential file. Defaults to fabric",
+                               required=False)
+    stitch_parser.add_argument('-use-remote-policy', action='store_true', default=False, help='use remote policy')
+    stitch_parser.set_defaults(dispatch_func=display_stitch_info)
     return parser
 
 
