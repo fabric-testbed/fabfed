@@ -5,7 +5,7 @@ from fabfed.exceptions import ControllerException
 from fabfed.model.state import ProviderState
 from fabfed.util.config import WorkflowConfig
 from .helper import ControllerResourceListener, partition_layer3_config
-from .policy_helper import ProviderPolicy
+from fabfed.policy.policy_helper import ProviderPolicy
 from .provider_factory import ProviderFactory
 from ..util.constants import Constants
 from ..util.config_models import ResourceConfig
@@ -19,9 +19,9 @@ class Controller:
         self.provider_factory = None
         self.resources: List[ResourceConfig] = []
 
-        from .policy_helper import load_policy
+        from fabfed.policy.policy_helper import load_policy
 
-        self.policy = policy or load_policy()
+        self.policy = policy
 
     def init(self, *, session: str, provider_factory: ProviderFactory):
         for provider_config in self.config.get_provider_config():
@@ -33,6 +33,19 @@ class Controller:
                                            attributes=provider_config.attributes,
                                            logger=self.logger)
 
+        if not self.policy:
+            from fabfed.policy.policy_helper import load_remote_policy
+
+            try:
+                self.policy = load_remote_policy()
+                self.logger.info(f"loaded remote stitching policy.")
+            except Exception as e:
+                self.logger.warning(f"loading remote stitching policy failed: {e}. Will use local stitching policy")
+                from fabfed.policy.policy_helper import load_policy
+
+                self.policy = load_policy()
+                self.logger.info(f"loaded local stitching policy.")
+
         self.provider_factory = provider_factory
         providers = self.provider_factory.providers
         resource_listener = ControllerResourceListener(providers)
@@ -42,9 +55,15 @@ class Controller:
 
         self.resources = self.config.get_resource_configs()
 
-        from .policy_helper import handle_stitch_info
+        from fabfed.policy.policy_helper import handle_stitch_info, fix_node_site, fix_network_site
 
         self.resources = handle_stitch_info(self.config, self.policy, self.resources)
+
+        for resource in self.resources:
+            if resource.is_node:
+                fix_node_site(resource, self.resources)
+            elif resource.is_network:
+                fix_network_site(resource)
 
         for resource in self.resources:
             resource_dict = resource.attributes
@@ -97,9 +116,9 @@ class Controller:
                     if Constants.RES_LAYER3 in other.attributes:
                         network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
-        # for network in networks:
-        #     self.logger.info(f"{network}: stitch_info={network.attributes.get(Constants.RES_STITCH_INFO)}")
-        #     self.logger.info(f"{network}: stitch_with={network.attributes.get(Constants.RES_STITCH_INTERFACE)}")
+        for network in networks:
+            self.logger.info(f"{network}: stitch_info={network.attributes.get(Constants.RES_STITCH_INFO)}")
+            self.logger.info(f"{network}: stitch_with={network.attributes.get(Constants.RES_STITCH_INTERFACE)}")
 
     def plan(self, provider_states: List[ProviderState]):
         resources = self.resources

@@ -135,10 +135,7 @@ class CloudNetwork(Network):
 
         import xmltodict
 
-        data_dict = xmltodict.parse(status['urn:publicid:IDN+stitch.geniracks.net+authority+cm'])
-        # data_dict = xmltodict.parse(status['urn:publicid:IDN+emulab.net+authority+cm'])
-        # TODO
-
+        data_dict = xmltodict.parse(next(iter(status.values())))
         logger.info(f"RSPEC: {json.dumps(data_dict['rspec'], indent=2)}")
         link = data_dict['rspec']['link']
         self.interface = [dict(id='', provider=self.provider.type, vlan=link['@vlantag'])]
