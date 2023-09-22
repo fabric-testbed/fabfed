@@ -22,6 +22,7 @@ def build_parser(*, manage_workflow, manage_sessions, display_stitch_info):
         '\n'
         "      fabfed workflow --config-dir . --session test-chi -validate"
         '\n'
+        '      fabfed stitch-policy -providers "fabric,sense"'
     )
 
     parser = create_parser(description=description)
