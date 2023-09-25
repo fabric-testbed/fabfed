@@ -159,7 +159,7 @@ class ChiNode(Node):
                 }
             })
 
-            self.mgmt_ip = fip['floating_ip_address']
+            self.mgmt_ip = self.host = fip['floating_ip_address']
 
     def wait_for_ssh(self):
         if not self.mgmt_ip:
@@ -291,7 +291,7 @@ class ChiNode(Node):
                 helper.close_quietly()
 
     def get_dataplane_address(self, network=None, interface=None, af=Constants.IPv4):
-        return self.mgmt_ip
+        return self.dataplane_ipv4
 
     def add_route(self, subnet, gateway):
         pass
