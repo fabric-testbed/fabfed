@@ -22,20 +22,6 @@ class FabricSlice:
 
     def init(self):
         from fabrictestbed_extensions.fablib.fablib import fablib
-        # from fabfed.util.utils import get_log_level, get_log_location
-        #
-        # location = get_log_location()
-        #
-        # if fablib.get_default_fablib_manager().get_log_file() != location:
-        #     self.logger.debug("Initializing fablib extensions logging ...")
-        #     fablib.get_default_fablib_manager().set_log_file(location)
-        #     fablib.get_default_fablib_manager().set_log_level(get_log_level())
-        #
-        #     for handler in logging.root.handlers.copy():
-        #         logging.root.removeHandler(handler)
-        #
-        #     for handler in self.logger.handlers:
-        #         logging.root.addHandler(handler)
 
         # noinspection PyBroadException
         try:
@@ -190,6 +176,15 @@ class FabricSlice:
                 self.logger.warning(f"Exception occurred while update/post_boot_config: {e}")
 
             self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
+
+            try:
+                import datetime
+                days = DEFAULT_RENEWAL_IN_DAYS
+                end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
+                self.slice_object.renew(end_date)
+            except Exception as e:
+                self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
+
             return slice_id
         except Exception as e:
             # self.logger.error(f"Exception occurred: {e}")

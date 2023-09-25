@@ -11,7 +11,7 @@
       },
       {
         "name": "CloudLab-Clemson",
-        "profile": "Clemson-Cloudlab",
+        "profile": "CloudLab-Clemson",
         "preference": 100,
         "member-of": [
           "CLOUDLAB"
@@ -50,17 +50,9 @@
         ]
       },
       {
-        "name": "AGG4_FOR_AWS",
+        "name": "AWS_PORTS",
         "profile": "Cloud-Facility-AWS",
         "preference": 250,
-        "member-of": [
-          "AWS"
-        ]
-      },
-      {
-        "name": "AGG3_FOR_AWS",
-        "profile": "Cloud-Facility-AWS",
-        "preference": 200,
         "member-of": [
           "AWS"
         ]
@@ -74,7 +66,7 @@
         ]
       },
       {
-        "name": "AGG4_FOR_GCP",
+        "name": "GCP_PORTS",
         "profile": "Cloud-Facility-GCP",
         "preference": 100,
         "member-of": [
@@ -122,7 +114,6 @@
       {
         "name": "Cloudlab-Utah",
         "profile": "fabfed-stitch-v2",
-        "preference": 500,
         "member-of": [
           "CLOUDLAB"
         ]
@@ -187,13 +178,7 @@
   "aws": {
     "stitch-port": [
       {
-        "name": "AGG4_FOR_AWS",
-        "member-of": [
-          "AWS"
-        ]
-      },
-      {
-        "name": "AGG3_FOR_AWS",
+        "name": "AWS_PORTS",
         "member-of": [
           "AWS"
         ]
@@ -211,7 +196,7 @@
   "gcp": {
     "stitch-port": [
       {
-        "name": "AGG4_FOR_GCP",
+        "name": "GCP_PORTS",
         "member-of": [
           "GCP"
         ]
@@ -229,21 +214,14 @@
   "sense": {
     "stitch-port": [
       {
-        "name": "AGG4_FOR_AWS",
+        "name": "AWS_PORTS",
         "profile": "FABRIC-AWS-DX-VGW",
         "member-of": [
           "AWS"
         ]
       },
       {
-        "name": "AGG3_FOR_AWS",
-        "profile": "FABRIC-AWS-DX-VGW",
-        "member-of": [
-          "AWS"
-        ]
-      },
-      {
-        "name": "AGG4_FOR_GCP",
+        "name": "GCP_PORTS",
         "profile": "GCP-INTERCONN",
         "member-of": [
           "GCP"

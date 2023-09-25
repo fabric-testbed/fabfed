@@ -41,7 +41,7 @@ resource:
           peering: "{{ peering.my_peering }}"
           stitch_with: '{{ network.fabric_network }}'
           stitch_option:
-             port_name: AGG4_FOR_AWS
+            device_name: agg3.ashb.net.internet2.edu
           count: 1 
 
       - fabric_network:

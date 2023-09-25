@@ -6,12 +6,18 @@
  - [Configs](#configs)
    - [Layer3](#layer3)
    - [Peering](#peering)
+   - [Stitching Policy](#policy)
  - [Resources](#resources)
    - [Nodes](#nodes)
    - [Networks](#networks)
    - [Services](#services)
  - [Dependencies](#dependencies)
  - [Network Stitching Policy](#stitching)
+ - [Network Stitching Example](#stitching_example)
+ - [Overriding Stitching Policy](#stitching_override)
+   - [Using The Network Resource](#simple)
+   - [Using Policy Config ](#stich_policy)
+   - [Using Your Own Policy](#own_policy)
  - [Breaking The Configuration](#breaking)
 
 # <a name="descr"></a>Description
@@ -127,7 +133,59 @@ resource:
 
 ### <a name="peering"></a>Peering
 
-TODO:
+In the example below the `fabric` and the `aws` networks share or point to the same `peering` config. The `peering` configuration will be used by both providers to provision the necessary network stitching points to enable an isolated connection between the nodes. Here `fabric` nodes would be able to communicate to AWS nodes attached to the VPC. 
+
+```
+config:
+  - peering:
+      - my_peering:
+          cloud_account: "REPLACE_ME" 
+          cloud_region: "us-east-1"
+
+          cloud_vpc: "vpc-0c641c70ee2ec1790"
+          remote_asn: 64512 # amazon_asn
+          local_asn: 55038  # customer_asn
+          local_address: "192.168.1.1/30"
+          remote_address: "192.168.1.2/30"
+resource:
+  - network:
+      - aws_network:
+          peering: "{{ peering.my_peering }}"
+
+      - fabric_network:
+          peering: "{{ peering.my_peering }}"
+         
+```
+### <a name="policy"></a>Stitching Policy
+
+In this example we have a stitching `policy` that is referred to by network `cloudlab_network` using the `stitch_option`. Typically one does not need to provide this `policy` config as fabfed supports system defined stitching policy. But it can be used to experiment with new facility ports
+or override the existing stitching policy. 
+
+Here we see two stitch ports. The top level `stitch_port` and the `peer` stitch port. The `peer` stitch port for fabric and the top level stitchPort is for `cloudlab`. This is specified by the `provider` attribute. Also we see that `clouldlab` is the producer and `fabric` is the consumer. This simply means that the cloudlab_network will be created first and when that happens, the fabric_network will be get created with the vlan information produced by the cloudlab network. 
+
+```
+config:
+  - policy:
+    - cloudlab_fabric_policy:
+        consumer: fabric
+        producer: cloudlab
+        stitch_port:
+          profile: fabfed-stitch-v2
+          provider: cloudlab
+          peer:
+            device_name: Utah-Cloudlab-Powder
+            profile: Utah-Cloudlab-Powder
+            provider: fabric
+            site: UTAH
+resource:
+ - network:
+      - cloudlab_network:
+          stitch_with: '{{ network.fabric_network }}'
+          stitch_option:
+             policy: "{{ policy.si_cloudlab_fabric }}"
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+```
 
 # <a name="resources"></a>Resources
 A resource consists of a <i>type</i>, a <i>label</i> and a dictionary. The parsing process guarantees that the combination of the type and the label is unique. Resources can refer to each other using the expression ```'{{ type.label }}'```. They can also refer to a resource's attribute using ```'{{ type.label.attribute_name }}'```. 
@@ -209,43 +267,141 @@ of the fabric_network.
 
  # <a name="stitching"></a>Network Stitching Policy
  
- The `stitch_with` dependency in line 6 above depicts an external dependency as it involves two resources from different providers. Fabfed 
- controller ensures that the ordering is correct for both internal and external dependencies. Normally the `fabric_network` 
- would be handled before the chi_network. However, the `stitch_with` is a <b>special</b> attribute that 
- declares that the two networks are to be stitched and it is handled differently. 
+ The fabfed controller supports a policy-defined network stitching and consults a policy file to pick a suitable stitch 
+ point between two providers and determines the producer/consumer relationship. 
+
+ The policy is defined in two files with one file concerning itself with peering the stitching ports and defining the producer/consumer relationships.
+ The second file provides details such site, device information ...
+
+ - [stitching policy](../fabfed/policy/stitching_policy.json)
+ - [stitching port details](../fabfed/policy/stitching_policy_details.json)
  
- The fabfed controller supports a policy-defined network stitching and consults a policy file to pick a suitable stitch_port 
- between two providers and determines the producer/consumer relationship. For `chi` and `fabric`, it so happened that 
- there is only one `stitch-port` and that the `chi network` is the producer. The `chi_network` produces a `vlan` that the 
- `fabric_network` uses to create a `facility port`. And so the controller would reorder the resources as needed to ensure 
- that the producer is processed first.
+ This simple snippet shows a single stitch point from 
+ `chi` to `fabric`. The groups are used to specify the consumer/producer relationship. In the example below, `chi` is the producer and 
+ fabric is the `fabric` is the consumer. The `chi_network` produces a `vlan` that the  `fabric_network` uses to create a `facility port`. 
+ and so the fabfed controller would reorder the resources as needed to ensure  that the producer is processed first.
  
- Below is a snippet from the policy file showing the single `stitch-port` from `chi` to `fabric`. The groups are used to specify 
- the consumer/producer relationship. For sense and fabric, there are many stitch ports and bi-directional consumer/producer 
- relationships. The `stich-port` with the highest preference gets selected but the `stitch_option` attribute can be usedto select a 
- desired `stitch-port`. See sense workflows under the examples directory.
+ The `stitch-port` under fabric and the one under chi are peered together since they have the same `name`. The one under fabric provides
+ information for the fabric provider. And similarly its peer under chi provides information for the chameleon provider.
  
+ When multiple stitch points are available, the one with the highest `preference` gets selected. We provide a `stitch_option` attribute, discussed in the next section, that can be used to select a desired stitch point.
+
+
  ```
 fabric:
+  stitch-port:
+    - name: Chameleon-StarLight
+      device_name: Chameleon-StarLight
+      preference: 100 # higher is preferred
+      site: STAR
+      member-of:
+        - STAR
   group:
       - name: STAR
         consumer-for:
-            - chi/STAR
+            - chi
 chi:
   stitch-port:
-    - site: STAR
+    - name: Chameleon-StarLight
+      profile: fabric
+      site: CHI@UC
       member-of:
         - STAR
-      device_name: Chameleon-StarLight
-      preference: 100 # higher is preferred
-
   group:
     - name: STAR
       producer-for:
-        - fabric/STAR
-
+        - fabric
  ```
+  # <a name="stitching_example"></a>Network Stitching Example
  
+The example below shows two stitched networks. The aws network uses the `stitch_with` to declare itself stitched with the fabric network.  The `stitch_with` dependency is an external dependency as it involves two resources from different providers. Fabfed controller ensures that the ordering is correct for both internal and external dependencies during the create phase and the destroy phase. 
+ 
+Also note the `stitch_option` right below the `stitch_with`. If `stitch_option` is not present, the system would select a stitch point with the highest preference. Here the `stitch_option` is telling the system to pick a stitch point with `device_name` agg3.ashb.net.internet2.edu
+
+ To view the stitch points from any two providers 
+ ```
+fabfed stitch-policy -providers "fabric,aws" 
+ ```
+ To view the stitch port that would be selected use the -init option before you -apply. 
+ ```
+fabfed workflow -s my-aws-test -init -summary
+ ```
+ ```
+  - network:
+      - aws_network:
+          provider: '{{ aws.aws_provider }}'
+          name: aws-net
+          layer3: "{{ layer3.aws_layer }}"
+          peering: "{{ peering.my_peering }}"
+          stitch_with: '{{ network.fabric_network }}'
+          stitch_option:
+            device_name: agg3.ashb.net.internet2.edu
+          count: 1 
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.fab_layer }}"
+          peering: "{{ peering.my_peering }}"
+          interface: '{{ node.fabric_node }}'
+          count: 1 
+ ```
+  # <a name="stitching_override"></a>Overriding Stitching Policy
+ 
+ Fabfed uses system defined stitching. Here we discuss the several ways one can override the stich coonfiguration. As of this writting there are 3 approaches. The first two approaches require some changes in the fabfed workflow definition. These are the simpler approaches. There is also a third approach which allows one can use to provide a complete stitching policy. 
+
+ ### <a name="simple"></a>Using The Network Resource
+The `stitch_option` can be used to tell fabfed to select a stitch point from sense to fabric that uses the agg4.ashb.net.internet2.edu. This stitch point returns a default profile needed by the sense provider. 
+Instead of changing the policy files, one can simply use an attribute in the network resource. Here we use the `profile` to override the default. In this approach, one can only use attributes that supported by the network schema.
+ 
+ ```
+  - network:
+      - sense_network:
+          profile: my-new-sense-profile
+          stitch_with: '{{ network.fabric_network }}'
+          stitch_option: 
+              device_name: agg4.ashb.net.internet2.edu
+
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.fab_layer }}"
+ ```
+ ### <a name="stich_policy"></a>Using Policy Config 
+Using the `policy` config class, one can, for example, use a stich point with a new device that is not yet available in the fabfed stiching policy. Note how the cloudlab network points to the `policy` config using the attribute `policy` under the `stich_option`.     
+ ```
+config:
+  - policy:
+    - cloudlab_fabric_policy:
+        consumer: fabric
+        producer: cloudlab
+        stitch_port:
+          profile: fabfed-stitch-v2
+          provider: cloudlab
+          peer:
+            device_name: Utah-Cloudlab-Powder
+            profile: Utah-Cloudlab-Powder
+            provider: fabric
+            site: UTAH
+resource:
+ - network:
+      - cloudlab_network:
+          stitch_with: '{{ network.fabric_network }}'
+          stitch_option:
+             policy: "{{ policy.si_cloudlab_fabric }}"
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+ ```
+ ### <a name="own_policy"></a>Using Your Own Policy
+This approach can be useful when designing a new policy with several new stitch points, new providers, ...
+ 
+ ```
+# View the stitch points 
+fabfed stitch-policy -providers "fabric,chi" -p my-policy.yaml
+
+# Test your workflow and verify the selected stitch point 
+fabfed workflow -s my-session  -init -p my-policy.yaml -summary
+
+# Apply your workflow
+fabfed workflow -s my-session -apply -p my-policy.yaml
+ ```
  # <a name="breaking"></a>Breaking The Configuration
  
  A configuration can be broken into many configuration files ending with ```.fab``` extensions. Fabfed does not care about how the files are named. 
