@@ -1,5 +1,6 @@
 from fabfed.provider.api.provider import Provider
 from fabfed.provider.api.resource_event_listener import ResourceListener
+from fabfed.util.constants import Constants
 
 
 class ControllerResourceListener(ResourceListener):
@@ -54,3 +55,65 @@ def partition_layer3_config(*, networks: list):
         layer3_config.attributes[Constants.RES_LAYER3_DHCP_END] = str(IPv4Address(dhcp_end))
         network.attributes[Constants.RES_LAYER3] = layer3_config
         dhcp_start = dhcp_end + 1
+
+
+def find_peer_network(*, network):
+    dependencies = network.dependencies
+
+    for ed in dependencies:
+        if ed.key == Constants.RES_STITCH_INTERFACE:
+            return ed.resource
+
+    return None
+
+
+def find_nodes_related_to_network(*, network, resources):
+    nodes = []
+    assert network.is_network
+
+    for dep in network.dependencies:
+        if dep.resource.is_node:
+            nodes.append(dep.resource)
+
+    for node in filter(lambda r: r.is_node, resources):
+        if next(filter(lambda d: d.resource.label == network.label, node.dependencies), None):
+            nodes.append(node)
+
+    return nodes
+
+
+def find_node_clusters(*, resources):
+    networks = [r for r in resources if r.is_network]
+    clusters = []
+    visited_networks = []
+    visited_nodes = []
+
+    for net in networks:
+        if net.label not in visited_networks:
+            peer = find_peer_network(network=net)
+
+            if peer:
+                visited_networks.append(net.label)
+                nodes = find_nodes_related_to_network(network=net, resources=resources)
+                visited_networks.append(peer.label)
+                nodes.extend(find_nodes_related_to_network(network=peer, resources=resources))
+                visited_nodes.extend([n.label for n in nodes])
+                clusters.append(nodes)
+
+    for net in networks:
+        if net.label not in visited_networks:
+            peer = find_peer_network(network=net)
+
+            if not peer:
+                visited_networks.append(net.label)
+                nodes = find_nodes_related_to_network(network=net, resources=resources)
+                visited_nodes.extend([n.label for n in nodes])
+                clusters.append(nodes)
+
+    nodes = [r for r in resources if r.is_node]
+
+    for n in nodes:
+        if n.label not in visited_nodes:
+            clusters.append([n])
+
+    return clusters
