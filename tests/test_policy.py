@@ -1,367 +1,194 @@
-from fabfed.policy.policy_helper import load_policy, find_stitch_port
-from fabfed.util.constants import Constants
-from fabfed.exceptions import StitchPortNotFound
-
-import pytest
+from fabfed.policy.policy_helper import *
 
 
-def test_policy_with_site():
+def test_policy_with_site_and_no_site():
     yaml_str = '''
 fabric:
-  group:
-      - name: UTAH
-        consumer-for:
-          - cloudlab/UTAH         
-cloudlab:
   stitch-port:
-      - site: AAA
+      - name: AAA
         member-of:
           - UTAH
-        device_name: dev1
+        profile: prof1
         preference: 10
-      - site: BBB
+        site: sitea
+      - name: BBB
         member-of:
           - UTAH
-        device_name: dev2
-        preference: 30 
-      - site: AAA
-        member-of:
-          - UTAH
-        device_name: dev3
-        preference: 20 
-  group:
-    - name: UTAH
-      producer-for:
-        - fabric/UTAH
-    '''
-
-    policy = load_policy(content=yaml_str)
-    stitch_info = find_stitch_port(policy=policy,
-                                   providers=['cloudlab', 'fabric'],
-                                   site="AAA")
-
-    assert stitch_info.stitch_port['site'] == 'AAA'
-    assert stitch_info.stitch_port['device_name'] == 'dev3'
-    assert stitch_info.producer == 'cloudlab'
-    assert stitch_info.consumer == 'fabric'
-
-
-def test_policy_no_site():
-    yaml_str = '''
-fabric:
-  group:
-      - name: UTAH
-        consumer-for:
-          - cloudlab/UTAH         
-cloudlab:
-  stitch-port:
-      - site: AAA
-        member-of:
-          - UTAH
-        device_name: dev1
-        preference: 10
-      - site: BBB
-        member-of:
-          - UTAH
-        device_name: dev2
-        preference: 30 
-      - site: CCC
-        member-of:
-          - UTAH
-        device_name: dev3
-        preference: 20 
-  group:
-    - name: UTAH
-      producer-for:
-        - fabric/UTAH
-    '''
-
-    policy = load_policy(content=yaml_str)
-    stitch_info = find_stitch_port(policy=policy,
-                                   providers=['fabric', 'cloudlab'],
-                                   site=None)
-
-    assert stitch_info.stitch_port['site'] == 'BBB'
-    assert stitch_info.stitch_port['device_name'] == 'dev2'
-    assert stitch_info.producer == 'cloudlab'
-    assert stitch_info.consumer == 'fabric'
-
-
-def test_bidrectional_policy():
-    yaml_str = '''
-fabric:
-  stitch-port:
-      - site: AAA
-        member-of:
-          - AWS
-        device_name: dev1
+        profile: prof2
         preference: 100
-      - site: BBB
+        site: siteb
+  group:
+      - name: UTAH
+        consumer-for:
+          - cloudlab        
+cloudlab:
+  stitch-port:
+      - name: AAA
+        member-of:
+          - UTAH
+        device_name: dev1
+      - name: BBB
+        member-of:
+          - UTAH
+        device_name: dev2
+  group:
+    - name: UTAH
+      producer-for:
+        - fabric
+    '''
+
+    policy = load_policy(content=yaml_str)
+    stitch_info = find_stitch_port(policy=policy,
+                                   providers=['cloudlab', 'fabric'])
+
+    stitch_port = stitch_info.stitch_port
+    assert stitch_port['name'] == 'BBB'
+    assert stitch_port.get('device_name') == 'dev2' or stitch_port['peer']['device_name'] == 'dev2'
+    assert stitch_info.producer == 'cloudlab'
+    assert stitch_info.consumer == 'fabric'
+
+    policy = load_policy(content=yaml_str)
+    stitch_info = find_stitch_port(policy=policy,
+                                   providers=['cloudlab', 'fabric'], site='sitea')
+
+    stitch_port = stitch_info.stitch_port
+    assert stitch_port['name'] == 'AAA'
+    assert stitch_port.get('device_name') == 'dev1' or stitch_port['peer']['device_name'] == 'dev1'
+    assert stitch_info.producer == 'cloudlab'
+    assert stitch_info.consumer == 'fabric'
+
+
+def test_peering_and_duplicates():
+    yaml_str = '''
+fabric:
+  stitch-port:
+      - name: AAA
         member-of:
           - AWS
-        device_name: dev2
-        preference: 10
+        device_name: dev1
+      - name: AAA
+        member-of:
+            - AWS
+        device_name: dev1
   group:
       - name: AWS
         producer-for:
-          - sense/AWS
-        consumer-for:
-          - sense/AWS
+          - sense
 sense:
   stitch-port:
-      - site: CCC
+      - name: AAA
         member-of:
           - AWS
         region:
         device_name: dev3
         local_name: TenGigE0/0/0/11/3
-        preference: 110
   group:
       - name: AWS 
         profile: FABRIC-AWS-DX-VGW
         consumer-for:
-          - fabric/AWS
+          - fabric
         producer-for:
-          - fabric/AWS
+          - fabric
     '''
 
     policy = load_policy(content=yaml_str)
-    stitch_info = find_stitch_port(policy=policy,
-                                   providers=['fabric', 'sense'],
-                                   site=None)
-
-    assert stitch_info.stitch_port['site'] == 'CCC'
-    assert stitch_info.stitch_port['device_name'] == 'dev3'
-    assert stitch_info.producer == 'sense'
-    assert stitch_info.consumer == 'fabric'
+    stitch_infos = find_stitch_port_for_providers(policy, ['sense', 'fabric'])
+    assert len(stitch_infos) == 2
+    stitch_infos = peer_stitch_ports(stitch_infos)
+    assert len(stitch_infos) == 1
 
 
-def test_bidrectional_policy2():
-    yaml_str = '''
-fabric:
-  stitch-port:
-      - site: AAA
-        member-of:
-          - AWS
-        device_name: dev1
-        preference: 100
-      - site: BBB
-        member-of:
-          - AWS
-        device_name: dev2
-        preference: 900
-  group:
-      - name: AWS
-        producer-for:
-          - sense/AWS
-        consumer-for:
-          - sense/AWS
-sense:
-  stitch-port:
-      - site: CCC
-        member-of:
-          - AWS
-        region:
-        device_name: dev3
-        local_name: TenGigE0/0/0/11/3
-        preference: 110
-  group:
-      - name: AWS 
-        profile: FABRIC-AWS-DX-VGW
-        consumer-for:
-          - fabric/AWS
-        producer-for:
-          - fabric/AWS
-    '''
+def load_local_policy_using(providers):
+    from fabfed.policy.policy_helper import load_policy
 
-    policy = load_policy(content=yaml_str)
-    stitch_info = find_stitch_port(policy=policy,
-                                   providers=['fabric', 'sense'],
-                                   site=None)
+    policy = load_policy()
 
-    assert stitch_info.stitch_port['site'] == 'BBB'
-    assert stitch_info.stitch_port['device_name'] == 'dev2'
-    assert stitch_info.producer == 'fabric'
-    assert stitch_info.consumer == 'sense'
+    from fabfed.policy.policy_helper import find_stitch_port_for_providers, peer_stitch_ports
+
+    stitch_infos = find_stitch_port_for_providers(policy, providers)
+    stitch_infos = peer_stitch_ports(stitch_infos)
+    attrs = ["preference", "member-of", 'name']
+    names = []
+
+    for stitch_info in stitch_infos:
+        names.append(stitch_info.stitch_port.get("name"))
+
+        for attr in attrs:
+            stitch_info.stitch_port.pop(attr, None)
+
+        peer = stitch_info.stitch_port.get('peer', {})
+
+        for attr in attrs:
+            peer.pop(attr, None)
+
+    import yaml
+    from fabfed.util.constants import Constants
+
+    for i, stitch_info in enumerate(stitch_infos):
+        producer = stitch_info.producer
+        consumer = stitch_info.consumer
+        stitch_port = stitch_info.stitch_port
+        c = {"config": [{Constants.NETWORK_STITCH_CONFIG: [{f"si_from_{names[i]}": {"producer": producer,
+                                                                                    "consumer": consumer,
+                                                                                    "stitch_port": stitch_port}}]}]}
+        rep = yaml.dump(c, default_flow_style=False, sort_keys=False)
+        rep = rep.replace('\n', '\n  ')
+        print(rep)
+    return stitch_infos
 
 
-def test_find_stitch_port_using_node_site1():
-    policy_str = '''
-    fabric:
-      stitch-port:
-          - site: AAA
-            member-of:
-              - AWS
-            device_name: dev1
-            preference: 1
-          - site: BBB
-            member-of:
-              - AWS
-            device_name: dev2
-            preference: 10
-      group:
-          - name: AWS
-            producer-for:
-              - sense/AWS
-            consumer-for:
-              - sense/AWS
-    sense:
-      group:
-          - name: AWS 
-            profile: FABRIC-AWS-DX-VGW
-            consumer-for:
-              - fabric/AWS
-            producer-for:
-              - fabric/AWS
-        '''
-
-    config_str = '''
-provider:
-  - fabric:
-      - my_provider1:
-          - name: prov1
-  - sense:
-      - my_provider2:
-          - name: prov2
-resource:
-  - network:
-      - net1:
-          - provider: '{{ fabric.my_provider1 }}'
-            interface: '{{ node.node1 }}'
-            stitch_with: '{{ network.net2 }}'
-      - net2:
-          - provider: '{{ sense.my_provider2 }}'
-  - node:
-      - node1:
-          - provider: '{{ fabric.my_provider1 }}'
-            site: BBB 
-        '''
-
-    from fabfed.util.config import WorkflowConfig
-
-    config = WorkflowConfig(content=config_str)
-    policy = load_policy(content=policy_str)
-    from fabfed.policy.policy_helper import handle_stitch_info
-
-    resources = handle_stitch_info(config, policy, config.get_resource_configs())
-
-    for network in [resource for resource in resources if resource.is_network]:
-        stitch_info = network.attributes[Constants.RES_STITCH_INFO]
-
-        assert stitch_info.stitch_port['site'] == 'BBB'
+def test_load_local_policy_using_sense():
+    providers = ['sense', 'fabric']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 4
+    providers = ['fabric', 'sense']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 4
 
 
-def test_find_stitch_port_using_node_site2():
-    policy_str = '''
-    fabric:
-      stitch-port:
-          - site: AAA
-            member-of:
-              - AWS
-            device_name: dev1
-          - site: BBB
-            member-of:
-              - AWS
-            device_name: dev2
-            preference: 10
-      group:
-          - name: AWS
-            producer-for:
-              - sense/AWS
-            consumer-for:
-              - sense/AWS
-    sense:
-      group:
-          - name: AWS 
-            profile: FABRIC-AWS-DX-VGW
-            consumer-for:
-              - fabric/AWS
-            producer-for:
-              - fabric/AWS
-        '''
-
-    config_str = '''
-provider:
-  - fabric:
-      - my_provider1:
-          - name: prov1
-  - sense:
-      - my_provider2:
-          - name: prov2
-resource:
-  - network:
-      - net1:
-          - provider: '{{ fabric.my_provider1 }}'
-            stitch_with: '{{ network.net2 }}'
-      - net2:
-          - provider: '{{ sense.my_provider2 }}'
-  - node:
-      - node1:
-          - provider: '{{ fabric.my_provider1 }}'
-            site: BBB 
-            network: '{{ network.net1 }}'
-        '''
-
-    from fabfed.util.config import WorkflowConfig
-
-    config = WorkflowConfig(content=config_str)
-    policy = load_policy(content=policy_str)
-    from fabfed.policy.policy_helper import handle_stitch_info
-
-    resources = handle_stitch_info(config, policy, config.get_resource_configs())
-
-    for network in [resource for resource in resources if resource.is_network]:
-        stitch_info = network.attributes[Constants.RES_STITCH_INFO]
-
-        assert stitch_info.stitch_port['site'] == 'BBB'
+def test_load_local_policy_using_chi():
+    providers = ['chi', 'fabric']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 3
+    providers = ['fabric', 'chi']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 3
 
 
-def test_no_stitch_info():
-    policy_str = '''
-    fabric:
-      group:
-          - name: AWS
-            producer-for:
-              - sense/AWS
-            consumer-for:
-              - sense/AWS
-    sense:
-      group:
-          - name: AWS 
-            profile: FABRIC-AWS-DX-VGW
-            consumer-for:
-              - fabric/AWS
-            producer-for:
-              - fabric/AWS
-        '''
+def test_load_local_policy_using_clab():
+    providers = ['cloudlab', 'fabric']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 3
+    providers = ['cloudlab', 'fabric']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 3
 
-    config_str = '''
-provider:
-  - fabric:
-      - my_provider1:
-          - name: prov1
-  - sense:
-      - my_provider2:
-          - name: prov2
-resource:
-  - network:
-      - net1:
-          - provider: '{{ fabric.my_provider1 }}'
-            stitch_with: '{{ network.net2 }}'
-      - net2:
-          - provider: '{{ sense.my_provider2 }}'
-  - node:
-      - node1:
-          - provider: '{{ fabric.my_provider1 }}'
-            site: BBB 
-            network: '{{ network.net1 }}'
-        '''
 
-    from fabfed.util.config import WorkflowConfig
+def test_load_local_policy_using_aws():
+    providers = ['aws', 'fabric']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 2
+    providers = ['fabric', 'aws']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 2
 
-    config = WorkflowConfig(content=config_str)
-    policy = load_policy(content=policy_str)
-    from fabfed.policy.policy_helper import handle_stitch_info
 
-    with pytest.raises(StitchPortNotFound):
-        handle_stitch_info(config, policy, config.get_resource_configs())
+def test_load_local_policy_using_gcp():
+    providers = ['gcp', 'fabric']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 1
+    providers = ['fabric', 'gcp']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 1
+
+
+def test_load_local_policy_zero():
+    providers = ['gcp', 'aws']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 0
+    providers = ['sense', 'chi']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 0
+    providers = ['cloudlab', 'sense']
+    stitch_infos = load_local_policy_using(providers)
+    assert len(stitch_infos) == 0
