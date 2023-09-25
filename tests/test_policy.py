@@ -1,8 +1,4 @@
 from fabfed.policy.policy_helper import *
-from fabfed.util.constants import Constants
-from fabfed.exceptions import StitchPortNotFound
-
-import pytest
 
 
 def test_policy_with_site_and_no_site():
@@ -103,42 +99,42 @@ sense:
 
 
 def load_local_policy_using(providers):
-        from fabfed.policy.policy_helper import load_policy
+    from fabfed.policy.policy_helper import load_policy
 
-        policy = load_policy()
+    policy = load_policy()
 
-        from fabfed.policy.policy_helper import find_stitch_port_for_providers, peer_stitch_ports
+    from fabfed.policy.policy_helper import find_stitch_port_for_providers, peer_stitch_ports
 
-        stitch_infos = find_stitch_port_for_providers(policy, providers)
-        stitch_infos = peer_stitch_ports(stitch_infos)
-        attrs = ["preference", "member-of", 'name']
-        names = []
+    stitch_infos = find_stitch_port_for_providers(policy, providers)
+    stitch_infos = peer_stitch_ports(stitch_infos)
+    attrs = ["preference", "member-of", 'name']
+    names = []
 
-        for stitch_info in stitch_infos:
-            names.append(stitch_info.stitch_port.get("name"))
+    for stitch_info in stitch_infos:
+        names.append(stitch_info.stitch_port.get("name"))
 
-            for attr in attrs:
-                stitch_info.stitch_port.pop(attr, None)
+        for attr in attrs:
+            stitch_info.stitch_port.pop(attr, None)
 
-            peer = stitch_info.stitch_port.get('peer', {})
+        peer = stitch_info.stitch_port.get('peer', {})
 
-            for attr in attrs:
-                peer.pop(attr, None)
+        for attr in attrs:
+            peer.pop(attr, None)
 
-        import yaml
-        from fabfed.util.constants import Constants
+    import yaml
+    from fabfed.util.constants import Constants
 
-        for i, stitch_info in enumerate(stitch_infos):
-            producer = stitch_info.producer
-            consumer = stitch_info.consumer
-            stitch_port = stitch_info.stitch_port
-            c = {"config": [{Constants.NETWORK_STITCH_CONFIG: [{f"si_from_{names[i]}": {"producer": producer,
-                                                                                        "consumer": consumer,
-                                                                                        "stitch_port": stitch_port}}]}]}
-            rep = yaml.dump(c, default_flow_style=False, sort_keys=False)
-            rep = rep.replace('\n', '\n  ')
-            print(rep)
-        return stitch_infos
+    for i, stitch_info in enumerate(stitch_infos):
+        producer = stitch_info.producer
+        consumer = stitch_info.consumer
+        stitch_port = stitch_info.stitch_port
+        c = {"config": [{Constants.NETWORK_STITCH_CONFIG: [{f"si_from_{names[i]}": {"producer": producer,
+                                                                                    "consumer": consumer,
+                                                                                    "stitch_port": stitch_port}}]}]}
+        rep = yaml.dump(c, default_flow_style=False, sort_keys=False)
+        rep = rep.replace('\n', '\n  ')
+        print(rep)
+    return stitch_infos
 
 
 def test_load_local_policy_using_sense():
@@ -185,6 +181,7 @@ def test_load_local_policy_using_gcp():
     stitch_infos = load_local_policy_using(providers)
     assert len(stitch_infos) == 1
 
+
 def test_load_local_policy_zero():
     providers = ['gcp', 'aws']
     stitch_infos = load_local_policy_using(providers)
@@ -195,4 +192,3 @@ def test_load_local_policy_zero():
     providers = ['cloudlab', 'sense']
     stitch_infos = load_local_policy_using(providers)
     assert len(stitch_infos) == 0
-
