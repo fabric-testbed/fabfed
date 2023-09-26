@@ -110,7 +110,6 @@ class Controller:
         for peers in peering_to_network_mapping.values():
             for network in peers:
                 for other in [peer for peer in peers if peer.label != network.label]:
-                    # TODO For now GCP example does not seem to require a layer 3 config
                     if Constants.RES_LAYER3 in other.attributes:
                         network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
@@ -141,13 +140,52 @@ class Controller:
             raise ControllerException(exceptions)
 
     def create(self, provider_states: List[ProviderState]):
-        resources = self.resources
+        self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(self.resources)} resource(s)")
         resource_state_map = Controller._build_state_map(provider_states)
         exceptions = []
 
-        self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
+        for resource in filter(lambda r: not r.is_service, self.resources):
+            label = resource.provider.label
+            provider = self.provider_factory.get_provider(label=label)
 
-        for resource in resources:
+            if resource.label in resource_state_map:
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
+
+            try:
+                provider.create_resource(resource=resource.attributes)
+            except Exception as e:
+                exceptions.append(e)
+                self.logger.error(e, exc_info=True)
+
+        if exceptions:
+            raise ControllerException(exceptions)
+
+        from .helper import find_node_clusters
+        from fabfed.util.node_tester import SshNodeTester
+
+        clusters = find_node_clusters(resources=self.resources)
+        nodes = [n for provider in self.provider_factory.providers for n in provider.nodes]
+
+        for cluster in clusters:
+            tester = SshNodeTester(nodes=[n for n in nodes if n.label in [n.label for n in cluster]],
+                                   run_ping_test=len(cluster)>1)
+            tester.run_tests()
+
+            from fabfed.model.state import get_dumper
+            import sys
+            import yaml
+
+            rep = yaml.dump(tester.summary, default_flow_style=False, sort_keys=False, Dumper=get_dumper())
+            sys.stderr.write(rep)
+
+            if tester.has_failures():
+                raise ControllerException([Exception("Node testing over ssh failed see node test summary ...")])
+
+            self.logger.info(f"Node testing over ssh pass for {[n.name for n in nodes]}")
+
+        exceptions = []
+
+        for resource in filter(lambda r: r.is_service, self.resources):
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
 
@@ -183,14 +221,6 @@ class Controller:
         provider_resource_map = dict()
 
         for provider_state in provider_states:
-            # temp_list = provider_state.states()
-            #
-            # for state in temp_list:
-            #     if state.label in resource_state_map:
-            #         resource_state_map[state.label].append(state)
-            #     else:
-            #         resource_state_map[state.label] = [state]
-
             key = provider_state.label
             provider_resource_map[key] = list()
 
