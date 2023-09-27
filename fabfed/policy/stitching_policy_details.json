@@ -41,7 +41,7 @@
          "site": "STAR"
       },
       "Chameleon-TACC": {
-         "device_name": "Chameleon-StarLight",
+         "device_name": "Chameleon-TACC",
          "site": "TACC"
       }
    },
