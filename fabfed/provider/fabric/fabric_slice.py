@@ -177,13 +177,13 @@ class FabricSlice:
 
             self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
 
-            try:
-                import datetime
-                days = DEFAULT_RENEWAL_IN_DAYS
-                end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
-                self.slice_object.renew(end_date)
-            except Exception as e:
-                self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
+            # try:
+            #     import datetime
+            #     days = DEFAULT_RENEWAL_IN_DAYS
+            #     end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
+            #     self.slice_object.renew(end_date)
+            # except Exception as e:
+            #     self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
 
             return slice_id
         except Exception as e:
