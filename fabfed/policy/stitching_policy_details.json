@@ -28,7 +28,6 @@
          {
             "device_name": "agg4.ashb.net.internet2.edu",
             "local_name": "Bundle-Ether5",
-            "vlan" : 5,
             "site": "GCP"
          }
       ],
