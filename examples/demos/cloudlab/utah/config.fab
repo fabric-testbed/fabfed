@@ -24,6 +24,8 @@ resource:
       - cnet:
           provider: '{{cloudlab.cloudlab_provider }}'
           layer3: "{{ layer3.my_layer }}"
+          interface:
+          - vlan: 3400
   - node:
       - cloudlab_node:
           provider: '{{ cloudlab.cloudlab_provider }}'
