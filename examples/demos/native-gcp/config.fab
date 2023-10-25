@@ -1,8 +1,8 @@
 provider:
-  - aws:
-      - aws_provider:
+  - gcp:
+      - gcp_provider:
           - credential_file: ~/.fabfed/fabfed_credentials.yml
-            profile: aws 
+            profile: gcp 
   - fabric:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
@@ -15,46 +15,42 @@ config:
           gateway: 192.168.10.1
           ip_start: 192.168.10.2
           ip_end: 192.168.10.254
-      - aws_layer:
-          subnet: 10.0.1.0/24
+      - gcp_layer:
+          subnet: 10.100.0.0/24 # subnet.cidr and vpc.cidr
   - peering:
       - my_peering:
-          # FOR FABRIC
-          cloud_account: "296256999979" 
+          # FOR GCP  
+          cloud_region: "us-east4"
+          cloud_vpc:  "vpc-69acc1d9-8c24-47cd-90b8-33be57167dbf"
 
-          # FOR AWS and FABRIC  
-          cloud_region: "us-east-1"
+          # uncomment and override cloud_vlan with a value between 3 and 4095. The default is 4.
+          # cloud_vlan:
 
-          cloud_vpc: "vpc-0936b973cf039f794"
-          remote_asn: 64512 # amazon_asn
-          local_asn: 55038  # customer_asn
+          # FOR GCP AND FABRIC. 
+          remote_asn: 16550 # google_asn
 
           # FOR FABRIC
           local_address: "192.168.1.1/30" # customer_ip
-          remote_address: "192.168.1.2/30" # amazon_ip
-
+          remote_address: "192.168.1.2/30" # google_ip
 resource:
   - network:
-      - aws_net:
-          provider: '{{ aws.aws_provider }}'
-          name: aws-net
-          layer3: "{{ layer3.aws_layer }}"
+      - gcp_net:
+          provider: '{{ gcp.gcp_provider }}'
+          name: gcp-net
+          layer3: "{{ layer3.gcp_layer }}"
           peering: "{{ peering.my_peering }}"
           stitch_with: '{{ network.fabric_network }}'
-          stitch_option:
-            device_name: agg3.ashb.net.internet2.edu
-          count: 1 
-
+          count: 1
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
           peering: "{{ peering.my_peering }}"
           interface: '{{ node.fabric_node }}'
-          count: 1 
+          count: 1
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: MAX # Use RENC when deploying to fabric beta environment
+          site: MAX
           image: default_rocky_8
-          count: 1
+          count: 1 
           nic_model: NIC_Basic
