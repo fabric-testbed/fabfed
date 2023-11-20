@@ -30,14 +30,25 @@ The example below showcases network stitching across providers, a [chi](https://
 ```
 
 # <a name="install"></a>Installation
-You can install using the following command
+
+FabFed is available at PyPI.
 ```
-pip install -r requirements.txt 
+pip install fabfed-py
+```
+
+
+Alternatively, you may install and test using the following commands:
+```
 pip install -e .
 fabfed --help
 fabfed stitch-policy --help
 fabfed workflow --help
 fabfed sessions --help
+```
+
+If using the CloudLab provider, the following portal-tools module is a required dependency:
+```
+pip install git+https://gitlab.flux.utah.edu/stoller/portal-tools.git
 ```
 
 # <a name="operate"></a>Operation Instructions
