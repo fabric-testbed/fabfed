@@ -47,9 +47,9 @@ setup(
     name="fabfed-py",
     version=__VERSION__,
     description="Fabfed Framework",
-    author="Komal Thareja",
-    author_email="kthare10@renci.org",
-    url="https://github.com/RENCI-NRIG/Mobius",
+    author="Abdelilah Essiari",
+    author_email="aessiari@lbl.gov",
+    url="https://github.com/fabric-testbed/fabfed",
     keywords=["Fabfed Framework", "Cloud", "FABRIC", "Chameleon", "MOC"],
     install_requires=requirements,
     setup_requires=requirements,
@@ -67,6 +67,5 @@ setup(
        'console_scripts': [
               'fabfed = tools.fabfed:main',
        ]
-    },
-    dependency_links=['https://gitlab.flux.utah.edu/stoller/portal-tools.git#egg=portal-tools']
+    }
 )
