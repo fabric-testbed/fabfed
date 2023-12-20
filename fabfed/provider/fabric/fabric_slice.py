@@ -177,13 +177,13 @@ class FabricSlice:
 
             self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
 
-            try:
-                import datetime
-                days = DEFAULT_RENEWAL_IN_DAYS
-                end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
-                self.slice_object.renew(end_date)
-            except Exception as e:
-                self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
+            # try:
+            #     import datetime
+            #     days = DEFAULT_RENEWAL_IN_DAYS
+            #     end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
+            #     self.slice_object.renew(end_date)
+            # except Exception as e:
+            #     self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
 
             return slice_id
         except Exception as e:
@@ -258,6 +258,11 @@ class FabricSlice:
 
         self._ensure_management_ips()
 
+        for node in self.nodes:
+            self.slice_object = fablib.get_slice(name=self.provider.name)
+            delegate = self.slice_object.get_node(node.name)
+            delegate.network_manager_stop()
+
         if INCLUDE_FABNETS:
             self.slice_object = fablib.get_slice(name=self.provider.name)
             for node in self.nodes:
@@ -328,8 +333,8 @@ class FabricSlice:
 
         self.logger.info(f"Going to sleep {FABRIC_SLEEP_AFTER_SUBMIT_OK} seconds:slice {self.provider.label}")
         import time
-        time.sleep(FABRIC_SLEEP_AFTER_SUBMIT_OK)
-        self.logger.info(f"Back from sleeping ... slice {self.provider.label}")
+        # time.sleep(FABRIC_SLEEP_AFTER_SUBMIT_OK)
+        # self.logger.info(f"Back from sleeping ... slice {self.provider.label}")
 
         self._handle_node_networking()
 

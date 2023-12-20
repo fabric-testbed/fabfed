@@ -2,7 +2,6 @@ fabrictestbed-extensions==1.5.4
 python-chi
 sense-o-api==1.26
 ansible==7.1.0
-portal-tools @ git+https://gitlab.flux.utah.edu/stoller/portal-tools.git
 xmltodict
 boto3
 google-cloud-compute
