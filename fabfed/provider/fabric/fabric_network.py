@@ -192,7 +192,8 @@ class NetworkBuilder:
             peer_labels = Labels(ipv4_subnet=peer_subnet,
                                  asn=str(asn),
                                  bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
-                                 account_id=account_id)
+                                 account_id=account_id,
+                                 local_name=cloud)
 
             logger.info(f"Creating Facility Port:Labels: {labels}")
             logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
@@ -202,7 +203,7 @@ class NetworkBuilder:
                 site=cloud,
                 labels=labels,
                 peer_labels=peer_labels,
-                capacities=Capacities(bw=1, mtu=9001))
+                capacities=Capacities(bw=50, mtu=9001))
 
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
@@ -278,7 +279,8 @@ class NetworkBuilder:
         self.net.fim_network_service.peer(
             aux_net.fim_network_service,
             labels=Labels(bgp_key='secret', ipv4_subnet='192.168.50.1/24'),
-            capacities=Capacities(mtu=9001))
+            capacities=Capacities(mtu=9000),
+            peer_labels=Labels(local_name="FABRIC"))
 
     def build(self) -> FabricNetwork:
         assert self.net
