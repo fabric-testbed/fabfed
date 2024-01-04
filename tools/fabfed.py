@@ -75,6 +75,9 @@ def manage_workflow(args):
         except ControllerException as ce:
             logger.error(f"Exceptions while creating resources ... {ce}")
 
+        for stats in controller.get_stats():
+            logger.info(f"STATS:provider={stats.provider}, total_duration={stats.total_duration}")
+
         states = controller.get_states()
         pending = 0
         nodes = 0
@@ -92,6 +95,7 @@ def manage_workflow(args):
 
         logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
         sutil.save_states(states, args.session)
+        sutil.save_stats(controller.get_stats(), args.session)
         return
 
     if args.init:
@@ -127,6 +131,11 @@ def manage_workflow(args):
         sutil.dump_states(states, args.json, args.summary)
         return
 
+    if args.stats:
+        stats = sutil.load_stats(args.session)
+        sutil.dump_stats(stats, args.json, args.summary)
+        return
+
     if args.destroy:
         states = sutil.load_states(args.session) if args.session in sessions else []
 
@@ -139,6 +148,7 @@ def manage_workflow(args):
                                         use_local_policy=True)
                 controller.init(session=args.session, provider_factory=default_provider_factory)
                 controller.delete(provider_states=states)
+                sutil.save_stats(controller.get_stats(), args.session)
 
             if not states:
                 if args.session in sessions:

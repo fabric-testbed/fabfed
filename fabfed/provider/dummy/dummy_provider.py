@@ -165,7 +165,7 @@ class DummyProvider(Provider):
 
     def do_create_resource(self, *, resource: dict):
         """
-        Called by add_resource(self, *, resource: dict) if resource has no external dependencies
+        Called by create_resource(self, *, resource: dict) if resource has no external dependencies
         @param resource: resource attributes
         """
         label = resource.get(Constants.LABEL)
