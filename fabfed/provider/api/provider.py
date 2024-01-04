@@ -25,6 +25,8 @@ class Provider(ABC):
         self._added = []
         self.pending_internal = []
 
+        self.add_duration = self.create_duration = self.delete_duration = 0
+
     @property
     def resources(self) -> List:
         resources = [n for n in self._nodes]
@@ -77,7 +79,6 @@ class Provider(ABC):
         assert provider
 
         resource.write_ansible(provider.name)
-        # resource_dict = vars(resource)
 
         for pending_resource in self.pending.copy():
             resolver = self.get_dependency_resolver()
@@ -111,6 +112,9 @@ class Provider(ABC):
                     self.logger.warning(e, exc_info=True)
 
     def add_resource(self, *, resource: dict):
+        import time
+
+        start = time.time()
         count = resource.get(Constants.RES_COUNT, 1)
         label = resource.get(Constants.LABEL)
 
@@ -148,8 +152,14 @@ class Provider(ABC):
 
             self.failed[label] = 'ADD'
             raise e
+        finally:
+            end = time.time()
+            self.add_duration += (end - start)
 
     def create_resource(self, *, resource: dict):
+        import time
+
+        start = time.time()
         label = resource.get(Constants.LABEL)
 
         if label in self._added:
@@ -158,8 +168,15 @@ class Provider(ABC):
             except Exception as e:
                 self.failed[label] = 'CREATE'
                 raise e
+            finally:
+                end = time.time()
+                self.create_duration += (end - start)
 
     def delete_resource(self, *, resource: dict):
+        import time
+
+        start = time.time()
+
         try:
             self.do_delete_resource(resource=resource)
         except Exception as e:
@@ -167,6 +184,9 @@ class Provider(ABC):
 
             self.failed[label] = 'DELETE'
             raise e
+        finally:
+            end = time.time()
+            self.delete_duration += (end - start)
 
     def get_state(self) -> ProviderState:
         from fabfed.model.state import NetworkState, NodeState, ServiceState
