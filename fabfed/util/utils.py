@@ -45,8 +45,9 @@ def build_parser(*, manage_workflow, manage_sessions, display_stitch_info):
     workflow_parser.add_argument('-init', action='store_true', default=False, help='display resource ordering')
     workflow_parser.add_argument('-plan', action='store_true', default=False, help='shows plan')
     workflow_parser.add_argument('-use-remote-policy', action='store_true', default=False, help='use remote policy')
-    workflow_parser.add_argument('-show', action='store_true', default=False, help='display resources')
-    workflow_parser.add_argument('-summary', action='store_true', default=False, help='display resources')
+    workflow_parser.add_argument('-show', action='store_true', default=False, help='display resource.')
+    workflow_parser.add_argument('-summary', action='store_true', default=False, help='display summary. used with -show')
+    workflow_parser.add_argument('-stats', action='store_true', default=False, help='display stats')
     workflow_parser.add_argument('-json', action='store_true', default=False,
                                  help='use json output. relevant when used with -show or -plan')
     workflow_parser.add_argument('-destroy', action='store_true', default=False, help='delete resources')
@@ -63,8 +64,8 @@ def build_parser(*, manage_workflow, manage_sessions, display_stitch_info):
                                help='fabfed credential file. Defaults to ~/.fabfed/fabfed_credentials.yml',
                                required=False)
     stitch_parser.add_argument('-p', '--policy-file', type=str, default='',
-                                 help="Yaml stitching policy file",
-                                 required=False)
+                               help="Yaml stitching policy file",
+                               required=False)
     stitch_parser.add_argument('--profile', type=str, default='fabric',
                                help="fabric profile from credential file. Defaults to fabric",
                                required=False)
@@ -195,6 +196,15 @@ def load_vars(var_file):
 
     with open(var_file, 'r') as stream:
         return yaml.load(stream, Loader=yaml.FullLoader)
+
+
+def get_stats_base_dir(friendly_name):
+    from pathlib import Path
+    import os
+
+    base_dir = os.path.join(str(Path.home()), '.fabfed', 'stats', friendly_name)
+    os.makedirs(base_dir, exist_ok=True)
+    return base_dir
 
 
 def get_base_dir(friendly_name):
