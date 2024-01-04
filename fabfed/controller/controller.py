@@ -9,6 +9,7 @@ from fabfed.policy.policy_helper import ProviderPolicy
 from .provider_factory import ProviderFactory
 from ..util.constants import Constants
 from ..util.config_models import ResourceConfig
+from ..util.stats import ProviderStats
 
 
 class Controller:
@@ -23,7 +24,19 @@ class Controller:
         self.use_local_policy = use_local_policy
 
     def init(self, *, session: str, provider_factory: ProviderFactory):
+        resource_map_counts: Dict[str, int] = dict()
+
         for provider_config in self.config.get_provider_config():
+            resource_map_counts[provider_config.label] = 0
+
+        for resource in self.config.get_resource_configs():
+            resource_map_counts[resource.provider.label] += resource.attributes.get(Constants.RES_COUNT, 1)
+
+        for provider_config in self.config.get_provider_config():
+            if resource_map_counts[provider_config.label] <= 0:
+                self.logger.warning(f"Skipping initialization of {provider_config.label}: no resources")
+                continue
+
             name = provider_config.attributes.get('name')
             name = f"{session}-{name}" if name else session
             provider_factory.init_provider(type=provider_config.type,
@@ -31,7 +44,6 @@ class Controller:
                                            name=name,
                                            attributes=provider_config.attributes,
                                            logger=self.logger)
-
         if not self.policy:
             if self.use_local_policy:
                 from fabfed.policy.policy_helper import load_policy
@@ -118,7 +130,7 @@ class Controller:
             self.logger.info(f"{network}: stitch_with={network.attributes.get(Constants.RES_STITCH_INTERFACE)}")
 
     def plan(self, provider_states: List[ProviderState]):
-        resources = self.resources
+        resources = [r for r in self.resources if r.attributes.get(Constants.RES_COUNT, 1) > 0]
         resource_state_map = Controller._build_state_map(provider_states)
         self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
 
@@ -140,11 +152,12 @@ class Controller:
             raise ControllerException(exceptions)
 
     def create(self, provider_states: List[ProviderState]):
-        self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(self.resources)} resource(s)")
+        resources = [r for r in self.resources if r.attributes.get(Constants.RES_COUNT, 1) > 0]
+        self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
         resource_state_map = Controller._build_state_map(provider_states)
         exceptions = []
 
-        for resource in filter(lambda r: not r.is_service, self.resources):
+        for resource in filter(lambda r: not r.is_service, resources):
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
 
@@ -163,12 +176,12 @@ class Controller:
         from .helper import find_node_clusters
         from fabfed.util.node_tester import SshNodeTester
 
-        clusters = find_node_clusters(resources=self.resources)
+        clusters = find_node_clusters(resources=resources)
         nodes = [n for provider in self.provider_factory.providers for n in provider.nodes]
 
         for cluster in clusters:
             tester = SshNodeTester(nodes=[n for n in nodes if n.label in [n.label for n in cluster]],
-                                   run_ping_test=len(cluster)>1)
+                                   run_ping_test=len(cluster) > 1)
             tester.run_tests()
 
             from fabfed.model.state import get_dumper
@@ -185,7 +198,7 @@ class Controller:
 
         exceptions = []
 
-        for resource in filter(lambda r: r.is_service, self.resources):
+        for resource in filter(lambda r: r.is_service, resources):
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
 
@@ -307,8 +320,19 @@ class Controller:
 
         for provider in self.provider_factory.providers:
             provider_state = provider.get_state()
-
-            # TODO if provider_state.network_states or provider_state.node_states:
             provider_states.append(provider_state)
 
         return provider_states
+
+    def get_stats(self) -> List[ProviderStats]:
+        provider_stats = []
+
+        for provider in self.provider_factory.providers:
+            total_duration = provider.add_duration + provider.create_duration + provider.delete_duration
+            provider_stats.append(ProviderStats(provider=provider.label,
+                                                plan_duration=provider.add_duration,
+                                                create_duration=provider.create_duration,
+                                                delete_duration=provider.delete_duration,
+                                                total_duration=total_duration))
+
+        return provider_stats

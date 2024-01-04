@@ -252,7 +252,7 @@ class FabricSlice:
 
             time.sleep(2)
 
-    def _handle_node_networking(self):
+    def _do_handle_node_networking(self):
         from fabrictestbed_extensions.fablib.fablib import fablib
         from . import fabric_slice_helper
 
@@ -298,6 +298,13 @@ class FabricSlice:
         self._reload_nodes()
         self._reload_networks()
 
+    def _handle_node_networking(self):
+        try:
+            self._do_handle_node_networking()
+        except Exception as e:
+            raise Exception(
+                f"Please Apply again. Fabric slice {self.name} has exception during post networking setup: {e}")
+
     def create_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
 
@@ -330,12 +337,6 @@ class FabricSlice:
 
         self._submit_and_wait()
         self.slice_created = True
-
-        self.logger.info(f"Going to sleep {FABRIC_SLEEP_AFTER_SUBMIT_OK} seconds:slice {self.provider.label}")
-        import time
-        # time.sleep(FABRIC_SLEEP_AFTER_SUBMIT_OK)
-        # self.logger.info(f"Back from sleeping ... slice {self.provider.label}")
-
         self._handle_node_networking()
 
         if self.resource_listener:
