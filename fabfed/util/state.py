@@ -1,5 +1,5 @@
 from fabfed.model.state import ProviderState
-from fabfed.util.utils import get_base_dir
+from fabfed.util.utils import get_base_dir, get_stats_base_dir
 from typing import List
 
 import json
@@ -74,7 +74,8 @@ def dump_states(states, to_json: bool, summary: bool = False):
         for provider_state in states:
             for node_state in provider_state.node_states:
                 attributes = dict()
-                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6", 'keyfile', 'jump_keyfile']
+                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6", 'keyfile',
+                         'jump_keyfile']
 
                 for prop in props:
                     if prop in node_state.attributes:
@@ -118,6 +119,22 @@ def dump_states(states, to_json: bool, summary: bool = False):
             yaml.dump(states, Dumper=get_dumper(), width=float("inf"), default_flow_style=False, sort_keys=False))
 
 
+def dump_stats(provider_stats, to_json: bool, summary: bool = False):
+    import sys
+
+    if to_json:
+        import json
+
+        sys.stdout.write(json.dumps(provider_stats, cls=SetEncoder, indent=3))
+    else:
+        import yaml
+        from fabfed.model.state import get_dumper
+
+        sys.stdout.write(
+            yaml.dump(provider_stats,
+                      Dumper=get_dumper(), width=float("inf"), default_flow_style=False, sort_keys=False))
+
+
 def load_meta_data(friendly_name: str, attr=None):
     import yaml
     import os
@@ -146,6 +163,28 @@ def load_states(friendly_name) -> List[ProviderState]:
     from fabfed.model.state import get_loader
 
     file_path = os.path.join(get_base_dir(friendly_name), friendly_name + '.yml')
+
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as stream:
+            try:
+                ret = yaml.load(stream, Loader=get_loader())
+
+                if ret is not None:
+                    return ret
+            except Exception as e:
+                from fabfed.exceptions import StateException
+
+                raise StateException(f'Exception while loading state at {file_path}:{e}')
+
+    return []
+
+
+def load_stats(friendly_name) -> List[ProviderState]:
+    import yaml
+    import os
+    from fabfed.model.state import get_loader
+
+    file_path = os.path.join(get_stats_base_dir(friendly_name), friendly_name + '-stats.yml')
 
     if os.path.exists(file_path):
         with open(file_path, 'r') as stream:
@@ -193,6 +232,27 @@ def save_states(states: List[ProviderState], friendly_name):
             from fabfed.exceptions import StateException
 
             raise StateException(f'Exception while saving state at temp file {temp_file_path}:{e}')
+
+    import shutil
+
+    shutil.move(temp_file_path, file_path)
+
+
+def save_stats(stats: List[ProviderState], friendly_name):
+    import yaml
+    import os
+    from fabfed.model.state import get_dumper
+
+    file_path = os.path.join(get_stats_base_dir(friendly_name), friendly_name + '-stats.yml')
+    temp_file_path = file_path + ".temp"
+
+    with open(temp_file_path, "w") as stream:
+        try:
+            stream.write(yaml.dump(stats, Dumper=get_dumper(), default_flow_style=False, sort_keys=False))
+        except Exception as e:
+            from fabfed.exceptions import FabfedException
+
+            raise FabfedException(f'Exception while saving stats at temp file {temp_file_path}:{e}')
 
     import shutil
 
