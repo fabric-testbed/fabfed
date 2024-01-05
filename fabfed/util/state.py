@@ -119,19 +119,19 @@ def dump_states(states, to_json: bool, summary: bool = False):
             yaml.dump(states, Dumper=get_dumper(), width=float("inf"), default_flow_style=False, sort_keys=False))
 
 
-def dump_stats(provider_stats, to_json: bool, summary: bool = False):
+def dump_stats(stats, to_json: bool):
     import sys
 
     if to_json:
         import json
 
-        sys.stdout.write(json.dumps(provider_stats, cls=SetEncoder, indent=3))
+        sys.stdout.write(json.dumps(stats, cls=SetEncoder, indent=3))
     else:
         import yaml
         from fabfed.model.state import get_dumper
 
         sys.stdout.write(
-            yaml.dump(provider_stats,
+            yaml.dump(stats,
                       Dumper=get_dumper(), width=float("inf"), default_flow_style=False, sort_keys=False))
 
 
@@ -179,7 +179,7 @@ def load_states(friendly_name) -> List[ProviderState]:
     return []
 
 
-def load_stats(friendly_name) -> List[ProviderState]:
+def load_stats(friendly_name):
     import yaml
     import os
     from fabfed.model.state import get_loader
@@ -238,7 +238,7 @@ def save_states(states: List[ProviderState], friendly_name):
     shutil.move(temp_file_path, file_path)
 
 
-def save_stats(stats: List[ProviderState], friendly_name):
+def save_stats(stats, friendly_name):
     import yaml
     import os
     from fabfed.model.state import get_dumper
@@ -267,6 +267,13 @@ def load_sessions():
     os.makedirs(base_dir, exist_ok=True)
     sessions = os.listdir(base_dir)
     return sessions
+
+
+def delete_stats(friendly_name: str):
+    import shutil
+
+    dir_path = get_stats_base_dir(friendly_name)
+    shutil.rmtree(dir_path)
 
 
 def destroy_session(friendly_name: str):
