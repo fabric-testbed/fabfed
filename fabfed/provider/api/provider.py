@@ -25,7 +25,7 @@ class Provider(ABC):
         self._added = []
         self.pending_internal = []
 
-        self.add_duration = self.create_duration = self.delete_duration = 0
+        self.add_duration = self.create_duration = self.delete_duration = self.init_duration = 0
 
     @property
     def resources(self) -> List:
@@ -110,6 +110,14 @@ class Provider(ABC):
                     self.logger.warning(
                         f"Exception occurred while adding pending resource: {label} using {self.label}")
                     self.logger.warning(e, exc_info=True)
+
+    def init(self):
+        import time
+
+        start = time.time()
+        self.setup_environment()
+        end = time.time()
+        self.init_duration = (end - start)
 
     def add_resource(self, *, resource: dict):
         import time
