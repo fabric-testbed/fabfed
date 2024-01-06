@@ -8,6 +8,7 @@ class ProviderFactory:
     def __init__(self):
         self._providers: Dict[str, Provider] = {}
 
+    # noinspection PyBroadException
     def init_provider(self, *, type: str, label: str, name: str, attributes, logger):
         if type not in Constants.PROVIDER_CLASSES:
             from fabfed.exceptions import ProviderTypeNotSupported
@@ -25,7 +26,7 @@ class ProviderFactory:
         except:
             provider = cls(type=type, label=label, name=name, config=attributes)
 
-        provider.setup_environment()
+        provider.init()
         self._providers[label] = provider
 
     @property

@@ -9,7 +9,7 @@ from fabfed.policy.policy_helper import ProviderPolicy
 from .provider_factory import ProviderFactory
 from ..util.constants import Constants
 from ..util.config_models import ResourceConfig
-from ..util.stats import ProviderStats
+from ..util.stats import ProviderStats, Duration, Stages
 
 
 class Controller:
@@ -18,7 +18,7 @@ class Controller:
                  use_local_policy=True):
         self.config = config
         self.logger = logger
-        self.provider_factory = None
+        self.provider_factory: Union[ProviderFactory, None] = None
         self.resources: List[ResourceConfig] = []
         self.policy = policy
         self.use_local_policy = use_local_policy
@@ -172,6 +172,9 @@ class Controller:
 
         if exceptions:
             raise ControllerException(exceptions)
+
+        if not list(filter(lambda r: r.is_service, resources)):
+            return
 
         from .helper import find_node_clusters
         from fabfed.util.node_tester import SshNodeTester
@@ -328,11 +331,19 @@ class Controller:
         provider_stats = []
 
         for provider in self.provider_factory.providers:
-            total_duration = provider.add_duration + provider.create_duration + provider.delete_duration
-            provider_stats.append(ProviderStats(provider=provider.label,
-                                                plan_duration=provider.add_duration,
-                                                create_duration=provider.create_duration,
-                                                delete_duration=provider.delete_duration,
-                                                total_duration=total_duration))
+            total_duration = provider.init_duration \
+                             + provider.add_duration + provider.create_duration + provider.delete_duration
+            total_duration = Duration(duration=total_duration,
+                                      comment="Total time spent in provider")
+            stages = Stages(setup_duration=provider.init_duration,
+                            plan_duration=provider.add_duration,
+                            create_duration=provider.create_duration,
+                            delete_duration=provider.delete_duration)
+            temp = ProviderStats(provider=provider.label,
+                                 provider_duration=total_duration,
+                                 has_failures=len(provider.failed) > 0,
+                                 has_pending=len(provider.pending) > 0,
+                                 stages=stages)
+            provider_stats.append(temp)
 
         return provider_stats
