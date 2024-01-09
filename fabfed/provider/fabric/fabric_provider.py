@@ -47,16 +47,33 @@ class FabricProvider(Provider):
 
         location = get_log_location()
 
-        if fablib.get_default_fablib_manager().get_log_file() != location:
-            self.logger.debug("Initializing fablib extensions logging ...")
-            fablib.get_default_fablib_manager().set_log_file(location)
-            fablib.get_default_fablib_manager().set_log_level(get_log_level())
+        retry = 5
+        import time
 
-            for handler in logging.root.handlers.copy():
-                logging.root.removeHandler(handler)
+        for attempt in range(retry):
+            ex = None
 
-            for handler in self.logger.handlers:
-                logging.root.addHandler(handler)
+            try:
+                if fablib.get_default_fablib_manager().get_log_file() != location:
+                    self.logger.debug("Initializing fablib extensions logging ...")
+                    fablib.get_default_fablib_manager().set_log_file(location)
+                    fablib.get_default_fablib_manager().set_log_level(get_log_level())
+
+                    for handler in logging.root.handlers.copy():
+                        logging.root.removeHandler(handler)
+
+                    for handler in self.logger.handlers:
+                        logging.root.addHandler(handler)
+            except Exception as e:
+                ex = e
+
+            if attempt == retry:
+                if ex:
+                    raise ex
+
+                break
+
+            time.sleep(2)
 
     def _init_slice(self):
         if not self.slice:
