@@ -167,7 +167,15 @@ class FabricSlice:
             self.logger.info(f"Submitting request for slice {self.name}")
             slice_id = self.slice_object.submit(wait=False)
             self.logger.info(f"Waiting for slice {self.name} to be stable")
-            self.slice_object.wait(progress=True)
+
+            # TODO Timeout exceeded(360 sec).Slice: aes - chi - tacc - seq - 3(Configuring)
+
+            try:
+                self.slice_object.wait(timeout=24 * 60, progress=True)
+            except Exception as e:
+                state = self.slice_object.get_state()
+                self.logger.warning(f"Exception occurred while waiting state={state}:{e}")
+                raise e
 
             try:
                 self.slice_object.update()
