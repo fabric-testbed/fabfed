@@ -223,7 +223,8 @@ def manage_workflow(args):
         else:
             sutil.save_states(states, args.session)
 
-        workflow_duration = time.time() - start
+        end = time.time()
+        workflow_duration = end - start
         workflow_duration = Duration(duration=workflow_duration,
                                      comment="total time spent in destroying workflow")
         controller_duration = Duration(duration=controller_duration,
