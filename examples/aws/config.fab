@@ -24,7 +24,6 @@ config:
 
           # FOR AWS and FABRIC  
           cloud_region: "us-east-1"
-
           cloud_vpc: "vpc-0936b973cf039f794"
           remote_asn: 64512 # amazon_asn
           local_asn: 55038  # customer_asn
@@ -42,7 +41,7 @@ resource:
           peering: "{{ peering.my_peering }}"
           stitch_with: '{{ network.fabric_network }}'
           stitch_option:
-            device_name: agg3.ashb.net.internet2.edu
+            device_name: agg3.ashb
           count: 1 
 
       - fabric_network:
