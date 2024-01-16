@@ -1,3 +1,7 @@
+variable:
+  - vpc:
+      default: vpc-0936b973cf039f794
+      
 provider:
   - aws:
       - aws_provider:
@@ -24,8 +28,7 @@ config:
 
           # FOR AWS and FABRIC  
           cloud_region: "us-east-1"
-
-          cloud_vpc: "vpc-0936b973cf039f794"
+          cloud_vpc: '{{ var.vpc }}'
           remote_asn: 64512 # amazon_asn
           local_asn: 55038  # customer_asn
 
