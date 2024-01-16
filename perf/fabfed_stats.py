@@ -119,7 +119,7 @@ if __name__ == "__main__":
         print("example: fabfed_stats /tmp gcpx mydata.csv")
         sys.exit(3)
 
-    # check_stats(sys.argv[1], sys.argv[2])
+    check_stats(sys.argv[1], sys.argv[2])
     print("****************** BEGIN *********************")
     print("Using", sys.argv[1], sys.argv[2])
     print("APPLY:")
