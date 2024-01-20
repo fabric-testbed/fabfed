@@ -43,6 +43,13 @@ jobs:
         run: |
           docker run --rm -t ${{ env.fabfed_image }} fabfed stitch-policy -providers "chi,fabric" 
 
+      - name: Test Chameleon Stitch With No Nodes.
+        run: |
+          docker run --rm -t ${{ env.fabfed_image }} \
+              -e CHI_PROJECT=${{ secrets.CHI_PROJECT }} \
+              -e CHI_USER=${{ secrets.CHI_USER }} \
+              -e CHI_PASSWORD=${{ secrets.CHI_PASSWORD }} \
+              /cicd/test_configs/chi-stitch/run-chi-stitch.sh 
       - name: Move cache
         run: |
           rm -rf /tmp/.buildx-cache
