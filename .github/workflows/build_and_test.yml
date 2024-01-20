@@ -50,7 +50,7 @@ jobs:
               -e CHI_PROJECT=${{ secrets.CHI_PROJECT }} \
               -e CHI_USER=${{ secrets.CHI_USER }} \
               -e CHI_PASSWORD=${{ secrets.CHI_PASSWORD }} \
-              -e TEST_STR=${{ env.TEST_STR || HI }} \
+              -e TEST_STR=${{ env.TEST_STR }} \
               -t ${{ env.fabfed_image }} \
               /cicd/test_configs/chi-stitch/run-chi-stitch.sh 
 
