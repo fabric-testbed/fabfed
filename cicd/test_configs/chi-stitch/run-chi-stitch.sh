@@ -11,7 +11,7 @@ echo "PROJECT=$CHI_USER"
 sed "s/CHI_PROJECT/$CHI_PROJECT/" fabfed_credentials.yml.replaceme > ~/fabfed_credentials.yml
 cat ~/fabfed_credentials.yml
 
-string=$CHI_PASSWORD
+string=$CHI_USER
 length=${#string}
 echo "LENGTH=$length"
 
