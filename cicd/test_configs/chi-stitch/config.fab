@@ -1,0 +1,31 @@
+provider:
+  - fabric:
+      - fabric_provider:
+          credential_file: ~/fabfed_credentials.yml
+          profile: fabric
+  - chi:
+      - chi_provider:
+          credential_file: ~/fabfed_credentials.yml
+          profile: chi
+
+config:
+  - layer3:
+      - my_layer:
+          subnet: 192.168.100.0/24
+          gateway: 192.168.100.1
+          ip_start: 192.168.100.100
+          ip_end: 192.168.100.250
+resource:
+  - network:
+      - chi_network:
+          provider: '{{ chi.chi_provider }}'
+          name: stitch_net
+          layer3: "{{ layer3.my_layer }}"
+          count: 1
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+          stitch_with: '{{ network.chi_network }}'
+          count: 0
+          stitch_option:
+             site: TACC
