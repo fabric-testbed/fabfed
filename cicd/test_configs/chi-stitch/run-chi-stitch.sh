@@ -7,7 +7,7 @@ cd $script_dir
 cp controller.py /fabfed/controller/controller.py 
 pip install --break-system-package / > /dev/null 2>&1
 
-echo "PROJECT=$CHI_PROJECT"
+echo "PROJECT=$CHI_USER"
 sed "s/CHI_PROJECT/$CHI_PROJECT/" fabfed_credentials.yml.replaceme > ~/fabfed_credentials.yml
 cat ~/fabfed_credentials.yml
 
