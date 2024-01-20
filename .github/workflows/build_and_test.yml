@@ -1,0 +1,49 @@
+name: Build And Test 
+
+on:
+  push:
+    branches:
+      - develop 
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  fabfed_image: fabfed:cicd
+
+jobs:
+  DockerBuildAndTest:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: cicd/docker/Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.fabfed_image }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+      - name: Run Unit Tests
+        run: |
+          docker run --rm -t ${{ env.fabfed_image }} pytest tests
+
+      - name: Test Stitch Policy
+        run: |
+          docker run --rm -t ${{ env.fabfed_image }} fabfed stitch-policy -providers "chi,fabric" 
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
