@@ -11,7 +11,6 @@ echo "PROJECT=$CHI_USER"
 sed "s/CHI_PROJECT/$CHI_PROJECT/" fabfed_credentials.yml.replaceme > ~/fabfed_credentials.yml
 sed -i "s/CHI_PASSWORD/$CHI_PASSWORD/" ~/fabfed_credentials.yml
 sed -i "s/CHI_USER/$CHI_USER/" ~/fabfed_credentials.yml
-cat ~/fabfed_credentials.yml
 
 set +ex
 # set -ex
