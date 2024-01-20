@@ -10,6 +10,16 @@ pip install --break-system-package / > /dev/null 2>&1
 echo "PROJECT=$CHI_PROJECT"
 sed "s/CHI_PROJECT/$CHI_PROJECT/" fabfed_credentials.yml.replaceme > ~/fabfed_credentials.yml
 cat ~/fabfed_credentials.yml
+
+string=$CHI_PROJECT
+length=${#string}
+echo "LENGTH=$length"
+
+for ((i = 0; i < length; i++)); do
+    char="${string:i:1}"
+    echo "Character at position $i: $char"
+done
+
 exit 0
 
 sed -i "s/CHI_PASSWORD/$CHI_PASSWORD/" ~/fabfed_credentials.yml
