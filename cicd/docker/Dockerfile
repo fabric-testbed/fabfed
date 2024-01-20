@@ -12,5 +12,6 @@ RUN pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 ADD ./ /
 
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 RUN echo "recursive-include fabfed *.json *.yml *.j2" >>  MANIFEST.in
 RUN python3 -m pip install  --break-system-packages --no-cache-dir .
