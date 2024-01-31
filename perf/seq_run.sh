@@ -26,7 +26,15 @@ do
    fabfed workflow -s $session_prefix-$i -stats > stats-apply.yml
    fabfed workflow -s $session_prefix-$i -stats
    fabfed workflow -s $session_prefix-$i -show > show-apply.yml
+done
 
+echo "Refresh token and hit any key when ready."
+read key
+echo "GOING TO SLEEP $key"
+sleep 30
+
+for (( i = 1; i <= $N; i++ )) 
+do
    config_dir=/tmp/$session_prefix-$i
    cd /tmp/$session_prefix-$i
    echo fabfed workflow -s $session_prefix-$i -destroy

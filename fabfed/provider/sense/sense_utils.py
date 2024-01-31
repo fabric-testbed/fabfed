@@ -198,29 +198,40 @@ def instance_operate(*, client=None, si_uuid):
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
 
     import time
+    from random import randint
 
     status = workflow_api.instance_get_status(si_uuid=si_uuid)
 
     if "CREATE - COMMITTING" not in status:
-        workflow_api.instance_operate('provision', si_uuid=si_uuid, sync='false')
+        try:
+            time.sleep(randint(5, 30))
+            workflow_api.instance_operate('provision', si_uuid=si_uuid, sync='false')  # AES TODO THIS GUY
+        except Exception as e:
+            logger.warning(f"exception from  instance_operate {e}")
+            pass
 
     for attempt in range(SENSE_RETRY):
-        status = workflow_api.instance_get_status(si_uuid=si_uuid)
-        logger.info(f"Waiting on CREATED-READY: status={status}:attempt={attempt}")
+        try:
+            status = workflow_api.instance_get_status(si_uuid=si_uuid)
+            logger.info(f"Waiting on CREATED-READY: status={status}:attempt={attempt} out of {SENSE_RETRY}")
 
-        if 'CREATE - READY' in status:
-            break
+            if 'CREATE - READY' in status:
+                break
 
-        if 'FAILED' in status:
-            break
+            if 'FAILED' in status:
+                break
+        except Exception as e:
+            logger.warning(f"exception from  instance_get_status {e}")
+            pass
 
-        time.sleep(30)
+        logger.info(f"Waiting on CREATED-READY: going to sleep attempt={attempt}")
+        time.sleep(randint(30, 35))
 
     return workflow_api.instance_get_status(si_uuid=si_uuid)
 
 
 def delete_instance(*, client=None, si_uuid):
-    import time
+    import time, random
 
     client = client or get_client()
     workflow_api = WorkflowCombinedApi(req_wrapper=client)
@@ -234,6 +245,8 @@ def delete_instance(*, client=None, si_uuid):
         raise SenseException(f'cannot delete instance - contact admin. {status}')
 
     if "CREATE - COMPILED" in status:
+        time.sleep(random.randint(5, 30))
+
         workflow_api.instance_delete(si_uuid=si_uuid)
         return
 
@@ -241,17 +254,19 @@ def delete_instance(*, client=None, si_uuid):
         if 'CREATE' not in status and 'REINSTATE' not in status and 'MODIFY' not in status:
             raise ValueError(f"cannot cancel an instance in '{status}' status...")
 
+        time.sleep(random.randint(5, 30))
+
         if 'READY' not in status:
             workflow_api.instance_operate('cancel', si_uuid=si_uuid, sync='false', force='true')
         else:
             workflow_api.instance_operate('cancel', si_uuid=si_uuid, sync='false')
 
     for attempt in range(SENSE_RETRY):
-        time.sleep(30)  # This sleep is here to workaround issue where CANCEL-READY shows up prematurely.
+        time.sleep(random.randint(30, 35))  # This sleep is here to workaround issue where CANCEL-READY shows up prematurely.
 
         status = workflow_api.instance_get_status(si_uuid=si_uuid)
         # print("LOOPING:DELETE:Status=", status, "attempt=", attempt)
-        logger.info(f"Waiting on CANCEL-READY: status={status}:attempt={attempt}")
+        logger.info(f"Waiting on CANCEL-READY: status={status}:attempt={attempt} out of {SENSE_RETRY}")
 
         if 'CANCEL - READY' in status:  # This got triggered very quickly ...
             break
@@ -260,8 +275,10 @@ def delete_instance(*, client=None, si_uuid):
             break
 
     if 'CANCEL - READY' in status:
-        workflow_api.instance_delete(si_uuid=si_uuid)
-        logger.info(f"Deleted instance: {si_uuid}")
+        logger.info(f"Deleting instance: {si_uuid}")
+        time.sleep(random.randint(5, 30))
+        ret = workflow_api.instance_delete(si_uuid=si_uuid)
+        logger.info(f"Deleted instance: {si_uuid}: ret={ret}")
     else:
         raise SenseException(f'cancel operation disrupted - instance not deleted - contact admin. {status}')
 
