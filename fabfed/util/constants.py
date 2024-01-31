@@ -103,4 +103,4 @@ class Constants:
     }
 
     RUN_SSH_TESTER = True
-    COPY_TOKENS = True
+    COPY_TOKENS = False
