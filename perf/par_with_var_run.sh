@@ -6,8 +6,8 @@ N=$3
 
 session_prefix=$session_prefix-$N
 
-# vlan=3100
-vlan=3110
+vlan=3100
+# vlan=3110
 
 for (( i = 1; i <= $N; i++ )) 
 do
@@ -70,5 +70,6 @@ do
 done
 
 script_dir=$(dirname $0)
+echo $script_dir/fabfed_stats.py /tmp $session_prefix-
 $script_dir/fabfed_stats.py /tmp $session_prefix-
 exit 0

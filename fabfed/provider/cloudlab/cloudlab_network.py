@@ -133,12 +133,17 @@ class CloudNetwork(Network):
         logger.debug(json.dumps(status, indent=2))
         logger.info(f"STATUS_KEYS={status.keys()}")
 
+
         import xmltodict
 
         data_dict = xmltodict.parse(next(iter(status.values())))
         logger.info(f"RSPEC: {json.dumps(data_dict['rspec'], indent=2)}")
         link = data_dict['rspec']['link']
         self.interface = [dict(id='', provider=self.provider.type, vlan=link['@vlantag'])]
+
+        if not [n for n in self.provider.nodes if n.net == self]:
+            return
+
         all_nodes = data_dict['rspec']['node']
         nodes = [n for n in all_nodes if 'stitch' not in['@component_manager_id']]
         n = nodes[0]

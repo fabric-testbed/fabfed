@@ -101,3 +101,6 @@ class Constants:
         "aws": "fabfed.provider.aws.aws_provider.AwsProvider",
         "dummy": "fabfed.provider.dummy.dummy_provider.DummyProvider"
     }
+
+    RUN_SSH_TESTER = True
+    COPY_TOKENS = True

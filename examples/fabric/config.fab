@@ -1,13 +1,12 @@
 variable:
   - fabric_site:
-      default: WASH 
+      default: WASH
 
 provider:
   - fabric:
     - fabric_provider:
          credential_file: ~/.fabfed/fabfed_credentials.yml
          profile: fabric
-
 resource:
   - node:
       - fabric_node:
@@ -15,4 +14,5 @@ resource:
             site: '{{ var.fabric_site }}' 
             count: 1
             image: default_rocky_8
-            nic_model: NIC_ConnectX_5
+            nic_model: NIC_Basic
+            flavor: {'cores': 2, 'ram': 8, 'disk': 10}

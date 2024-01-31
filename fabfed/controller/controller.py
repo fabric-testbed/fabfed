@@ -173,7 +173,7 @@ class Controller:
         if exceptions:
             raise ControllerException(exceptions)
 
-        if not list(filter(lambda r: r.is_service, resources)):
+        if not Constants.RUN_SSH_TESTER:
             return
 
         from .helper import find_node_clusters
@@ -188,11 +188,10 @@ class Controller:
             tester.run_tests()
 
             from fabfed.model.state import get_dumper
-            import sys
             import yaml
 
             rep = yaml.dump(tester.summary, default_flow_style=False, sort_keys=False, Dumper=get_dumper())
-            sys.stderr.write(rep)
+            self.logger.info(f"connection summary:rep={rep}");
 
             if tester.has_failures():
                 raise ControllerException([Exception("Node testing over ssh failed see node test summary ...")])
