@@ -81,11 +81,13 @@ class FabricProvider(Provider):
                     temp = FabricSlice(provider=self, logger=self.logger)
                     temp.init()
                     self.slice = temp
+                    self.logger.info(f"Done initializing slice {self.name}")
                     break
                 except Exception as e:
                     if attempt == self.retry - 1:
                         raise e
 
+                self.logger.info(f"Initializing slice {self.name}. Going to sleep. Will retry ...")
                 time.sleep(2)
 
     def do_add_resource(self, *, resource: dict):

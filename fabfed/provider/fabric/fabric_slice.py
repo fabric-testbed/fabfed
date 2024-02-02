@@ -17,8 +17,13 @@ class FabricSlice:
         self.logger = logger
         self.notified_create = False
         self.slice_created = False
-        self.slice_object = None
+        self.slice_modified = False
+
+        from fabrictestbed_extensions.fablib.slice import Slice
+
+        self.slice_object: Slice = None
         self.retry = 10
+        self.existing_nodes = []
 
     def init(self):
         from fabrictestbed_extensions.fablib.fablib import fablib
@@ -41,6 +46,7 @@ class FabricSlice:
 
         if self.slice_object:
             self.slice_created = True
+            self.existing_nodes = [n.get_name() for n in self.slice_object.get_nodes()]
         else:
             self.slice_created = False
             self.slice_object = fablib.new_slice(name=self.provider.name)
@@ -104,8 +110,15 @@ class FabricSlice:
 
         for i in range(node_count):
             name = f"{name_prefix}{i}"
-            node_builder = NodeBuilder(label, self.slice_object, name, resource)
-            node = node_builder.build()
+
+            try:
+                delegate = self.slice_object.get_node(name)
+                node = FabricNode(label=label, delegate=delegate)
+            except Exception as e:
+                node_builder = NodeBuilder(label, self.slice_object, name, resource)
+                node = node_builder.build()
+                self.slice_modified = True
+
             self.nodes.append(node)
 
             if self.resource_listener:
@@ -119,27 +132,15 @@ class FabricSlice:
             label = resource.get(Constants.LABEL)
 
             if rtype == Constants.RES_TYPE_NODE.lower():
-                node_count = resource.get(Constants.RES_COUNT, 1)
-                name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-
-                for i in range(node_count):
-                    name = f"{name_prefix}{i}"
-                    delegate = self.slice_object.get_node(name)
-
-                    if delegate is None:
-                        raise Exception(f"Did not find node named {name}")
-
-                    node = FabricNode(label=label, delegate=delegate)
-                    self.nodes.append(node)
-
-                    if self.resource_listener:
-                        self.resource_listener.on_added(source=self, provider=self, resource=node)
+                self._add_node(resource)
             elif rtype == Constants.RES_TYPE_NETWORK.lower():
                 name_prefix = resource.get(Constants.RES_NAME_PREFIX)
                 delegate = self.slice_object.get_network(name_prefix)
 
                 if delegate is None:
-                    raise Exception(f"Did not find network named {name_prefix}")
+                    self._add_network(resource)
+                    # raise Exception(f"Did not find network named {name_prefix}")
+                    return
 
                 layer3 = resource.get(Constants.RES_LAYER3)
                 peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
@@ -177,11 +178,11 @@ class FabricSlice:
                 self.logger.warning(f"Exception occurred while waiting state={state}:{e}")
                 raise e
 
-            try:
-                self.slice_object.update()
-                self.slice_object.post_boot_config()
-            except Exception as e:
-                self.logger.warning(f"Exception occurred while update/post_boot_config: {e}")
+            # try:
+            #     self.slice_object.update()
+            #     self.slice_object.post_boot_config()
+            # except Exception as e:
+            #     self.logger.warning(f"Exception occurred while update/post_boot_config: {e}")
 
             self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
 
@@ -324,6 +325,43 @@ class FabricSlice:
             return
 
         if self.slice_created:
+            aset = set(self.existing_nodes)
+            bset = {n.name for n in self.nodes}
+
+            for n in (aset - bset):
+                self.logger.info(f"removing node {n} from slice {self.name}")
+
+                if INCLUDE_FABNETS:
+                    self.slice_object.get_fim_topology().remove_network_service(f"{n}-{FABRIC_IPV4_NET_NAME}")
+                    self.slice_object.get_fim_topology().remove_network_service(f"{n}-{FABRIC_IPV6_NET_NAME}")
+
+                node = self.slice_object.get_node(name=n)
+
+                if self.networks:
+                    from fabrictestbed_extensions.fablib.network_service import NetworkService
+
+                    delegate: NetworkService = self.networks[0].delegate
+                    node_interfaces = [i for i in node.get_interfaces()]
+                    itf = node_interfaces[0]
+                    delegate.remove_interface(itf)
+
+                self.slice_object.get_fim_topology().remove_node(name=n)
+                self.slice_modified = True
+
+            if self.networks:
+                for n in (bset - aset):
+                    node = self.slice_object.get_node(name=n)
+                    itf = node.add_component(model="NIC_Basic", name=FABRIC_STITCH_NET_IFACE_NAME).get_interfaces()[0]
+                    self.logger.info(f"Added interface {itf.get_name()} to node {node.get_name()}")
+
+                    from fabrictestbed_extensions.fablib.network_service import NetworkService
+
+                    delegate: NetworkService = self.networks[0].delegate
+                    self.logger.info(f"adding interface {itf.get_name()} to {delegate.get_name()}")
+                    delegate.add_interface(itf)
+                    self.slice_modified = True
+
+        if self.slice_created and not self.slice_modified:
             state = self.slice_object.get_state()
 
             if not self.notified_create:
@@ -345,6 +383,8 @@ class FabricSlice:
 
         self._submit_and_wait()
         self.slice_created = True
+        self.slice_modified = False
+        self.existing_nodes = [n.name for n in self.nodes]
         self._handle_node_networking()
 
         if self.resource_listener:
