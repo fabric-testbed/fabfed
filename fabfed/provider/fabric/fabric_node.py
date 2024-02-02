@@ -94,7 +94,7 @@ class FabricNode(Node):
         # print("""""""""""""""""""""""""""""""""""""""""""")
 
     @property
-    def delegate(self):
+    def delegate(self) -> Delegate:
         return self._delegate
 
     @property
