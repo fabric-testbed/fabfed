@@ -53,6 +53,10 @@ class FabricNetwork(Network):
     def gateway(self):
         return self.layer3.attributes.get(Constants.RES_NET_GATEWAY) if self.layer3 else None
 
+    @property
+    def delegate(self):
+        return self._delegate
+
     def available_ips(self):
         available_ips = []
 
@@ -201,6 +205,7 @@ class NetworkBuilder:
                                      asn=str(asn),
                                      bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
                                      account_id=account_id,
+                                     region=region,
                                      local_name=cloud)
 
             logger.info(f"Creating Facility Port:Labels: {labels}")
