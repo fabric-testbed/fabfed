@@ -47,7 +47,7 @@ class SshNodeTester:
                              description=fmt.format(n.jump_user, n.jump_host, n.jump_keyfile)))
                     continue
 
-                helper = SshNodeHelper(label=n.label, host=n.host,
+                helper = SshNodeHelper(label=n.name, host=n.host,
                                        user=n.user,
                                        private_key_file=n.keyfile,
                                        jump_host=n.jump_host,
@@ -145,7 +145,7 @@ class SshNodeTester:
         for n in self.nodes:
             if n.jump_user or n.jump_host or n.jump_keyfile:
                 node_info_list.append(
-                    {n.label: JumpNode(host=n.host,
+                    {n.name: JumpNode(host=n.host,
                                        user=n.user,
                                        key_file=n.keyfile,
                                        data_plane_address=n.get_dataplane_address(),
@@ -156,7 +156,7 @@ class SshNodeTester:
                      }
                 )
             else:
-                node_info_list.append({n.label: Node(host=n.host,
+                node_info_list.append({n.name: Node(host=n.host,
                                                      user=n.user,
                                                      key_file=n.keyfile,
                                                      data_plane_address=n.get_dataplane_address())})
