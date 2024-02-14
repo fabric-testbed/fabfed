@@ -1,4 +1,4 @@
-include fabfed/config/*.yml
 include requirements.txt
-include Readme.md
+include README.md
 include LICENSE
+recursive-include fabfed *.json *.yml *.j2
