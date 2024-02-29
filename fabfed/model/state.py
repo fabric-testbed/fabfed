@@ -30,7 +30,8 @@ class ServiceState(BaseState):
 
 class ProviderState(BaseState):
     def __init__(self, label, attributes, network_states: List[NetworkState],
-                 node_states: List[NodeState], service_states: List[ServiceState], pending, pending_internal, failed: Dict[str, str]):
+                 node_states: List[NodeState], service_states: List[ServiceState], pending,
+                 pending_internal, failed: Dict[str, str], creation_details: Dict):
         super().__init__("provider", label, attributes)
         self.network_states = network_states
         self.node_states = node_states
@@ -38,8 +39,9 @@ class ProviderState(BaseState):
         self.pending = pending
         self.pending_internal = pending_internal
         self.failed = failed
+        self.creation_details = creation_details
 
-    def states(self):
+    def states(self) -> List[BaseState]:
         return self.network_states + self.node_states + self.service_states
 
 
@@ -56,7 +58,8 @@ def provider_representer(dumper: yaml.SafeDumper, provider_state: ProviderState)
         "service_states": provider_state.service_states,
         "pending": provider_state.pending,
         "pending_internal": provider_state.pending_internal,
-        "failed": provider_state.failed
+        "failed": provider_state.failed,
+        "creation_details": provider_state.creation_details
     })
 
 
