@@ -11,6 +11,7 @@ class Constants:
     RES_TYPE = "type"
     RES_SITE = "site"
     RES_COUNT = "count"
+    RES_CREATION_DETAILS = "creation_details"
     RES_IMAGE = "image"
     RES_NIC_MODEL = "nic_model"
     RES_NETWORK = "network"

@@ -26,7 +26,12 @@ class ProviderFactory:
         except:
             provider = cls(type=type, label=label, name=name, config=attributes)
 
-        provider.init()
+        try:
+            provider.init()
+        except Exception as e:
+            from fabfed.exceptions import ProviderException
+
+            raise ProviderException(f"Exception encountered while initializing {label}: {e}")
         self._providers[label] = provider
 
     @property

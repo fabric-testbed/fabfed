@@ -2,7 +2,7 @@ import logging
 from typing import List, Union, Dict
 
 from fabfed.exceptions import ControllerException
-from fabfed.model.state import ProviderState
+from fabfed.model.state import BaseState, ProviderState
 from fabfed.util.config import WorkflowConfig
 from .helper import ControllerResourceListener, partition_layer3_config
 from fabfed.policy.policy_helper import ProviderPolicy
@@ -22,18 +22,24 @@ class Controller:
         self.resources: List[ResourceConfig] = []
         self.policy = policy
         self.use_local_policy = use_local_policy
+        self.resource_listener = ControllerResourceListener()
 
-    def init(self, *, session: str, provider_factory: ProviderFactory):
-        resource_map_counts: Dict[str, int] = dict()
+    def init(self, *, session: str, provider_factory: ProviderFactory, provider_states: List[ProviderState]):
+        init_provider_map: Dict[str, bool] = dict()
 
         for provider_config in self.config.get_provider_config():
-            resource_map_counts[provider_config.label] = 0
+            init_provider_map[provider_config.label] = False
 
         for resource in self.config.get_resource_configs():
-            resource_map_counts[resource.provider.label] += resource.attributes.get(Constants.RES_COUNT, 1)
+            count = resource.attributes.get(Constants.RES_COUNT, 1)
+            init_provider_map[resource.provider.label] = init_provider_map[resource.provider.label] or count > 0
+
+        for provider_state in provider_states:
+            init_provider_map[provider_state.label] = init_provider_map[provider_state.label] \
+                                                      or len(provider_state.states()) > 0
 
         for provider_config in self.config.get_provider_config():
-            if resource_map_counts[provider_config.label] <= 0:
+            if not init_provider_map[provider_config.label]:
                 self.logger.warning(f"Skipping initialization of {provider_config.label}: no resources")
                 continue
 
@@ -58,10 +64,10 @@ class Controller:
 
         self.provider_factory = provider_factory
         providers = self.provider_factory.providers
-        resource_listener = ControllerResourceListener(providers)
+        self.resource_listener.set_providers(providers)
 
         for provider in providers:
-            provider.set_resource_listener(resource_listener)
+            provider.set_resource_listener(self.resource_listener)
 
         self.resources = self.config.get_resource_configs()
 
@@ -85,6 +91,7 @@ class Controller:
             resource_dict[Constants.INTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.RESOLVED_INTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.SAVED_STATES] = list()
+            resource_dict[Constants.RES_COUNT] = resource_dict.get(Constants.RES_COUNT, 1)
 
             for dependency in resource.dependencies:
                 if dependency.is_external:
@@ -129,12 +136,100 @@ class Controller:
             self.logger.info(f"{network}: stitch_info={network.attributes.get(Constants.RES_STITCH_INFO)}")
             self.logger.info(f"{network}: stitch_with={network.attributes.get(Constants.RES_STITCH_INTERFACE)}")
 
+        self.resources = [r for r in self.resources if r.attributes[Constants.RES_COUNT] > 0]
+
     def plan(self, provider_states: List[ProviderState]):
-        resources = [r for r in self.resources if r.attributes.get(Constants.RES_COUNT, 1) > 0]
-        resource_state_map = Controller._build_state_map(provider_states)
-        self.logger.info(f"Starting PLAN_PHASE: Calling ADD ... for {len(resources)} resource(s)")
+        resources = self.resources
+        resource_state_map = Controller._build_new_state_map(provider_states)
+        self.logger.info(f"Starting PLAN_PHASE for {len(resources)} resource(s)")
+        pf = self.provider_factory
+        resources_labels = [r.label for r in resources]
+        planned_resources = []
+
+        for resource in resources:
+            resource_dict = resource.attributes
+            label = resource.provider.label
+            provider = pf.get_provider(label=label)
+            creation_details = resource_dict[Constants.RES_CREATION_DETAILS] = {}
+            creation_details['resources'] = {}
+            creation_details['resources'][resource.label] = []
+            creation_details['total_count'] = resource_dict[Constants.RES_COUNT]
+            creation_details['failed_count'] = 0
+            creation_details['created_count'] = 0
+            creation_details['in_config_file'] = True
+            creation_details['provider_supports_modifiable'] = provider.supports_modify()
+
+        for resource in resources:
+            if resource.label in resource_state_map:
+                states = resource_state_map.get(resource.label)
+                provider_state = states[0].attributes.get('provider_state')
+                resource_dict = resource.attributes
+                resource_dict[Constants.RES_CREATION_DETAILS].update(provider_state.creation_details[resource.label])
+                resource_dict[Constants.RES_CREATION_DETAILS]['total_count'] = resource_dict[Constants.RES_COUNT]
+
+            planned_resources.append(resource)
+
+        for state_label, states in resource_state_map.items():
+            if state_label not in resources_labels:
+                state = states[0]
+                resource_dict = state.attributes.copy()
+                provider_state = resource_dict.pop('provider_state')
+                provider = pf.get_provider(label=provider_state.label)
+
+                creation_details = provider_state.creation_details[state_label]
+                creation_details['in_config_file'] = False
+                creation_details['provider_supports_modifiable'] = provider.supports_modify()
+
+                from ..util.config_models import ProviderConfig
+
+                var_name, _ = tuple(provider_state.label.split('@'))
+
+                provider_config = ProviderConfig(type=provider.type, name=var_name, attrs=provider.config)
+
+                var_name, _ = tuple(state.label.split('@'))
+                # resource_config = ResourceConfig(type=state.type, name=var_name, provider=provider_config,
+                #                                  attrs=resource_dict)
+                resource_dict = {}
+
+                if var_name != creation_details['name_prefix']:
+                    resource_dict['name'] = creation_details['name_prefix']
+
+                resource_config = ResourceConfig(type=state.type, name=var_name, provider=provider_config,
+                                                 attrs=resource_dict)
+                resource_dict[Constants.RES_TYPE] = state.type
+                resource_dict[Constants.RES_NAME_PREFIX] = creation_details['name_prefix']
+                resource_dict[Constants.LABEL] = resource_config.label
+                resource_dict[Constants.EXTERNAL_DEPENDENCIES] = list()
+                resource_dict[Constants.RESOLVED_EXTERNAL_DEPENDENCIES] = list()
+                resource_dict[Constants.INTERNAL_DEPENDENCIES] = list()
+                resource_dict[Constants.RESOLVED_INTERNAL_DEPENDENCIES] = list()
+                resource_dict[Constants.SAVED_STATES] = list()
+                resource_dict[Constants.RES_COUNT] = creation_details['total_count']
+                resource_dict[Constants.RES_CREATION_DETAILS] = creation_details
+                planned_resources.append(resource_config)
+
+        self.resources = planned_resources
+
+    def add(self, provider_states: List[ProviderState]):
+        resources = self.resources
+        self.logger.info(f"Starting ADD_PHASE: Calling ADD ... for {len(resources)} resource(s)")
 
         exceptions = []
+        for resource in resources:
+            label = resource.provider.label
+            provider = self.provider_factory.get_provider(label=label)
+
+            try:
+                provider.validate_resource(resource=resource.attributes)
+            except Exception as e:
+                exceptions.append(e)
+                self.logger.error(e, exc_info=True)
+
+        if exceptions:
+            raise ControllerException(exceptions)
+
+        exceptions = []
+        resource_state_map = Controller._build_state_map(provider_states)
         for resource in resources:
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
@@ -151,11 +246,19 @@ class Controller:
         if exceptions:
             raise ControllerException(exceptions)
 
-    def create(self, provider_states: List[ProviderState]):
-        resources = [r for r in self.resources if r.attributes.get(Constants.RES_COUNT, 1) > 0]
-        self.logger.info(f"Starting CREATE_PHASE: Calling CREATE ... for {len(resources)} resource(s)")
-        resource_state_map = Controller._build_state_map(provider_states)
+    def apply(self, provider_states: List[ProviderState]):
+        resources = self.resources
+        self.logger.info(f"Starting APPLY_PHASE for {len(resources)} resource(s)")
+        resource_state_map = Controller._build_new_state_map(provider_states)
         exceptions = []
+
+        to_be_deleted_resources = []
+
+        for resource in resources:
+            resource_dict = resource.attributes
+            creation_details = resource_dict[Constants.RES_CREATION_DETAILS]
+            if not creation_details['in_config_file']:
+                to_be_deleted_resources.append(resource)
 
         for resource in filter(lambda r: not r.is_service, resources):
             label = resource.provider.label
@@ -179,24 +282,26 @@ class Controller:
         from .helper import find_node_clusters
         from fabfed.util.node_tester import SshNodeTester
 
-        clusters = find_node_clusters(resources=resources)
-        nodes = [n for provider in self.provider_factory.providers for n in provider.nodes]
+        nodes = [n for prov in self.provider_factory.providers if prov.type != "dummy" for n in prov.nodes]
 
-        for cluster in clusters:
-            tester = SshNodeTester(nodes=[n for n in nodes if n.label in [n.label for n in cluster]],
-                                   run_ping_test=len(cluster) > 1)
-            tester.run_tests()
+        if nodes:
+            clusters = find_node_clusters(resources=resources)
 
-            from fabfed.model.state import get_dumper
-            import yaml
+            for cluster in clusters:
+                tester = SshNodeTester(nodes=[n for n in nodes if n.label in [n.label for n in cluster]],
+                                       run_ping_test=len(cluster) > 1)
+                tester.run_tests()
 
-            rep = yaml.dump(tester.summary, default_flow_style=False, sort_keys=False, Dumper=get_dumper())
-            self.logger.info(f"connection summary:rep={rep}");
+                from fabfed.model.state import get_dumper
+                import yaml
 
-            if tester.has_failures():
-                raise ControllerException([Exception("Node testing over ssh failed see node test summary ...")])
+                rep = yaml.dump(tester.summary, default_flow_style=False, sort_keys=False, Dumper=get_dumper())
+                self.logger.info(f"connection summary:rep={rep}")
 
-            self.logger.info(f"Node testing over ssh pass for {[n.name for n in nodes]}")
+                if tester.has_failures():
+                    raise ControllerException([Exception("Node testing over ssh failed see node test summary ...")])
+
+                self.logger.info(f"Node testing over ssh pass for {[n.name for n in nodes]}")
 
         exceptions = []
 
@@ -217,6 +322,23 @@ class Controller:
             raise ControllerException(exceptions)
 
     @staticmethod
+    def _build_new_state_map(provider_states: List[ProviderState]) -> Dict[str, List[BaseState]]:
+        resource_state_map = dict()
+
+        for provider_state in provider_states:
+            temp_list = provider_state.states()
+
+            for state in temp_list:
+                state.attributes['provider_state'] = provider_state
+
+                if state.label in resource_state_map:
+                    resource_state_map[state.label].append(state)
+                else:
+                    resource_state_map[state.label] = [state]
+
+        return resource_state_map
+
+    @staticmethod
     def _build_state_map(provider_states):
         resource_state_map = dict()
         for provider_state in provider_states:
@@ -229,6 +351,93 @@ class Controller:
                     resource_state_map[state.label] = [state]
 
         return resource_state_map
+
+    def destroy(self, *, provider_states: List[ProviderState]):
+        exceptions = []
+        resource_state_map = Controller._build_new_state_map(provider_states)
+        provider_resource_map = dict()
+
+        for provider_state in provider_states:
+            key = provider_state.label
+            provider_resource_map[key] = list()
+
+        temp = self.resources
+        temp.reverse()
+
+        for resource in temp:
+            if resource.label in resource_state_map:
+                key = resource.provider.label
+                external_dependencies = resource.attributes.get(Constants.EXTERNAL_DEPENDENCIES, [])
+                external_states = [resource_state_map[ed.resource.label] for ed in external_dependencies]
+                resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = sum(external_states, [])
+                provider_resource_map[key].append(resource)
+                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
+
+        remaining_resources = list()
+        skip_resources = set()
+
+        for resource in temp:
+            if resource.label not in resource_state_map:
+                continue
+
+            provider_label = resource.provider.label
+            provider = self.provider_factory.get_provider(label=provider_label)
+            external_states = resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES]
+
+            if resource.label in skip_resources:
+                self.logger.warning(f"Skipping deleting resource: {resource} with {provider_label}")
+                remaining_resources.append(resource)
+                skip_resources.update([external_state.label for external_state in external_states])
+                continue
+
+            fabric_work_around = False
+            # TODO: THIS FABRIC SPECIFIC AS WE DON"T SUPPORT SLICE MODIFY API JUST YET
+            for remaining_resource in remaining_resources:
+                if provider_label == remaining_resource.provider.label \
+                        and "@fabric" in remaining_resource.provider.label:
+                    fabric_work_around = True
+                    break
+
+            if fabric_work_around:
+                self.logger.warning(f"Skipping deleting fabric resource: {resource} with {provider_label}")
+                remaining_resources.append(resource)
+                skip_resources.update([external_state.label for external_state in external_states])
+                continue
+
+            try:
+                provider.delete_resource(resource=resource.attributes)
+            except Exception as e:
+                self.logger.warning(f"Exception occurred while deleting resource: {e} using {provider_label}")
+                remaining_resources.append(resource)
+                skip_resources.update([external_state.label for external_state in external_states])
+                exceptions.append(e)
+
+        provider_states_copy = provider_states.copy()
+        provider_states.clear()
+
+        for provider_state in provider_states_copy:
+            provider_state.node_states.clear()
+            provider_state.network_states.clear()
+            provider_state.service_states.clear()
+            provider = self.provider_factory.get_provider(label=provider_state.label)
+            provider_state.failed = provider.failed
+
+            for remaining_resource in remaining_resources:
+                resource_state = resource_state_map[remaining_resource.label]
+
+                if remaining_resource.provider.label == provider_state.label:
+                    if remaining_resource.is_network:
+                        provider_state.network_states.extend(resource_state)
+                    elif remaining_resource.is_node:
+                        provider_state.node_states.extend(resource_state)
+                    elif remaining_resource.is_service:
+                        provider_state.service_states.extend(resource_state)
+
+            if provider_state.node_states or provider_state.network_states or provider_state.service_states:
+                provider_states.append(provider_state)
+
+        if exceptions:
+            raise ControllerException(exceptions)
 
     def delete(self, *, provider_states: List[ProviderState]):
         exceptions = []

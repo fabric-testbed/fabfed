@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict
 
-from fabfed.model import Node, Network, Service
+from fabfed.model import Resource, Node, Network, Service
 from fabfed.model.state import ProviderState
 from fabfed.util.constants import Constants
 
@@ -22,6 +22,7 @@ class Provider(ABC):
 
         self._pending = []
         self._failed = {}
+        self.creation_details = {}
         self._added = []
         self.pending_internal = []
 
@@ -74,9 +75,12 @@ class Provider(ABC):
 
         return DependencyResolver(label=self.label, external=external, logger=self.logger)
 
-    def on_created(self, *, source, provider, resource: object):
+    def on_created(self, *, source, provider, resource: Resource):
         assert self != source
         assert provider
+
+        if self == provider:
+            self.creation_details[resource.label]["resources"].append(resource.name)
 
         resource.write_ansible(provider.name)
 
@@ -115,9 +119,53 @@ class Provider(ABC):
         import time
 
         start = time.time()
+        credential_file = self.config.get(Constants.CREDENTIAL_FILE, None)
+
+        if credential_file:
+            from fabfed.util import utils
+            from fabfed.exceptions import ProviderException
+
+            if Constants.PROFILE not in self.config:
+                raise ProviderException(
+                    f"{self.label}: must name a section in the credential file using keyword {Constants.PROFILE}")
+
+            profile = self.config[Constants.PROFILE]
+            config = utils.load_yaml_from_file(credential_file)
+
+            if profile not in config:
+                raise ProviderException(
+                    f"{self.label}: credential file {credential_file} does not have a section for keyword {profile}")
+            self.config.update(config[profile])
+
         self.setup_environment()
         end = time.time()
         self.init_duration = (end - start)
+
+    def supports_modify(self):
+        return False
+
+    def validate_resource(self, *, resource: dict):
+        label = resource.get(Constants.LABEL)
+
+        self.creation_details[label] = dict()
+        self.creation_details[label]['resources'] = list()
+        self.creation_details[label]['total_count'] = resource[Constants.RES_COUNT]
+        self.creation_details[label]['failed_count'] = 0
+        self.creation_details[label]['created_count'] = 0
+        self.creation_details[label]['name_prefix'] = resource[Constants.RES_NAME_PREFIX]
+
+        import time
+
+        start = time.time()
+
+        try:
+            self.do_validate_resource(resource=resource)
+        except Exception as e:
+            self.failed[label] = 'VALIDATE'
+            raise e
+        finally:
+            end = time.time()
+            self.add_duration += (end - start)
 
     def add_resource(self, *, resource: dict):
         import time
@@ -130,7 +178,7 @@ class Provider(ABC):
             self.logger.info(f"Skipping {label}. using {self.label}: count={count}")
             return
         elif len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
-            self.logger.info(f"Adding  {label} to pending using {self.label}")
+            self.logger.info(f"Adding {label} to pending using {self.label}")
             assert resource not in self.pending, f"Did not expect {label} to be in pending list using {self.label}"
             self.pending.append(resource)
             return
@@ -170,13 +218,18 @@ class Provider(ABC):
         start = time.time()
         label = resource.get(Constants.LABEL)
 
+        self.logger.info(f"Creating {label} using {self.label}")
+
         if label in self._added:
             try:
                 self.do_create_resource(resource=resource)
             except Exception as e:
                 self.failed[label] = 'CREATE'
+                failed_count = resource[Constants.RES_COUNT] - len(self.creation_details[label]['resources'])
+                self.creation_details[label]['failed_count'] = failed_count
                 raise e
             finally:
+                self.creation_details[label]['created_count'] = len(self.creation_details[label]['resources'])
                 end = time.time()
                 self.create_duration += (end - start)
 
@@ -206,13 +259,16 @@ class Provider(ABC):
             attributes = {k: v for k, v in attributes.items() if not k.startswith('_')}
             return attributes
 
-        net_states = [NetworkState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.networks]
-        node_states = [NodeState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.nodes]
-        service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in self.services]
+        networks = [n for n in self.networks if n.name in self.creation_details[n.label]["resources"]]
+        net_states = [NetworkState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in networks]
+        nodes = [n for n in self.nodes if n.name in self.creation_details[n.label]["resources"]]
+        node_states = [NodeState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in nodes]
+        services = [s for s in self.services if s.name in self.creation_details[s.label]["resources"]]
+        service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in services]
         pending = [res['label'] for res in self.pending]
         pending_internal = [res['label'] for res in self.pending_internal]
         return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
-                             pending, pending_internal, self.failed)
+                             pending, pending_internal, self.failed, self.creation_details)
 
     def list_networks(self) -> list:
         from tabulate import tabulate
@@ -245,6 +301,9 @@ class Provider(ABC):
 
     @abstractmethod
     def setup_environment(self):
+        pass
+
+    def do_validate_resource(self, *, resource: dict):
         pass
 
     @abstractmethod

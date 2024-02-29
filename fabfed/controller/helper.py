@@ -4,7 +4,10 @@ from fabfed.util.constants import Constants
 
 
 class ControllerResourceListener(ResourceListener):
-    def __init__(self, providers):
+    def __init__(self):
+        self.providers = list()
+
+    def set_providers(self, providers: list):
         self.providers = providers
 
     def on_added(self, *, source, provider: Provider, resource: object):
