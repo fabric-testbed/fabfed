@@ -32,6 +32,6 @@ FABRIC_PUBLIC_IPV4_SUBNET = IPv4Network('23.134.232.0/22')
 # FABRIC public ipv6 subnet
 FABRIC_PUBLIC_IPV6_SUBNET = IPv6Network('2602:FCFB::0/40')
 
-INCLUDE_FABNETS = True  # TODO This should be customizable
+INCLUDE_FABNETS = False  # TODO This should be customizable
 
 FABRIC_SLEEP_AFTER_SUBMIT_OK = 120  # In seconds

@@ -13,6 +13,118 @@ class SetEncoder(json.JSONEncoder):
             return obj.__dict__
 
 
+def dump_plan(*, resources, to_json: bool, summary: bool = False):
+    from collections import namedtuple
+    from fabfed.util.constants import Constants
+    import sys
+
+    plan = {}
+
+    if not summary:
+        summaries = []
+
+        ResourceDetails = namedtuple("ResourceDetails", "label attributes")
+
+        for resource in resources:
+            resource_dict = resource.attributes.copy()
+            del_attrs = [Constants.EXTERNAL_DEPENDENCIES,
+                         Constants.RESOLVED_EXTERNAL_DEPENDENCIES,
+                         Constants.INTERNAL_DEPENDENCIES,
+                         Constants.RESOLVED_INTERNAL_DEPENDENCIES,
+                         Constants.SAVED_STATES]
+
+            for attr in del_attrs:
+                del resource_dict[attr]
+
+            stringify_attrs = [Constants.PROVIDER,
+                               Constants.RES_INTERFACES,
+                               Constants.RES_NODES,
+                               Constants.RES_NETWORK,
+                               Constants.RES_STITCH_INTERFACE,
+                               Constants.NETWORK_STITCH_WITH,
+                               Constants.RES_LAYER3,
+                               Constants.RES_PEER_LAYER3,
+                               Constants.RES_PEERING
+                               ]
+
+            for attr in stringify_attrs:
+                if attr in resource_dict:
+                    resource_dict[attr] = str(resource_dict[attr])
+
+            label = resource_dict.pop(Constants.LABEL)
+            summaries.append(ResourceDetails(label=label, attributes=resource_dict))
+            plan['resource_details'] = summaries
+
+    ResourceSummary = namedtuple("ResourceSummary", "label attributes")
+    summaries = []
+
+    for resource in resources:
+        resource_dict = {}
+
+        label = resource.attributes[Constants.LABEL]
+
+        import copy
+
+        details = copy.deepcopy(resource.attributes[Constants.RES_CREATION_DETAILS])
+        resource_dict[Constants.RES_CREATION_DETAILS] = details
+        summaries.append(ResourceSummary(label=label, attributes=resource_dict))
+
+    plan['resource_summaries'] = summaries
+    summaries = []
+    to_be_created = 0
+    to_be_deleted = 0
+
+    for resource in resources:
+        resource_dict = {}
+        label = resource.attributes[Constants.LABEL]
+        details = resource.attributes[Constants.RES_CREATION_DETAILS]
+        provider_supports_modifiable = details['provider_supports_modifiable']
+        in_config_file = details['in_config_file']
+
+        if provider_supports_modifiable:
+            if in_config_file:
+                if details['total_count'] > details['created_count']:
+                    resource_dict['to_be_created'] = details['total_count'] - details['created_count']
+                    resource_dict['to_be_deleted'] = 0
+                else:
+                    resource_dict['to_be_created'] = 0
+                    resource_dict['to_be_deleted'] = details['created_count'] -  details['total_count']
+            else:
+                resource_dict['to_be_created'] = 0
+                resource_dict['to_be_deleted'] = details['created_count']
+        else:
+            if in_config_file:
+                if details['total_count'] == details['created_count']:
+                    resource_dict['to_be_created'] = 0
+                    resource_dict['to_be_deleted'] = 0
+                else:
+                    resource_dict['to_be_created'] = details['total_count']
+                    resource_dict['to_be_deleted'] = details['created_count']
+            else:
+                # if details['total_count'] == details['created_count']:
+                resource_dict['to_be_created'] = 0
+                resource_dict['to_be_deleted'] = details['created_count']
+
+        to_be_created += resource_dict['to_be_created']
+        to_be_deleted += resource_dict['to_be_deleted']
+
+        summaries.append(ResourceSummary(label=label, attributes=resource_dict))
+
+    plan['summaries'] = summaries
+
+    if to_json:
+        import json
+
+        sys.stdout.write(json.dumps(plan, cls=SetEncoder, indent=3))
+    else:
+        import yaml
+        from fabfed.model.state import get_dumper
+
+        sys.stdout.write(yaml.dump(plan, Dumper=get_dumper(), default_flow_style=False, sort_keys=False))
+
+    return to_be_created, to_be_deleted
+
+
 def dump_resources(*, resources, to_json: bool, summary: bool = False):
     import sys
 
@@ -73,9 +185,9 @@ def dump_states(states, to_json: bool, summary: bool = False):
     if summary:
         for provider_state in states:
             for node_state in provider_state.node_states:
-                attributes = dict()
-                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "dataplane_ipv4", "dataplane_ipv6", 'keyfile',
-                         'jump_keyfile']
+                attributes = {}
+                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "name",
+                         "dataplane_ipv4", "dataplane_ipv6", 'keyfile', 'jump_keyfile']
 
                 for prop in props:
                     if prop in node_state.attributes:

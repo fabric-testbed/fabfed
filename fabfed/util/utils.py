@@ -46,7 +46,8 @@ def build_parser(*, manage_workflow, manage_sessions, display_stitch_info):
     workflow_parser.add_argument('-plan', action='store_true', default=False, help='shows plan')
     workflow_parser.add_argument('-use-remote-policy', action='store_true', default=False, help='use remote policy')
     workflow_parser.add_argument('-show', action='store_true', default=False, help='display resource.')
-    workflow_parser.add_argument('-summary', action='store_true', default=False, help='display summary. used with -show')
+    workflow_parser.add_argument('-summary', action='store_true', default=False,
+                                 help='display summary. used with -show')
     workflow_parser.add_argument('-stats', action='store_true', default=False, help='display stats')
     workflow_parser.add_argument('-json', action='store_true', default=False,
                                  help='use json output. relevant when used with -show or -plan')
@@ -244,3 +245,19 @@ def dump_sessions(to_json: bool):
         sys.stdout.write(yaml.dump(sessions))
 
     return sessions
+
+
+def get_counters(*, states):
+    nodes = networks = services = pending = failed = 0
+
+    for state in states:
+        pending += len(state.pending)
+        pending += len(state.pending_internal)
+        nodes += len([n for n in state.node_states])
+        networks += len([n for n in state.network_states])
+        services += len(state.service_states)
+
+        for key, detail in state.creation_details.items():
+            failed += detail['failed_count']
+
+    return nodes, networks, services, pending, failed

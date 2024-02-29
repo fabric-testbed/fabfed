@@ -10,7 +10,7 @@ logger = get_logger()
 
 
 class FabricNode(Node):
-    def __init__(self, *, label, delegate: Delegate, nic_model=None):
+    def __init__(self, *, label, delegate: Delegate, nic_model=None, network_label):
         flavor = {'cores': delegate.get_cores(), 'ram': delegate.get_ram(), 'disk': delegate.get_disk()}
         super().__init__(label=label, name=delegate.get_name(), image=delegate.get_image(), site=delegate.get_site(),
                          flavor=str(flavor))
@@ -21,6 +21,7 @@ class FabricNode(Node):
         self.slice_name = slice_object.get_name()
         self.mgmt_ip = delegate.get_management_ip()
         self.mgmt_ip = str(self.mgmt_ip) if self.mgmt_ip else None
+        self.network_label = network_label
         self.username = delegate.get_username()
         self.user = self.username
         self.state = delegate.get_reservation_state()
@@ -28,8 +29,8 @@ class FabricNode(Node):
         self.host = self.mgmt_ip
         self.keyfile = self._delegate.get_private_key_file()
         self.jump_user = self._delegate.get_fablib_manager().get_bastion_username()
-        self.jump_host = self._delegate.get_fablib_manager().get_bastion_public_addr()
-        self.jump_keyfile = self._delegate.get_fablib_manager().get_bastion_key_filename()
+        self.jump_host = self._delegate.get_fablib_manager().get_bastion_host()
+        self.jump_keyfile = self._delegate.get_fablib_manager().get_bastion_key_location()
         self.dataplane_ipv4 = None
         self.dataplane_ipv6 = None
         self.id = delegate.get_reservation_id()
@@ -104,6 +105,9 @@ class FabricNode(Node):
     @property
     def v6net_name(self):
         return f"{self.name}-{FABRIC_IPV6_NET_NAME}"
+
+    def set_network_label(self, network_label):
+        self.network_label = network_label
 
     def get_interfaces(self):
         return self._delegate.get_interfaces()
@@ -180,4 +184,4 @@ class NodeBuilder:
         self.node.add_component(model=model, name=name)
 
     def build(self) -> FabricNode:
-        return FabricNode(label=self.label, delegate=self.node, nic_model=self.nic_model)
+        return FabricNode(label=self.label, delegate=self.node, nic_model=self.nic_model, network_label="")

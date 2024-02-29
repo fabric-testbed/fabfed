@@ -3,31 +3,18 @@ import logging
 from fabfed.provider.api.provider import Provider
 from ...util.constants import Constants
 from .fabric_constants import *
+from fabfed.util.utils import get_logger
 
+logger = get_logger()
 
 class FabricProvider(Provider):
-    def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
+    def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         self.slice = None
         self.retry = 5
 
     def setup_environment(self):
         config = self.config
-        credential_file = config.get(Constants.CREDENTIAL_FILE, None)
-
-        if credential_file:
-            from fabfed.util import utils
-
-            profile = config.get(Constants.PROFILE)
-            config = utils.load_yaml_from_file(credential_file)
-
-            if profile not in config:
-                from fabfed.exceptions import ProviderException
-
-                raise ProviderException(
-                    f"credential file {credential_file} does not have a section for keyword {profile}")
-
-            self.config = config = config[profile]
 
         import os
 
@@ -90,6 +77,9 @@ class FabricProvider(Provider):
                 self.logger.info(f"Initializing slice {self.name}. Going to sleep. Will retry ...")
                 time.sleep(2)
 
+    def supports_modify(self):
+        return True
+
     def do_add_resource(self, *, resource: dict):
         self._init_slice()
         self.slice.add_resource(resource=resource)
@@ -101,3 +91,7 @@ class FabricProvider(Provider):
     def do_delete_resource(self, *, resource: dict):
         self._init_slice()
         self.slice.delete_resource(resource=resource)
+
+    def do_destroy_resource(self, *, resource: dict):
+        self._init_slice()
+        self.slice.destroy_resource(resource=resource)
