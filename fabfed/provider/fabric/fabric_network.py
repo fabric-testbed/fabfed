@@ -234,7 +234,8 @@ class NetworkBuilder:
         from fim.slivers.capacities_labels import Labels, Capacities
 
         if not self.peering:
-            interfaces = [self.interfaces[0]]
+            interfaces = []
+            interfaces.extend(self.interfaces)
 
             for node in nodes:
                 node_interfaces = [i for i in node.get_interfaces() if not i.get_network()]
