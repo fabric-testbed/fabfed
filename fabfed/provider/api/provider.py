@@ -21,6 +21,7 @@ class Provider(ABC):
         self._services = list()
 
         self._pending = []
+        self._no_longer_pending = []
         self._failed = {}
         self.creation_details = {}
         self._added = []
@@ -46,6 +47,10 @@ class Provider(ABC):
     @property
     def services(self) -> List[Service]:
         return self._services
+
+    @property
+    def no_longer_pending(self) -> List:
+        return self._no_longer_pending
 
     @property
     def pending(self) -> List:
@@ -82,7 +87,11 @@ class Provider(ABC):
         if self == provider:
             self.creation_details[resource.label]["resources"].append(resource.name)
 
-        resource.write_ansible(provider.name)
+        try:
+            resource.write_ansible(provider.name)
+        except Exception as e:
+            self.logger.warning(
+                f"exception occurred while writing ansible for resource={resource.name}/{provider.name}:{e}")
 
         for pending_resource in self.pending.copy():
             resolver = self.get_dependency_resolver()
@@ -93,27 +102,8 @@ class Provider(ABC):
             if ok:
                 resolver.extract_values(resource=pending_resource)
                 self.pending.remove(pending_resource)
+                self.no_longer_pending.append(pending_resource)
                 self.logger.info(f"Removing {label} from pending using {self.label}")
-
-                try:
-                    self.add_resource(resource=pending_resource)
-
-                    temp = self.pending_internal
-                    self.pending_internal = []
-
-                    for internal_dependency in temp:
-                        try:
-                            internal_dependency_label = internal_dependency[Constants.LABEL]
-                            self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
-                            self.add_resource(resource=internal_dependency)
-                        except Exception as ie:
-                            self.logger.warning(
-                                f"Exception occurred while adding internal pending resource: {ie} using {self.label}")
-
-                except Exception as e:
-                    self.logger.warning(
-                        f"Exception occurred while adding pending resource: {label} using {self.label}")
-                    self.logger.warning(e, exc_info=True)
 
     def init(self):
         import time
@@ -217,6 +207,20 @@ class Provider(ABC):
 
         start = time.time()
         label = resource.get(Constants.LABEL)
+
+        if self.no_longer_pending:
+            self.logger.info(f"Checking internal dependencies using {self.label}")
+            for no_longer_pending_resource in self.no_longer_pending:
+                self.add_resource(resource=no_longer_pending_resource)
+
+                temp = self.pending_internal
+                self.pending_internal = []
+
+                for internal_dependency in temp:
+                    internal_dependency_label = internal_dependency[Constants.LABEL]
+                    self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
+                    self.add_resource(resource=internal_dependency)
+
 
         self.logger.info(f"Creating {label} using {self.label}")
 
