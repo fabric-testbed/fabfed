@@ -159,6 +159,11 @@ class CloudNetwork(Network):
 
         server = self.provider.rpc_server()
         exp_params = self.provider.experiment_params(self.name)
+        exitval, response = api.experimentStatus(server, exp_params).apply()
+
+        if exitval == xmlrpc.RESPONSE_SEARCHFAILED:
+            return
+
         exitval, response = api.terminateExperiment(server, exp_params).apply()
 
         if exitval == xmlrpc.RESPONSE_SUCCESS:

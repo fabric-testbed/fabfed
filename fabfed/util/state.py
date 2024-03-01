@@ -73,6 +73,23 @@ def dump_plan(*, resources, to_json: bool, summary: bool = False):
     summaries = []
     to_be_created = 0
     to_be_deleted = 0
+    provider_resource_map = {}
+
+    for resource in resources:
+        details = resource.attributes[Constants.RES_CREATION_DETAILS]
+        provider_supports_modifiable = details['provider_supports_modifiable']
+
+        if not provider_supports_modifiable:
+            provider_resource_map[resource.provider.label] = False
+
+    for resource in resources:
+        details = resource.attributes[Constants.RES_CREATION_DETAILS]
+        provider_supports_modifiable = details['provider_supports_modifiable']
+
+        if not provider_supports_modifiable:
+            in_config_file = details['in_config_file']
+            changed = not in_config_file or details['total_count'] != details['created_count']
+            provider_resource_map[resource.provider.label] =  provider_resource_map[resource.provider.label] or changed
 
     for resource in resources:
         resource_dict = {}
@@ -92,22 +109,19 @@ def dump_plan(*, resources, to_json: bool, summary: bool = False):
             else:
                 resource_dict['to_be_created'] = 0
                 resource_dict['to_be_deleted'] = details['created_count']
-        else:
+        elif provider_resource_map[resource.provider.label]:
             if in_config_file:
-                if details['total_count'] == details['created_count']:
-                    resource_dict['to_be_created'] = 0
-                    resource_dict['to_be_deleted'] = 0
-                else:
-                    resource_dict['to_be_created'] = details['total_count']
-                    resource_dict['to_be_deleted'] = details['created_count']
+                resource_dict['to_be_created'] = details['total_count']
+                resource_dict['to_be_deleted'] = details['created_count']
             else:
-                # if details['total_count'] == details['created_count']:
                 resource_dict['to_be_created'] = 0
                 resource_dict['to_be_deleted'] = details['created_count']
+        else:
+            resource_dict['to_be_created'] = 0
+            resource_dict['to_be_deleted'] = 0
 
         to_be_created += resource_dict['to_be_created']
         to_be_deleted += resource_dict['to_be_deleted']
-
         summaries.append(ResourceSummary(label=label, attributes=resource_dict))
 
     plan['summaries'] = summaries
