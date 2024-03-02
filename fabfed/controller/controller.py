@@ -140,7 +140,7 @@ class Controller:
 
     def plan(self, provider_states: List[ProviderState]):
         resources = self.resources
-        resource_state_map = Controller._build_new_state_map(provider_states)
+        resource_state_map = Controller._build_state_map(provider_states)
         self.logger.info(f"Starting PLAN_PHASE for {len(resources)} resource(s)")
         pf = self.provider_factory
         resources_labels = [r.label for r in resources]
@@ -229,7 +229,7 @@ class Controller:
             raise ControllerException(exceptions)
 
         exceptions = []
-        resource_state_map = Controller._build_new_state_map(provider_states)
+        resource_state_map = Controller._build_state_map(provider_states)
         for resource in resources:
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
@@ -249,7 +249,7 @@ class Controller:
     def apply(self, provider_states: List[ProviderState]):
         resources = self.resources
         self.logger.info(f"Starting APPLY_PHASE for {len(resources)} resource(s)")
-        resource_state_map = Controller._build_new_state_map(provider_states)
+        resource_state_map = Controller._build_state_map(provider_states)
         exceptions = []
 
         to_be_deleted_resources = []
@@ -322,7 +322,7 @@ class Controller:
             raise ControllerException(exceptions)
 
     @staticmethod
-    def _build_new_state_map(provider_states: List[ProviderState]) -> Dict[str, List[BaseState]]:
+    def _build_state_map(provider_states: List[ProviderState]) -> Dict[str, List[BaseState]]:
         resource_state_map = dict()
 
         for provider_state in provider_states:
@@ -338,23 +338,9 @@ class Controller:
 
         return resource_state_map
 
-    # @staticmethod
-    # def _build_state_map(provider_states):
-    #     resource_state_map = dict()
-    #     for provider_state in provider_states:
-    #         temp_list = provider_state.states()
-    #
-    #         for state in temp_list:
-    #             if state.label in resource_state_map:
-    #                 resource_state_map[state.label].append(state)
-    #             else:
-    #                 resource_state_map[state.label] = [state]
-    #
-    #     return resource_state_map
-
     def destroy(self, *, provider_states: List[ProviderState]):
         exceptions = []
-        resource_state_map = Controller._build_new_state_map(provider_states)
+        resource_state_map = Controller._build_state_map(provider_states)
         provider_resource_map = dict()
         failed_resources = []
 
