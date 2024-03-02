@@ -1,18 +1,37 @@
 variable:
   - fabric_site:
-      default: WASH
+      default: TACC
 
 provider:
   - fabric:
     - fabric_provider:
          credential_file: ~/.fabfed/fabfed_credentials.yml
          profile: fabric
+config:
+  - layer3:
+      - my_layer:
+          subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
+          ip_start: 192.168.1.2
+          ip_end: 192.168.1.254
+
 resource:
   - node:
-      - fabric_node:
+      - rocky_node:
             provider:  '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}' 
             count: 1
             image: default_rocky_8
             nic_model: NIC_Basic
             flavor: {'cores': 2, 'ram': 8, 'disk': 10}
+      - ubuntu_node:
+            provider:  '{{ fabric.fabric_provider }}'
+            site: '{{ var.fabric_site }}' 
+            count: 1
+            image: CC-Ubuntu20.04
+  - network:
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+          interface: [ '{{ node.rocky_node }}', '{{ node.ubuntu_node }}' ]
+          count: 1
