@@ -86,7 +86,7 @@ class FabricSlice:
 
         network_builder = NetworkBuilder(label, self.provider, self.slice_object, name_prefix, resource)
         network_builder.handle_facility_port()
-
+        temp = []
         if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
             temp = util.get_values_for_dependency(resource=resource, attribute='interface')
 
@@ -95,8 +95,7 @@ class FabricSlice:
                 node.set_network_label(label)
                 self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface to node {node.name}")
 
-            network_builder.handle_network(temp)
-
+        network_builder.handle_network(temp)
         net = network_builder.build()
         self.provider.networks.append(net)
         self.slice_modified = self.slice_created
