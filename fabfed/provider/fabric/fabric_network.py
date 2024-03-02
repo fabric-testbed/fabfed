@@ -57,7 +57,7 @@ class FabricNetwork(Network):
     def delegate(self):
         return self._delegate
 
-    def available_ips(self):
+    def available_ips(self) -> list:
         available_ips = []
 
         if self.layer3:

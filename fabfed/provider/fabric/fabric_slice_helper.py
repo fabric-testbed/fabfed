@@ -116,3 +116,38 @@ def add_route(slice_delegate, node, vpc_subnet, gateway, retry):
         time.sleep(2)
 
     logger.warning(f"Giving up:adding route: {vpc_subnet}:gateway={gateway} after {retry} attempts")
+
+
+def init_slice(name: str):
+    from fabrictestbed_extensions.fablib.fablib import fablib
+
+    # noinspection PyBroadException
+    try:
+        slice_object = fablib.get_slice(name=name)
+        logger.info(f"Found slice {name}:state={slice_object.get_state()}")
+    except Exception:
+        return fablib.new_slice(name=name)
+
+    assert slice_object.get_state() not in ["Closing", "Dead"]
+
+    if slice_object.get_state() in ["StableError", "ModifyError"]:
+        logger.warning(f"Destroying slice {name}:state={slice_object.get_state()}")
+        slice_object.delete()
+
+        import time
+
+        time.sleep(5)
+        return fablib.new_slice(name=name)
+
+    if slice_object.get_state() in ["Nascent", "Configuring", "Modifying", "ModifyOK"]:
+        logger.warning(f"slice {name}:state={slice_object.get_state()}. Waiting for StableOK")
+
+        try:
+            slice_object.wait(timeout=24 * 60, progress=True)
+        except Exception as e:
+            state = slice_object.get_state()
+            logger.warning(f"Exception occurred while waiting for StableOK: state={state}:{e}")
+            raise e
+
+    assert slice_object.get_state() == "StableOK"
+    return slice_object

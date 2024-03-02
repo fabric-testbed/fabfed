@@ -163,11 +163,10 @@ class Provider(ABC):
         start = time.time()
         count = resource.get(Constants.RES_COUNT, 1)
         label = resource.get(Constants.LABEL)
+        assert count > 0
+        assert label not in self._added
 
-        if count < 1:
-            self.logger.info(f"Skipping {label}. using {self.label}: count={count}")
-            return
-        elif len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
+        if len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
             self.logger.info(f"Adding {label} to pending using {self.label}")
             assert resource not in self.pending, f"Did not expect {label} to be in pending list using {self.label}"
             self.pending.append(resource)
@@ -221,6 +220,7 @@ class Provider(ABC):
                     self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
                     self.add_resource(resource=internal_dependency)
 
+            self._no_longer_pending = []
 
         self.logger.info(f"Creating {label} using {self.label}")
 

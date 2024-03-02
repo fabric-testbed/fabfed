@@ -8,59 +8,79 @@ logger = get_logger()
 
 
 class SshNodeTester:
-    def __init__(self, *, nodes, run_ping_test=True):
+    def __init__(self, *, nodes):
         self.nodes = nodes
-        self.run_ping_test = run_ping_test
         self.helpers = []
         self.passed_ssh_test = []
         self.failed_validation = []
         self.failed_ssh_test = []
         self.summary = ''
 
+        from fabfed.util.constants import Constants
+
+        dataplane_addresses = [n.get_dataplane_address(af=Constants.IPv4) for n in self.nodes if
+                               n.get_dataplane_address(af=Constants.IPv4)]
+        self.run_ping_test = len(dataplane_addresses)
+
+        self.passed_dataplane_ping_tests = {}
+        self.failed_dataplane_ping_tests = {}
+
         if self.run_ping_test:
-            self.passed_dataplane_ping_tests = {}
-            self.failed_dataplane_ping_tests = {}
-            self.dataplane_addresses = [n.get_dataplane_address() for n in self.nodes if n.get_dataplane_address()]
+            self.dataplane_addresses = dataplane_addresses
 
             for n in self.nodes:
-                self.passed_dataplane_ping_tests[n.label] = []
+                self.passed_dataplane_ping_tests[n.name] = []
+
+        dataplane_addresses = [n.get_dataplane_address(af=Constants.IPv6) for n in self.nodes if
+                               n.get_dataplane_address(af=Constants.IPv6)]
+        self.run_ipv6_ping_test = len(dataplane_addresses)
+
+        self.passed_ipv6_dataplane_ping_tests = {}
+        self.failed_ipv6_dataplane_ping_tests = {}
+
+        if self.run_ipv6_ping_test:
+            self.ipv6_dataplane_addresses = dataplane_addresses
+
+            for n in self.nodes:
+                self.passed_ipv6_dataplane_ping_tests[n.name] = []
 
         for n in self.nodes:
-            try:
-                if self.run_ping_test:
-                    if not n.get_dataplane_address():
-                        self.failed_validation.append(dict(node=n.label, description="Missing dataplane ip"))
-                        continue
-
-                if n.keyfile is None or n.host is None or n.user is None:
-                    self.failed_validation.append(
-                        dict(node=n.label,
-                             description=f"Missing node info:user={n.user}:host={n.host}:keyfile={n.keyfile}"))
+            if self.run_ping_test:
+                if not n.get_dataplane_address(af=Constants.IPv4):
+                    self.failed_validation.append(dict(node=n.label, description="Missing ipv4 dataplane ip"))
                     continue
 
-                jump_box = (n.jump_keyfile is None, n.jump_host is None, n.jump_user is None)
-
-                if jump_box != (True, True, True) and jump_box != (False, False, False):
-                    fmt = "Missing bastion info:user={}:host={}:keyfile={}"
-                    self.failed_validation.append(
-                        dict(node=n.label,
-                             description=fmt.format(n.jump_user, n.jump_host, n.jump_keyfile)))
+            if self.run_ipv6_ping_test:
+                if not n.get_dataplane_address(af=Constants.IPv6):
+                    self.failed_validation.append(dict(node=n.label, description="Missing ipv6 dataplane"))
                     continue
 
-                helper = SshNodeHelper(label=n.name, host=n.host,
-                                       user=n.user,
-                                       private_key_file=n.keyfile,
-                                       jump_host=n.jump_host,
-                                       jump_user=n.jump_user,
-                                       jump_private_key_file=n.jump_keyfile)
-                self.helpers.append(helper)
-            except Exception as e:
-                logger.error(f"SSH initialization failed:{e}. Node:{n.label}")
-                self.failed_validation.append(dict(node=n.label, description=str(e)))
+            if n.keyfile is None or n.host is None or n.user is None:
+                self.failed_validation.append(
+                    dict(node=n.label,
+                         description=f"Missing node info:user={n.user}:host={n.host}:keyfile={n.keyfile}"))
+                continue
+
+            jump_box = (n.jump_keyfile is None, n.jump_host is None, n.jump_user is None)
+
+            if jump_box != (True, True, True) and jump_box != (False, False, False):
+                fmt = "Missing bastion info:user={}:host={}:keyfile={}"
+                self.failed_validation.append(
+                    dict(node=n.label,
+                         description=fmt.format(n.jump_user, n.jump_host, n.jump_keyfile)))
+                continue
+
+            helper = SshNodeHelper(label=n.name, host=n.host,
+                                   user=n.user,
+                                   private_key_file=n.keyfile,
+                                   jump_host=n.jump_host,
+                                   jump_user=n.jump_user,
+                                   jump_private_key_file=n.jump_keyfile)
+            self.helpers.append(helper)
 
     def has_failures(self):
-        return self.failed_validation or self.failed_ssh_test or \
-               (self.run_ping_test and self.failed_dataplane_ping_tests)
+        return self.failed_validation \
+               or self.failed_ssh_test or self.failed_dataplane_ping_tests or self.failed_ipv6_dataplane_ping_tests
 
     def run_ssh_test(self, *, command='ls -l', retry=5, retry_interval=10):
         for helper in self.helpers:
@@ -129,6 +149,42 @@ class SshNodeTester:
                 self.failed_dataplane_ping_tests[helper.label] = list(set(self.dataplane_addresses).difference(
                     self.passed_dataplane_ping_tests[helper.label]))
 
+    def run_ipv6_dataplane_test(self, *, command='ping6 -c 3', retry=3, retry_interval=10):
+        for helper in self.helpers:
+            logger.info(f"SSH executing {command} on Node: {helper.label}")
+
+            for attempt in range(retry):
+                try:
+                    helper.connect()
+
+                    for dataplane_address in self.ipv6_dataplane_addresses:
+                        if dataplane_address in self.passed_ipv6_dataplane_ping_tests[helper.label]:
+                            continue
+
+                        _, stdout, stderr = helper.client.exec_command(f"{command} {dataplane_address}")
+                        exit_code = stdout.channel.recv_exit_status()
+
+                        if exit_code:
+                            stdout = str(stdout.read(), 'utf-8').replace('\\n', '\n')
+                            stderr = str(stderr.read(), 'utf-8').replace('\\n', '\n')
+                            sys.stderr.write(stdout)
+                            sys.stderr.write(stderr)
+                            raise Exception(f"pinging {dataplane_address}")
+
+                        self.passed_ipv6_dataplane_ping_tests[helper.label].append(dataplane_address)
+
+                    logger.info(f"Done with SSH {command} on Node: {helper.label}: attempts={attempt + 1}")
+                    break
+                except Exception as e:
+                    logger.warning(f"SSH ping failed: {e}. Node: {helper.label}:attempts={attempt + 1}")
+                    time.sleep(retry_interval)
+                finally:
+                    helper.close_quietly()
+
+            if len(self.passed_ipv6_dataplane_ping_tests[helper.label]) != len(self.ipv6_dataplane_addresses):
+                self.failed_ipv6_dataplane_ping_tests[helper.label] = list(set(self.ipv6_dataplane_addresses).difference(
+                    self.passed_ipv6_dataplane_ping_tests[helper.label]))
+
     def run_tests(self, *, retry=3, retry_interval=10):
         from collections import namedtuple
 
@@ -136,6 +192,9 @@ class SshNodeTester:
 
         if self.run_ping_test:
             self.run_dataplane_test(retry=retry, retry_interval=retry_interval)
+
+        # if self.run_ipv6_ping_test:
+        #     self.run_ipv6_dataplane_test(retry=retry, retry_interval=retry_interval)
 
         Node = namedtuple("Node", "host user key_file data_plane_address")
         JumpNode = namedtuple("Node", "host user key_file data_plane_address jump_host jump_user jump_key_file")
@@ -161,20 +220,23 @@ class SshNodeTester:
                                                      key_file=n.keyfile,
                                                      data_plane_address=n.get_dataplane_address())})
 
-        if self.run_ping_test:
+        if self.run_ping_test or self.run_ipv6_ping_test:
             self.summary = {"SSH TEST SUMMARY": [
                 {"nodes": node_info_list},
                 {"passed_tests":
                     [
                         {"passed_ssh_test": self.passed_ssh_test},
-                        {"passed_dataplane_ping_test": self.passed_dataplane_ping_tests}
+                        {"passed_ipv4_dataplane_ping_test": self.passed_dataplane_ping_tests},
+                        {"passed_ipv6_dataplane_ping_test": self.passed_ipv6_dataplane_ping_tests}
                     ]},
                 {"FAILED_VALIDATION": self.failed_validation},
                 {"FAILED_TESTS":
                     [
                         {"failed_ssh_test": self.failed_ssh_test},
-                        {"failed_dataplane_ping_test": [dict(src=k, destinations=v) for k, v in
-                                                        self.failed_dataplane_ping_tests.items()]}
+                        {"failed_ipv4_dataplane_ping_test": [dict(src=k, destinations=v) for k, v in
+                                                        self.failed_dataplane_ping_tests.items()]},
+                        {"failed_ipv6_dataplane_ping_test": [dict(src=k, destinations=v) for k, v in
+                                                        self.failed_ipv6_dataplane_ping_tests.items()]},
                     ]}
             ]}
         else:

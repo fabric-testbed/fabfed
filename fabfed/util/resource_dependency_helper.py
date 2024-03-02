@@ -11,13 +11,19 @@ class ResourceDependencyEvaluator:
         self.providers = providers
         self.dependency_map: Dict[ResourceConfig, Set[ResourceConfig]] = {}
 
-    def _find_resource(self, basic_config):
+    def _find_resource_for(self, basic_config, res):
+        temp = resource_from_basic_config(basic_config, self.providers)
+        if temp not in self.resources:
+            from fabfed.exceptions import ParseConfigException
+
+            raise ParseConfigException(
+                f'{temp.label} not found. {res.label} depends on it. Maybe its count is set to zero?')
+
         index = self.resources.index(resource_from_basic_config(basic_config, self.providers))
-        assert index >= 0, "expected to find resource in list"
         return self.resources[index]
 
     def add_dependency(self, res: ResourceConfig, key: str, dependency_info: DependencyInfo):
-        found = self._find_resource(dependency_info.resource)
+        found = self._find_resource_for(dependency_info.resource, res)
         is_external = res.provider.label != found.provider.label
         temp = Dependency(key=key, resource=found, attribute=dependency_info.attribute, is_external=is_external)
         res.add_dependency(temp)

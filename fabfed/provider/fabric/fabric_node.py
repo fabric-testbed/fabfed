@@ -31,6 +31,7 @@ class FabricNode(Node):
         self.jump_user = self._delegate.get_fablib_manager().get_bastion_username()
         self.jump_host = self._delegate.get_fablib_manager().get_bastion_host()
         self.jump_keyfile = self._delegate.get_fablib_manager().get_bastion_key_location()
+        self._used_dataplane_ipv4 = None
         self.dataplane_ipv4 = None
         self.dataplane_ipv6 = None
         self.id = delegate.get_reservation_id()
@@ -108,6 +109,13 @@ class FabricNode(Node):
 
     def set_network_label(self, network_label):
         self.network_label = network_label
+
+    def used_dataplane_ipv4(self):
+        return self._used_dataplane_ipv4
+
+    def set_used_dataplane_ipv4(self, used_dataplane_ipv4):
+        self._used_dataplane_ipv4 = used_dataplane_ipv4
+        self.dused_dataplane_ipv4 = str(used_dataplane_ipv4)
 
     def get_interfaces(self):
         return self._delegate.get_interfaces()

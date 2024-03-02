@@ -229,7 +229,7 @@ class Controller:
             raise ControllerException(exceptions)
 
         exceptions = []
-        resource_state_map = Controller._build_state_map(provider_states)
+        resource_state_map = Controller._build_new_state_map(provider_states)
         for resource in resources:
             label = resource.provider.label
             provider = self.provider_factory.get_provider(label=label)
@@ -288,8 +288,8 @@ class Controller:
             clusters = find_node_clusters(resources=resources)
 
             for cluster in clusters:
-                tester = SshNodeTester(nodes=[n for n in nodes if n.label in [n.label for n in cluster]],
-                                       run_ping_test=len(cluster) > 1)
+                temp = [n for n in nodes if n.label in [n.label for n in cluster]]
+                tester = SshNodeTester(nodes=[n for n in nodes if n.label in [n.label for n in cluster]])
                 tester.run_tests()
 
                 from fabfed.model.state import get_dumper
@@ -338,24 +338,31 @@ class Controller:
 
         return resource_state_map
 
-    @staticmethod
-    def _build_state_map(provider_states):
-        resource_state_map = dict()
-        for provider_state in provider_states:
-            temp_list = provider_state.states()
-
-            for state in temp_list:
-                if state.label in resource_state_map:
-                    resource_state_map[state.label].append(state)
-                else:
-                    resource_state_map[state.label] = [state]
-
-        return resource_state_map
+    # @staticmethod
+    # def _build_state_map(provider_states):
+    #     resource_state_map = dict()
+    #     for provider_state in provider_states:
+    #         temp_list = provider_state.states()
+    #
+    #         for state in temp_list:
+    #             if state.label in resource_state_map:
+    #                 resource_state_map[state.label].append(state)
+    #             else:
+    #                 resource_state_map[state.label] = [state]
+    #
+    #     return resource_state_map
 
     def destroy(self, *, provider_states: List[ProviderState]):
         exceptions = []
         resource_state_map = Controller._build_new_state_map(provider_states)
         provider_resource_map = dict()
+        failed_resources = []
+
+        for provider_state in provider_states:
+            key = provider_state.label
+
+            for k in provider_state.failed:
+                failed_resources.append(k)
 
         for provider_state in provider_states:
             key = provider_state.label
@@ -377,12 +384,12 @@ class Controller:
         skip_resources = set()
 
         for resource in temp:
-            if resource.label not in resource_state_map:
+            if resource.label not in resource_state_map and resource.label not in failed_resources:
                 continue
 
             provider_label = resource.provider.label
             provider = self.provider_factory.get_provider(label=provider_label)
-            external_states = resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES]
+            external_states = resource.attributes.get(Constants.EXTERNAL_DEPENDENCY_STATES, list())
 
             if resource.label in skip_resources:
                 self.logger.warning(f"Skipping deleting resource: {resource} with {provider_label}")
