@@ -288,7 +288,6 @@ class Controller:
             clusters = find_node_clusters(resources=resources)
 
             for cluster in clusters:
-                temp = [n for n in nodes if n.label in [n.label for n in cluster]]
                 tester = SshNodeTester(nodes=[n for n in nodes if n.label in [n.label for n in cluster]])
                 tester.run_tests()
 
@@ -296,7 +295,7 @@ class Controller:
                 import yaml
 
                 rep = yaml.dump(tester.summary, default_flow_style=False, sort_keys=False, Dumper=get_dumper())
-                self.logger.info(f"connection summary:rep={rep}")
+                self.logger.info(f"{rep}")
 
                 if tester.has_failures():
                     raise ControllerException([Exception("Node testing over ssh failed see node test summary ...")])
