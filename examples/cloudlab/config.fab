@@ -23,17 +23,17 @@ resource:
   - network:
       - cnet:
           provider: '{{cloudlab.cloudlab_provider }}'
-          profile: aes-profile
+          # profile: aes-profile
           layer3: "{{ layer3.my_layer }}"
   - node:
       - cnode:
           provider: '{{ cloudlab.cloudlab_provider }}'
           network: "{{ network.cnet }}"
-          count: 0
+          count: 1
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: CLEM  # UTAH
+          site: UTAH # CLEM  # UTAH
           image: default_rocky_8
           nic_model: NIC_Basic
           count: 1
@@ -41,7 +41,7 @@ resource:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.my_layer }}"
-          # interface: '{{ node.fabric_node }}'
+          interface: '{{ node.fabric_node }}'
           stitch_with: '{{ network.cnet }}'
           count: 1
   - service:
