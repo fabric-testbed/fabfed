@@ -48,12 +48,14 @@ def manage_workflow(args):
                                     use_local_policy=not args.use_remote_policy)
         except Exception as e:
             logger.error(f"Exceptions while initializing controller .... {e}")
+            logger.error(e, exc_info=True)
             sys.exit(1)
 
         try:
             controller.init(session=args.session, provider_factory=default_provider_factory)
         except Exception as e:
             logger.error(f"Exceptions while initializing providers  .... {e}")
+            logger.error(e, exc_info=True)
             sys.exit(1)
 
         states = sutil.load_states(args.session)
