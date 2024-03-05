@@ -83,15 +83,16 @@ class Controller:
 
         for resource in self.resources:
             resource_dict = resource.attributes
-            resource_dict[Constants.RES_TYPE] = resource.type
+            resource_dict[Constants.RES_COUNT] = resource_dict.get(Constants.RES_COUNT, 1)
             resource_dict[Constants.RES_NAME_PREFIX] = resource.name
+            resource_dict[Constants.CONFIG] = resource_dict.copy()
+            resource_dict[Constants.RES_TYPE] = resource.type
             resource_dict[Constants.LABEL] = resource.label
             resource_dict[Constants.EXTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.RESOLVED_EXTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.INTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.RESOLVED_INTERNAL_DEPENDENCIES] = list()
             resource_dict[Constants.SAVED_STATES] = list()
-            resource_dict[Constants.RES_COUNT] = resource_dict.get(Constants.RES_COUNT, 1)
 
             for dependency in resource.dependencies:
                 if dependency.is_external:
@@ -132,9 +133,11 @@ class Controller:
                     if Constants.RES_LAYER3 in other.attributes:
                         network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
-        for network in networks:
-            self.logger.info(f"{network}: stitch_info={network.attributes.get(Constants.RES_STITCH_INFO)}")
-            self.logger.info(f"{network}: stitch_with={network.attributes.get(Constants.RES_STITCH_INTERFACE)}")
+        for network in [net for net in networks if net.attributes.get(Constants.NETWORK_STITCH_WITH)]:
+            stitch_with = network.attributes.get(Constants.NETWORK_STITCH_WITH)
+            stitch_info = network.attributes.get(Constants.RES_STITCH_INFO)
+
+            self.logger.info(f"{network}:stitch_with={stitch_with}: stitch_info={stitch_info}")
 
         self.resources = [r for r in self.resources if r.attributes[Constants.RES_COUNT] > 0]
 

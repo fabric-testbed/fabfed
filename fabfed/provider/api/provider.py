@@ -139,6 +139,7 @@ class Provider(ABC):
 
         self.creation_details[label] = dict()
         self.creation_details[label]['resources'] = list()
+        self.creation_details[label]['config'] = resource[Constants.CONFIG]
         self.creation_details[label]['total_count'] = resource[Constants.RES_COUNT]
         self.creation_details[label]['failed_count'] = 0
         self.creation_details[label]['created_count'] = 0
@@ -271,6 +272,12 @@ class Provider(ABC):
         service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in services]
         pending = [res['label'] for res in self.pending]
         pending_internal = [res['label'] for res in self.pending_internal]
+        # # nodes = [n for n in self.nodes if n.labelin self.failed]
+        # for n in nodes:
+        #    self.failed[n.label] = {"phase": "xxx" , 'resource': cleanup_attrs(vars(n))}
+        # for n in networks:
+        #    self.failed[n.label] = {"phase": "yyy" , 'resource': cleanup_attrs(vars(n))}
+   
         return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
                              pending, pending_internal, self.failed, self.creation_details)
 

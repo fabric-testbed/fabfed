@@ -27,13 +27,15 @@ class FabricSlice:
         self.existing_networks = []
         self._resource_state_map = {}
 
-    def init(self):
+    def init(self, destroy_phase):
         from . import fabric_slice_helper
 
-        self.slice_object = fabric_slice_helper.init_slice(self.provider.name)
-        self.slice_created = self.slice_object.get_state() == "StableOK"
-        self.existing_nodes = [node.get_name() for node in self.slice_object.get_nodes()]
-        self.existing_networks = [net.get_name() for net in self.slice_object.get_networks()]
+        self.slice_object = fabric_slice_helper.init_slice(self.provider.name, destroy_phase)
+
+        if not destroy_phase:
+            self.slice_created = self.slice_object.get_state() == "StableOK"
+            self.existing_nodes = [node.get_name() for node in self.slice_object.get_nodes()]
+            self.existing_networks = [net.get_name() for net in self.slice_object.get_networks()]
 
     @property
     def name(self) -> str:
@@ -62,9 +64,10 @@ class FabricSlice:
     def _add_network(self, resource: dict):
         label = resource[Constants.LABEL]
         name_prefix = resource[Constants.RES_NAME_PREFIX]
-        delegate = self.slice_object.get_network(name_prefix)
 
-        if delegate:
+        if name_prefix in self.existing_networks:
+            delegate = self.slice_object.get_network(name_prefix)
+            assert delegate is not None, "expected to find network {name_prefix} in slice {self.name}"
             layer3 = resource.get(Constants.RES_LAYER3)
             peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
             peering = resource.get(Constants.RES_PEERING)
@@ -116,8 +119,9 @@ class FabricSlice:
         for i in range(node_count):
             name = f"{name_prefix}{i}"
 
-            try:
+            if name in self.existing_nodes:
                 delegate = self.slice_object.get_node(name)
+                assert delegate is not None, "expected to find node {name} in slice {self.name}"
                 node = FabricNode(label=label, delegate=delegate, network_label="")
 
                 if name in state_map:
@@ -125,8 +129,10 @@ class FabricSlice:
 
                     attributes = state_map[name]
                     assert 'dataplane_ipv4' in attributes
-                    node.set_used_dataplane_ipv4(IPv4Address(attributes['dataplane_ipv4']))
-            except Exception:
+
+                    if attributes['dataplane_ipv4']:
+                        node.set_used_dataplane_ipv4(IPv4Address(attributes['dataplane_ipv4']))
+            else:
                 node_builder = NodeBuilder(label, self.slice_object, name, resource)
                 node = node_builder.build()
                 self.slice_modified = True
@@ -178,12 +184,12 @@ class FabricSlice:
 
         days = DEFAULT_RENEWAL_IN_DAYS
 
-        try:
-            import datetime
-            end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
-            self.slice_object.renew(end_date)
-        except Exception as e:
-            self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
+        # try:
+        #     import datetime
+        #     end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
+        #     self.slice_object.renew(end_date)
+        # except Exception as e:
+        #     self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
 
         return slice_id
 
@@ -258,9 +264,22 @@ class FabricSlice:
         self._ensure_management_ips()
 
         for node in self.nodes:
-            self.slice_object = fablib.get_slice(name=self.provider.name)
-            delegate = self.slice_object.get_node(node.name)
-            delegate.network_manager_stop()
+            for attempt in range(self.retry):
+                try:
+                    self.slice_object = fablib.get_slice(name=self.provider.name)
+                    delegate = self.slice_object.get_node(node.name)
+                    delegate.network_manager_stop()
+                    break
+                except Exception as e:
+                    if attempt == self.retry:
+                        raise e
+
+                    import time
+
+                    self.logger.info(
+                        f"Going to sleep. Will try stop network manager  ... slice {self.provider.label}")
+
+                    time.sleep(2)
 
         if INCLUDE_FABNETS:
             self.slice_object = fablib.get_slice(name=self.provider.name)
@@ -416,7 +435,7 @@ class FabricSlice:
         label = resource.get(Constants.LABEL)
         self.logger.debug(f"Destroying resource {self.name}: {label}")
 
-        if self.slice_created:
+        if self.slice_object:
             self.slice_object.delete()
             self.slice_created = False
             self.logger.info(f"Destroyed slice {self.name}")  # TODO EMIT DELETE EVENT
