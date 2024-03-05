@@ -43,6 +43,13 @@ jobs:
         run: |
           docker run --rm -t ${{ env.fabfed_image }} fabfed stitch-policy -providers "chi,fabric" 
 
+      - name: Test Fabric
+        run: |
+          chmod +x /cicd/test_configs/fabric/run-fabfed.sh
+          docker run --rm \
+              -t ${{ env.fabfed_image }} \
+              /cicd/test_configs/fabric/run-fabfed.sh
+
       - name: Move cache
         run: |
           rm -rf /tmp/.buildx-cache
