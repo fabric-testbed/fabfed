@@ -21,29 +21,10 @@ class FabricSlice:
         self.retry = 10
 
     def init(self):
-        from fabrictestbed_extensions.fablib.fablib import fablib
+        from . import fabric_slice_helper
 
-        # noinspection PyBroadException
-        try:
-            self.slice_object = fablib.get_slice(name=self.provider.name)
-            self.logger.info(f"Found slice {self.provider.name}:state={self.slice_object.get_state()}")
-        except Exception:
-            self.slice_object = None
-
-        if self.slice_object and self.slice_object.get_state() != "StableOK":
-            self.logger.warning(f"Destroying slice {self.name}:state={self.slice_object.get_state()}")
-            self.slice_object.delete()
-            self.slice_object = None
-
-            import time
-
-            time.sleep(5)
-
-        if self.slice_object:
-            self.slice_created = True
-        else:
-            self.slice_created = False
-            self.slice_object = fablib.new_slice(name=self.provider.name)
+        self.slice_object = fabric_slice_helper.init_slice(self.provider.name)
+        self.slice_created = self.slice_object.get_state() == "StableOK"
 
     @property
     def name(self) -> str:
@@ -167,7 +148,7 @@ class FabricSlice:
             self.logger.info(f"Submitting request for slice {self.name}")
             slice_id = self.slice_object.submit(wait=False)
             self.logger.info(f"Waiting for slice {self.name} to be stable")
-            self.slice_object.wait(progress=True)
+            self.slice_object.wait(timeout=24 * 60, progress=True)
 
             try:
                 self.slice_object.update()
@@ -351,7 +332,8 @@ class FabricSlice:
         label = resource.get(Constants.LABEL)
         self.logger.debug(f"Destroying resource {self.name}: {label}")
 
-        if self.slice_created:
+        if self.slice_object:
             self.slice_object.delete()
+            self.slice_object = None
             self.slice_created = False
             self.logger.info(f"Destroyed slice {self.name}")  # TODO EMIT DELETE EVENT
