@@ -85,6 +85,7 @@ class Constants:
     RESOLVED_INTERNAL_DEPENDENCIES = "resolved_internal_dependencies"
 
     SAVED_STATES = "saved_states"
+    CONFIG = "config"
     EXTERNAL_DEPENDENCY_STATES = "external_dependency_states"
 
     NETWORK_STITCH_WITH = "stitch_with"
