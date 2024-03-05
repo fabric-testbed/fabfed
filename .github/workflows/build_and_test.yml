@@ -45,7 +45,6 @@ jobs:
 
       - name: Test Fabric
         run: |
-          chmod +x /cicd/test_configs/fabric/run-fabfed.sh
           docker run --rm \
               -t ${{ env.fabfed_image }} \
               /cicd/test_configs/fabric/run-fabfed.sh
