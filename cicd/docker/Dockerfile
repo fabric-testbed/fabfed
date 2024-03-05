@@ -9,6 +9,5 @@ RUN apt-get update && apt-get -u -y install lsb-release python3 binutils python3
 
 ADD ./ /
 
-RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
-RUN echo "recursive-include fabfed *.json *.yml *.j2" >>  MANIFEST.in
+RUN pip install --no-cache-dir --break-system-packages --ignore-requires-python -r requirements.txt
 RUN python3 -m pip install  --break-system-packages --no-cache-dir .
