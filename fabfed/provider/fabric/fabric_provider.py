@@ -12,6 +12,7 @@ class FabricProvider(Provider):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         self.slice = None
         self.retry = 5
+        self.slice_init = False
 
     def setup_environment(self):
         config = self.config
@@ -39,9 +40,10 @@ class FabricProvider(Provider):
 
         os.environ['FABRIC_TOKEN_LOCATION'] = token_location
 
-    def _init_slice(self):
-        if not self.slice:
+    def _init_slice(self, destroy_phase=False):
+        if not self.slice_init:
             self.logger.info(f"Initializing slice {self.name}")
+            self.slice_init = True
 
             import time
             from fabfed.util.utils import get_log_level, get_log_location
@@ -66,7 +68,7 @@ class FabricProvider(Provider):
                     from fabfed.provider.fabric.fabric_slice import FabricSlice
 
                     temp = FabricSlice(provider=self, logger=self.logger)
-                    temp.init()
+                    temp.init(destroy_phase)
                     self.slice = temp
                     self.logger.info(f"Done initializing slice {self.name}")
                     break
@@ -82,16 +84,14 @@ class FabricProvider(Provider):
 
     def do_add_resource(self, *, resource: dict):
         self._init_slice()
+        assert self.slice.slice_object is not None
         self.slice.add_resource(resource=resource)
 
     def do_create_resource(self, *, resource: dict):
-        self._init_slice()
+        assert self.slice.slice_object is not None
         self.slice.create_resource(resource=resource)
 
     def do_delete_resource(self, *, resource: dict):
-        self._init_slice()
+        self._init_slice(True)
         self.slice.delete_resource(resource=resource)
 
-    def do_destroy_resource(self, *, resource: dict):
-        self._init_slice()
-        self.slice.destroy_resource(resource=resource)

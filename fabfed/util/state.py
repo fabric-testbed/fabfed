@@ -195,8 +195,9 @@ def dump_states(states, to_json: bool, summary: bool = False):
     import sys
     from fabfed.model.state import get_dumper
 
-    temp = []
     if summary:
+        temp = []
+
         for provider_state in states:
             for node_state in provider_state.node_states:
                 attributes = {}

@@ -55,11 +55,11 @@ class FabricNode(Node):
 
         if INCLUDE_FABNETS:
             v4_net = slice_object.get_network(name=self.v4net_name)
-            v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net else None
+            v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net and v4_net.get_interfaces() else None
             logger.info(f" Node {self.name} has v4 device={v4_dev}")
 
             v6_net = slice_object.get_network(name=self.v6net_name)
-            v6_dev = v6_net.get_interfaces()[0].get_device_name() if v6_net else None
+            v6_dev = v6_net.get_interfaces()[0].get_device_name() if v6_net and v6_net.get_interfaces() else None
             logger.info(f" Node {self.name} has v6 device={v6_dev}")
 
         for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
