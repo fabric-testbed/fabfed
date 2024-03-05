@@ -209,6 +209,7 @@ class Controller:
                 resource_dict[Constants.SAVED_STATES] = list()
                 resource_dict[Constants.RES_COUNT] = creation_details['total_count']
                 resource_dict[Constants.RES_CREATION_DETAILS] = creation_details
+                resource_dict[Constants.CONFIG] = creation_details.pop(Constants.CONFIG)
                 planned_resources.append(resource_config)
 
         self.resources = planned_resources

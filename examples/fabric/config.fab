@@ -1,6 +1,6 @@
 variable:
   - fabric_site:
-      default: TACC
+      default: WASH 
 
 provider:
   - fabric:
@@ -28,7 +28,7 @@ resource:
             provider:  '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}' 
             count: 1
-            image: CC-Ubuntu20.04
+            image: default_ubuntu_22
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
