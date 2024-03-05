@@ -10,6 +10,12 @@ class FabricProvider(Provider):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         self.slice = None
 
+        from fabrictestbed_extensions.fablib.constants import Constants as FC
+        from fabfed.util.utils import get_base_dir
+
+        FC.DEFAULT_FABRIC_CONFIG_DIR = get_base_dir(self.name)
+        FC.DEFAULT_FABRIC_RC = f"{FC.DEFAULT_FABRIC_CONFIG_DIR}/fabric_rc"
+
     def setup_environment(self):
         config = self.config
         credential_file = config.get(Constants.CREDENTIAL_FILE, None)
@@ -42,10 +48,11 @@ class FabricProvider(Provider):
         os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = config.get(FABRIC_SLICE_PRIVATE_KEY_LOCATION)
         os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = config.get(FABRIC_SLICE_PUBLIC_KEY_LOCATION)
 
-        from fabrictestbed_extensions.fablib.fablib import fablib
         from fabfed.util.utils import get_log_level, get_log_location
 
         location = get_log_location()
+
+        from fabrictestbed_extensions.fablib.fablib import fablib
 
         if fablib.get_default_fablib_manager().get_log_file() != location:
             self.logger.debug("Initializing fablib extensions logging ...")

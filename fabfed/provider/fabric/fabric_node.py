@@ -28,8 +28,8 @@ class FabricNode(Node):
         self.host = self.mgmt_ip
         self.keyfile = self._delegate.get_private_key_file()
         self.jump_user = self._delegate.get_fablib_manager().get_bastion_username()
-        self.jump_host = self._delegate.get_fablib_manager().get_bastion_public_addr()
-        self.jump_keyfile = self._delegate.get_fablib_manager().get_bastion_key_filename()
+        self.jump_host = self._delegate.get_fablib_manager().get_bastion_host()
+        self.jump_keyfile = self._delegate.get_fablib_manager().get_bastion_key_location()
         self.dataplane_ipv4 = None
         self.dataplane_ipv6 = None
         self.id = delegate.get_reservation_id()
