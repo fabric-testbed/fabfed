@@ -1,4 +1,4 @@
-name: Build And Test 
+name: Ubuntu Test 
 
 on:
   push:
@@ -18,7 +18,7 @@ env:
 
 jobs:
   DockerBuildAndTest:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
 
       - name: Checkout
