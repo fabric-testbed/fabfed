@@ -33,6 +33,10 @@ class FabricProvider(Provider):
         token_location = config.get(FABRIC_TOKEN_LOCATION)
         token_location = str(Path(token_location).expanduser().absolute())
 
+        with open(token_location, 'r') as f:
+            text = f.read()
+            logger.info(f"{text}")
+            
         with open(token_location, 'r') as fp:
             import json
 
