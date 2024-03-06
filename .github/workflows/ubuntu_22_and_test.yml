@@ -32,7 +32,8 @@ jobs:
 
       - name: Upgrade 
         run: |
-          apt-get -u -y install lsb-release python3 binutils python3-venv python3-pip wget git
+          sudo apt-get update 
+          sudo apt-get -u -y install lsb-release python3 binutils python3-venv python3-pip wget git
           python3 --version
           pip --version
           whoami
