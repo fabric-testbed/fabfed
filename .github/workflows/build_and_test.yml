@@ -49,6 +49,18 @@ jobs:
               -t ${{ env.fabfed_image }} \
               /cicd/test_configs/fabric/run-fabfed.sh
 
+      - name: Test Fabric Facility Port.
+        run: |
+          docker run --rm \
+              -e FABRIC_PROJECT=${{ secrets.FABRIC_PROJECT }} \
+              -e FABRIC_USER=${{ secrets.FABRIC_USER }} \
+              -e FABRIC_TOKEN=${{ secrets.FABRIC_TOKEN }} \
+              -e FABRIC_BASTION_KEY=${{ secrets.FABRIC_BASTION_KEY }} \
+              -e FABRIC_SLIVER_KEY=${{ secrets.FABRIC_SLIVER_KEY }} \
+              -e FABRIC_SLIVER_PUBKEY=${{ secrets.FABRIC_SLIVER_PUBKEY }} \
+              -t ${{ env.fabfed_image }} \
+              /cicd/test_configs/fabric_facility_port/run-fabfed.sh
+
       - name: Move cache
         run: |
           rm -rf /tmp/.buildx-cache

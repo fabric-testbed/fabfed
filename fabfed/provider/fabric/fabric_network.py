@@ -98,6 +98,17 @@ class NetworkBuilder:
         self.net = None
         self.type = resource.get('net_type')     # TODO: type
         self.discovered_stitch_info = {}
+        self.device = resource.get(Constants.STITCH_PORT_DEVICE_NAME)
+        self.site = resource.get(Constants.STITCH_PORT_SITE)
+
+        interface = resource.get(Constants.RES_INTERFACES)
+
+        if isinstance(interface, list):
+            interface = interface[0]
+
+        if isinstance(interface, dict) and 'vlan' in interface:
+            logger.info(f'Network {self.net_name} found interface {interface}')
+            self.vlan = interface.get('vlan')
 
         if self.stitch_port:
             self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
