@@ -8,6 +8,8 @@ mkdir -p ~/work/fabric_config
 
 mkdir -p ~/.fabfed
 
-cp fabfed_credentials.yml.cicd ~/.fabfed/
+ls -l /creds
+
+cp ../../fabfed_credentials.yml.cicd ~/.fabfed/
 fabfed workflow -s test-fabric -plan 
 exit 0
