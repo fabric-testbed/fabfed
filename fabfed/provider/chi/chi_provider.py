@@ -15,6 +15,9 @@ class ChiProvider(Provider):
     def setup_environment(self):
         pass
 
+    def supports_modify(self):
+        return True
+
     def _setup_environment(self, *, site: str):
         """
         Setup the environment variables for Chameleon

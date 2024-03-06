@@ -40,7 +40,6 @@ resource:
   - node:
       - sense_node:
           provider: '{{ sense.sense_provider }}'
-          name: aws-node
           network: "{{ network.sense_net }}"
           service:
           count: 1
@@ -59,8 +58,7 @@ resource:
           count: 1
           stitch_with: '{{ network.fabric_network }}'
           stitch_option: 
-              port_name: AGG4 
-
+              port_name: agg3.ashb 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"

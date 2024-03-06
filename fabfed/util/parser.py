@@ -146,13 +146,19 @@ class Parser:
             raise ParseConfigException("no resources found ...")
 
         if len(resources) != len(set(resources)):
-            raise ParseConfigException(f'detected duplicate  resources')
+            raise ParseConfigException(f'detected duplicate resources')
 
         from fabfed.exceptions import ResourceTypeNotSupported
 
         for resource in resources:
             if resource.type not in Constants.RES_SUPPORTED_TYPES:
                 raise ResourceTypeNotSupported(resource.type)
+
+        for resource in resources:
+            count = resource.attributes.get(Constants.RES_COUNT, 1)
+
+            if count > 1 and resource.type in Constants.RES_RESTRICTED_TYPES:
+                raise ParseConfigException(f'{resource.label} is of type {resource.type} and cannot have count > 1')
 
     @staticmethod
     def parse_variables(ns_list: list, var_dict: dict) -> List[Variable]:
@@ -236,6 +242,7 @@ class Parser:
         resources = Parser._filter_resources(resource_configs, providers)
 
         Parser._validate_resources(resources)
+        resources = [r for r in resources if r.attributes.get(Constants.RES_COUNT, 1) > 0]
 
         from .resource_dependency_helper import ResourceDependencyEvaluator
 

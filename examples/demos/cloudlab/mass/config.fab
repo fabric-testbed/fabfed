@@ -1,3 +1,7 @@
+variable:
+  - vlan:
+      default: 3110
+
 provider:
   - cloudlab:
       - cloudlab_provider:
@@ -7,10 +11,6 @@ provider:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: fabric
-  - janus:
-      - janus_provider:
-          credential_file: ~/.fabfed/fabfed_credentials.yml
-          profile: janus 
 
 config:
   - policy:
@@ -28,7 +28,7 @@ config:
             option:
               cluster: urn:publicid:IDN+cloudlab.umass.edu+authority+cm
               interface:
-              - vlan: 3110
+              - vlan: '{{ var.vlan }}' 
 
   - layer3:
       - my_layer:
@@ -61,12 +61,4 @@ resource:
           stitch_option:
              device_name: CloudLab-Clemson
              policy: '{{ policy.my_stitch_policy }}'
-          count: 1
-  - service:
-      - dtn_service:
-          provider: '{{ janus.janus_provider }}'
-          node: [ '{{ node.cloudlab_node }}', '{{ node.fabric_node }}' ]
-          controller: '{{ node.fabric_node }}'
-          image: dtnaas/tools
-          profile: fabfed
           count: 1

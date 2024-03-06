@@ -34,6 +34,7 @@ import chi.network
 from fabfed.model import Node
 import fabfed.provider.chi.chi_util as util
 from fabfed.util.constants import Constants
+from .chi_constants import INCLUDE_ROUTER
 
 
 class ChiNode(Node):
@@ -117,9 +118,12 @@ class ChiNode(Node):
 
         self.logger.info(f"Waiting for node {self.name} to be Active!")
         node_id = chi.server.get_server_id(self.name)
-        chi.server.wait_for_active(server_id=node_id)
+        chi.server.wait_for_active(node_id, timeout=(60 * 40))
         node = chi.server.get_server(node_id)
         self.__populate_state(node.to_dict())
+
+        if not INCLUDE_ROUTER:
+            return
 
         if not self.mgmt_ip:
             self.logger.info(f"Associating the Floating IP to {self.name}!")
@@ -162,11 +166,15 @@ class ChiNode(Node):
             self.mgmt_ip = self.host = fip['floating_ip_address']
 
     def wait_for_ssh(self):
+        if not INCLUDE_ROUTER:
+            return
+
         if not self.mgmt_ip:
             raise Exception(f"Node {self.name} unable to test ssh connection. No management ip")
 
-        self.logger.info(f"Waiting on SSH. Node {self.name}: mgmt_ip={self.mgmt_ip}. This can take some time ...")
-        chi.server.wait_for_tcp(self.mgmt_ip, port=22)
+        self.logger.info(
+            f"Waiting on SSH. Node {self.name}: mgmt_ip={self.mgmt_ip}. This can take some time ... up to 30 minutes")
+        chi.server.wait_for_tcp(self.mgmt_ip, 22, timeout=(60 * 40))
 
     def delete(self):
         chi.set('project_name', self.project_name)
