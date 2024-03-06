@@ -437,6 +437,7 @@ class FabricSlice:
 
         if self.slice_object:
             self.slice_object.delete()
+            self.slice_object = None
             self.slice_created = False
             self.logger.info(f"Destroyed slice {self.name}")  # TODO EMIT DELETE EVENT
 

@@ -14,6 +14,12 @@ class FabricProvider(Provider):
         self.retry = 5
         self.slice_init = False
 
+        from fabrictestbed_extensions.fablib.constants import Constants as FC
+        from fabfed.util.utils import get_base_dir
+
+        FC.DEFAULT_FABRIC_CONFIG_DIR = get_base_dir(self.name)
+        FC.DEFAULT_FABRIC_RC = f"{FC.DEFAULT_FABRIC_CONFIG_DIR}/fabric_rc"
+
     def setup_environment(self):
         config = self.config
 
@@ -29,6 +35,7 @@ class FabricProvider(Provider):
         os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = config.get(FABRIC_SLICE_PUBLIC_KEY_LOCATION)
 
         from pathlib import Path
+        from fabfed.util.utils import get_log_level, get_log_location
 
         token_location = config.get(FABRIC_TOKEN_LOCATION)
         token_location = str(Path(token_location).expanduser().absolute())
@@ -39,6 +46,12 @@ class FabricProvider(Provider):
         #
         with open(token_location, 'r') as fp:
             import json
+        from fabrictestbed_extensions.fablib.fablib import fablib
+
+        if fablib.get_default_fablib_manager().get_log_file() != location:
+            self.logger.debug("Initializing fablib extensions logging ...")
+            fablib.get_default_fablib_manager().set_log_file(location)
+            fablib.get_default_fablib_manager().set_log_level(get_log_level())
 
             json.load(fp)
 
