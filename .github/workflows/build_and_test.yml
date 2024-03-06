@@ -11,6 +11,7 @@ on:
 
 env:
   fabfed_image: fabfed:cicd
+  FABRIC_TOKEN: ${{ secrets.FABRIC_TOKEN }}
 
 jobs:
   DockerBuildAndTest:
@@ -47,7 +48,7 @@ jobs:
       - name: Save Credentials 
         run: |
           mkdir  ${{ github.workspace }}/creds
-          echo "${{ secrets.FABRIC_TOKEN }}" > ${{ github.workspace }}/creds/token.json
+          echo '$FABRIC_TOKEN' | base64 --decode > ${{ github.workspace }}/creds/token.json
 
       - name: Test Fabric
         run: |
