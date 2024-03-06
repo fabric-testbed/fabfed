@@ -45,8 +45,9 @@ jobs:
 
       - name: Test Fabric
         run: |
+          export FABRIC_TOKEN="${{ secrets.FABRIC_TOKEN }}"
           docker run --rm \
-              -e FABRIC_TOKEN="${{ secrets.FABRIC_TOKEN }}" \
+              -e FABRIC_TOKEN="$FABRIC_TOKEN" \
               -t ${{ env.fabfed_image }} \
               /cicd/test_configs/fabric/run-fabfed.sh
 
