@@ -1,0 +1,30 @@
+provider:
+  - fabric:
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
+          profile: fabric
+config:
+  - layer3:
+      - my_layer:
+          subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
+          ip_start: 192.168.1.2
+          ip_end: 192.168.1.254
+resource:
+  - node:
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          site: UTAH # CLEM  # UTAH
+          image: default_rocky_8
+          nic_model: NIC_Basic
+          count: 0
+  - network:
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+          # interface: '{{ node.fabric_node }}'
+          device_name: Utah-Cloudlab-Powder
+          site: UTAH
+          interface:
+          - vlan: 3101 
+          count: 1

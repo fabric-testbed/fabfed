@@ -53,7 +53,11 @@ class FabricNetwork(Network):
     def gateway(self):
         return self.layer3.attributes.get(Constants.RES_NET_GATEWAY) if self.layer3 else None
 
-    def available_ips(self):
+    @property
+    def delegate(self):
+        return self._delegate
+
+    def available_ips(self) -> list:
         available_ips = []
 
         if self.layer3:
@@ -94,6 +98,17 @@ class NetworkBuilder:
         self.net = None
         self.type = resource.get('net_type')     # TODO: type
         self.discovered_stitch_info = {}
+        self.device = resource.get(Constants.STITCH_PORT_DEVICE_NAME)
+        self.site = resource.get(Constants.STITCH_PORT_SITE)
+
+        interface = resource.get(Constants.RES_INTERFACES)
+
+        if isinstance(interface, list):
+            interface = interface[0]
+
+        if isinstance(interface, dict) and 'vlan' in interface:
+            logger.info(f'Network {self.net_name} found interface {interface}')
+            self.vlan = interface.get('vlan')
 
         if self.stitch_port:
             self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
@@ -189,10 +204,20 @@ class NetworkBuilder:
             if port: 
                 labels = Labels.update(labels, local_name=port)
 
-            peer_labels = Labels(ipv4_subnet=peer_subnet,
-                                 asn=str(asn),
-                                 bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
-                                 account_id=account_id)
+            # TODO: al2s remote_name depends on the cloud provider
+            if cloud == "GCP":
+                peer_labels = Labels(ipv4_subnet=peer_subnet,
+                                     asn=str(asn),
+                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                     account_id=account_id,
+                                     local_name='Google Cloud Platform')
+            else:
+                peer_labels = Labels(ipv4_subnet=peer_subnet,
+                                     asn=str(asn),
+                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                     account_id=account_id,
+                                     region=region,
+                                     local_name=cloud)
 
             logger.info(f"Creating Facility Port:Labels: {labels}")
             logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
@@ -202,7 +227,7 @@ class NetworkBuilder:
                 site=cloud,
                 labels=labels,
                 peer_labels=peer_labels,
-                capacities=Capacities(bw=1, mtu=9001))
+                capacities=Capacities(bw=50, mtu=9001))
 
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
@@ -220,7 +245,8 @@ class NetworkBuilder:
         from fim.slivers.capacities_labels import Labels, Capacities
 
         if not self.peering:
-            interfaces = [self.interfaces[0]]
+            interfaces = []
+            interfaces.extend(self.interfaces)
 
             for node in nodes:
                 node_interfaces = [i for i in node.get_interfaces() if not i.get_network()]
@@ -278,7 +304,8 @@ class NetworkBuilder:
         self.net.fim_network_service.peer(
             aux_net.fim_network_service,
             labels=Labels(bgp_key='secret', ipv4_subnet='192.168.50.1/24'),
-            capacities=Capacities(mtu=9001))
+            capacities=Capacities(mtu=9000),
+            peer_labels=Labels(local_name="FABRIC"))
 
     def build(self) -> FabricNetwork:
         assert self.net

@@ -118,7 +118,7 @@ def add_route(slice_delegate, node, vpc_subnet, gateway, retry):
     logger.warning(f"Giving up:adding route: {vpc_subnet}:gateway={gateway} after {retry} attempts")
 
 
-def init_slice(name: str):
+def init_slice(name: str, destroy_phase):
     from fabrictestbed_extensions.fablib.fablib import fablib
 
     # noinspection PyBroadException
@@ -128,7 +128,11 @@ def init_slice(name: str):
         slice_object = fablib.get_slice(name=name)
         logger.info(f"Found slice {name}:state={slice_object.get_state()}")
     except Exception:
-        return fablib.new_slice(name=name)
+        if not destroy_phase:
+            return fablib.new_slice(name=name)
+
+    if destroy_phase:
+        return slice_object
 
     assert slice_object.get_state() not in ["Closing", "Dead"]
 

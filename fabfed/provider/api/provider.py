@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict
 
-from fabfed.model import Node, Network, Service
+from fabfed.model import Resource, Node, Network, Service
 from fabfed.model.state import ProviderState
 from fabfed.util.constants import Constants
 
@@ -21,9 +21,13 @@ class Provider(ABC):
         self._services = list()
 
         self._pending = []
+        self._no_longer_pending = []
         self._failed = {}
+        self.creation_details = {}
         self._added = []
         self.pending_internal = []
+
+        self.add_duration = self.create_duration = self.delete_duration = self.init_duration = 0
 
     @property
     def resources(self) -> List:
@@ -43,6 +47,10 @@ class Provider(ABC):
     @property
     def services(self) -> List[Service]:
         return self._services
+
+    @property
+    def no_longer_pending(self) -> List:
+        return self._no_longer_pending
 
     @property
     def pending(self) -> List:
@@ -72,12 +80,18 @@ class Provider(ABC):
 
         return DependencyResolver(label=self.label, external=external, logger=self.logger)
 
-    def on_created(self, *, source, provider, resource: object):
+    def on_created(self, *, source, provider, resource: Resource):
         assert self != source
         assert provider
 
-        resource.write_ansible(provider.name)
-        # resource_dict = vars(resource)
+        if self == provider:
+            self.creation_details[resource.label]["resources"].append(resource.name)
+
+        try:
+            resource.write_ansible(provider.name)
+        except Exception as e:
+            self.logger.warning(
+                f"exception occurred while writing ansible for resource={resource.name}/{provider.name}:{e}")
 
         for pending_resource in self.pending.copy():
             resolver = self.get_dependency_resolver()
@@ -88,37 +102,73 @@ class Provider(ABC):
             if ok:
                 resolver.extract_values(resource=pending_resource)
                 self.pending.remove(pending_resource)
+                self.no_longer_pending.append(pending_resource)
                 self.logger.info(f"Removing {label} from pending using {self.label}")
 
-                try:
-                    self.add_resource(resource=pending_resource)
+    def init(self):
+        import time
 
-                    temp = self.pending_internal
-                    self.pending_internal = []
+        start = time.time()
+        credential_file = self.config.get(Constants.CREDENTIAL_FILE, None)
 
-                    for internal_dependency in temp:
-                        try:
-                            internal_dependency_label = internal_dependency[Constants.LABEL]
-                            self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
-                            self.add_resource(resource=internal_dependency)
-                        except Exception as ie:
-                            self.logger.warning(
-                                f"Exception occurred while adding internal pending resource: {ie} using {self.label}")
+        if credential_file:
+            from fabfed.util import utils
+            from fabfed.exceptions import ProviderException
 
-                except Exception as e:
-                    self.logger.warning(
-                        f"Exception occurred while adding pending resource: {label} using {self.label}")
-                    self.logger.warning(e, exc_info=True)
+            if Constants.PROFILE not in self.config:
+                raise ProviderException(
+                    f"{self.label}: must name a section in the credential file using keyword {Constants.PROFILE}")
 
-    def add_resource(self, *, resource: dict):
-        count = resource.get(Constants.RES_COUNT, 1)
+            profile = self.config[Constants.PROFILE]
+            config = utils.load_yaml_from_file(credential_file)
+
+            if profile not in config:
+                raise ProviderException(
+                    f"{self.label}: credential file {credential_file} does not have a section for keyword {profile}")
+            self.config.update(config[profile])
+
+        self.setup_environment()
+        end = time.time()
+        self.init_duration = (end - start)
+
+    def supports_modify(self):
+        return False
+
+    def validate_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
 
-        if count < 1:
-            self.logger.info(f"Skipping {label}. using {self.label}: count={count}")
-            return
-        elif len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
-            self.logger.info(f"Adding  {label} to pending using {self.label}")
+        self.creation_details[label] = dict()
+        self.creation_details[label]['resources'] = list()
+        self.creation_details[label]['config'] = resource[Constants.CONFIG]
+        self.creation_details[label]['total_count'] = resource[Constants.RES_COUNT]
+        self.creation_details[label]['failed_count'] = 0
+        self.creation_details[label]['created_count'] = 0
+        self.creation_details[label]['name_prefix'] = resource[Constants.RES_NAME_PREFIX]
+
+        import time
+
+        start = time.time()
+
+        try:
+            self.do_validate_resource(resource=resource)
+        except Exception as e:
+            self.failed[label] = 'VALIDATE'
+            raise e
+        finally:
+            end = time.time()
+            self.add_duration += (end - start)
+
+    def add_resource(self, *, resource: dict):
+        import time
+
+        start = time.time()
+        count = resource.get(Constants.RES_COUNT, 1)
+        label = resource.get(Constants.LABEL)
+        assert count > 0
+        assert label not in self._added
+
+        if len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
+            self.logger.info(f"Adding {label} to pending using {self.label}")
             assert resource not in self.pending, f"Did not expect {label} to be in pending list using {self.label}"
             self.pending.append(resource)
             return
@@ -148,18 +198,51 @@ class Provider(ABC):
 
             self.failed[label] = 'ADD'
             raise e
+        finally:
+            end = time.time()
+            self.add_duration += (end - start)
 
     def create_resource(self, *, resource: dict):
+        import time
+
+        start = time.time()
         label = resource.get(Constants.LABEL)
+
+        if self.no_longer_pending:
+            self.logger.info(f"Checking internal dependencies using {self.label}")
+            for no_longer_pending_resource in self.no_longer_pending:
+                self.add_resource(resource=no_longer_pending_resource)
+
+                temp = self.pending_internal
+                self.pending_internal = []
+
+                for internal_dependency in temp:
+                    internal_dependency_label = internal_dependency[Constants.LABEL]
+                    self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
+                    self.add_resource(resource=internal_dependency)
+
+            self._no_longer_pending = []
+
+        self.logger.info(f"Creating {label} using {self.label}")
 
         if label in self._added:
             try:
                 self.do_create_resource(resource=resource)
             except Exception as e:
                 self.failed[label] = 'CREATE'
+                failed_count = resource[Constants.RES_COUNT] - len(self.creation_details[label]['resources'])
+                self.creation_details[label]['failed_count'] = failed_count
                 raise e
+            finally:
+                self.creation_details[label]['created_count'] = len(self.creation_details[label]['resources'])
+                end = time.time()
+                self.create_duration += (end - start)
 
     def delete_resource(self, *, resource: dict):
+        import time
+
+        start = time.time()
+
         try:
             self.do_delete_resource(resource=resource)
         except Exception as e:
@@ -167,6 +250,9 @@ class Provider(ABC):
 
             self.failed[label] = 'DELETE'
             raise e
+        finally:
+            end = time.time()
+            self.delete_duration += (end - start)
 
     def get_state(self) -> ProviderState:
         from fabfed.model.state import NetworkState, NodeState, ServiceState
@@ -178,13 +264,22 @@ class Provider(ABC):
             attributes = {k: v for k, v in attributes.items() if not k.startswith('_')}
             return attributes
 
-        net_states = [NetworkState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.networks]
-        node_states = [NodeState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in self.nodes]
-        service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in self.services]
+        networks = [n for n in self.networks if n.name in self.creation_details[n.label]["resources"]]
+        net_states = [NetworkState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in networks]
+        nodes = [n for n in self.nodes if n.name in self.creation_details[n.label]["resources"]]
+        node_states = [NodeState(label=n.label, attributes=cleanup_attrs(vars(n))) for n in nodes]
+        services = [s for s in self.services if s.name in self.creation_details[s.label]["resources"]]
+        service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in services]
         pending = [res['label'] for res in self.pending]
         pending_internal = [res['label'] for res in self.pending_internal]
+        # # nodes = [n for n in self.nodes if n.labelin self.failed]
+        # for n in nodes:
+        #    self.failed[n.label] = {"phase": "xxx" , 'resource': cleanup_attrs(vars(n))}
+        # for n in networks:
+        #    self.failed[n.label] = {"phase": "yyy" , 'resource': cleanup_attrs(vars(n))}
+   
         return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
-                             pending, pending_internal, self.failed)
+                             pending, pending_internal, self.failed, self.creation_details)
 
     def list_networks(self) -> list:
         from tabulate import tabulate
@@ -217,6 +312,9 @@ class Provider(ABC):
 
     @abstractmethod
     def setup_environment(self):
+        pass
+
+    def do_validate_resource(self, *, resource: dict):
         pass
 
     @abstractmethod

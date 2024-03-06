@@ -1,3 +1,7 @@
+variable:
+  - vlan:
+      default: 3100
+
 provider:
   - cloudlab:
       - cloudlab_provider:
@@ -7,10 +11,6 @@ provider:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: fabric
-  - janus:
-      - janus_provider:
-          credential_file: ~/.fabfed/fabfed_credentials.yml
-          profile: janus 
 
 config:
   - layer3:
@@ -24,6 +24,8 @@ resource:
       - cnet:
           provider: '{{cloudlab.cloudlab_provider }}'
           layer3: "{{ layer3.my_layer }}"
+          interface:
+          - vlan: '{{ var.vlan }}'
   - node:
       - cloudlab_node:
           provider: '{{ cloudlab.cloudlab_provider }}'
@@ -33,7 +35,7 @@ resource:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
           image: default_rocky_8
-          nic_model: NIC_ConnectX_5
+          nic_model: NIC_Basic
           count: 1
   - network:
       - fabric_network:
@@ -43,12 +45,4 @@ resource:
           stitch_with: '{{ network.cnet }}'
           stitch_option:
              device_name: CloudLab-Clemson
-          count: 1
-  - service:
-      - dtn_service:
-          provider: '{{ janus.janus_provider }}'
-          node: [ '{{ node.cloudlab_node }}', '{{ node.fabric_node }}' ]
-          controller: '{{ node.fabric_node }}'
-          image: dtnaas/tools
-          profile: fabfed
           count: 1

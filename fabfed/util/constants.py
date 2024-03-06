@@ -11,6 +11,7 @@ class Constants:
     RES_TYPE = "type"
     RES_SITE = "site"
     RES_COUNT = "count"
+    RES_CREATION_DETAILS = "creation_details"
     RES_IMAGE = "image"
     RES_NIC_MODEL = "nic_model"
     RES_NETWORK = "network"
@@ -20,6 +21,7 @@ class Constants:
     RES_TYPE_NETWORK = "network"
     RES_TYPE_SERVICE = "service"
     RES_SUPPORTED_TYPES = [RES_TYPE_NODE, RES_TYPE_NETWORK, RES_TYPE_SERVICE]
+    RES_RESTRICTED_TYPES = [RES_TYPE_NETWORK]
 
     RES_TYPE_VM = "VM"
     RES_TYPE_BM = "Baremetal"
@@ -83,6 +85,7 @@ class Constants:
     RESOLVED_INTERNAL_DEPENDENCIES = "resolved_internal_dependencies"
 
     SAVED_STATES = "saved_states"
+    CONFIG = "config"
     EXTERNAL_DEPENDENCY_STATES = "external_dependency_states"
 
     NETWORK_STITCH_WITH = "stitch_with"
@@ -101,3 +104,6 @@ class Constants:
         "aws": "fabfed.provider.aws.aws_provider.AwsProvider",
         "dummy": "fabfed.provider.dummy.dummy_provider.DummyProvider"
     }
+
+    RUN_SSH_TESTER = True
+    COPY_TOKENS = False

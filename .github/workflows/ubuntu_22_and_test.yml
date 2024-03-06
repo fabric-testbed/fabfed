@@ -1,0 +1,40 @@
+name: Ubuntu22.04 Test 
+
+on:
+  push:
+    branches:
+      - develop 
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  fabfed_image: fabfed:cicd
+  FABRIC_TOKEN: ${{ secrets.FABRIC_TOKEN }}
+  FABRIC_BASTION_KEY: ${{ secrets.FABRIC_BASTION_KEY }}
+  FABRIC_SLIVER_KEY: ${{ secrets.FABRIC_SLIVER_KEY }}
+  FABRIC_SLIVER_PUBKEY: ${{ secrets.FABRIC_SLIVER_PUBKEY }}
+
+jobs:
+  UbuntuTest:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print Versions 
+        run: |
+          python3 --version
+          pip --version
+          whoami
+
+      - name: Install Neo
+        run: |
+          pip install --upgrade pip 
+          pip install setuptools --upgrade
+          pip install --no-cache-dir --ignore-requires-python neo4j==5.18.0
+          pip list -v | grep neo4j
+          pip install --no-cache-dir --ignore-requires-python -r requirements.txt
+          python3 -m pip install --no-cache-dir .

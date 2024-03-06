@@ -1,3 +1,7 @@
+variable:
+  - vlan:
+      default: 3400
+
 provider:
   - cloudlab:
       - cloudlab_provider:
@@ -25,7 +29,7 @@ resource:
           provider: '{{cloudlab.cloudlab_provider }}'
           layer3: "{{ layer3.my_layer }}"
           interface:
-          - vlan: 3400
+          - vlan: '{{ var.vlan }}'
   - node:
       - cloudlab_node:
           provider: '{{ cloudlab.cloudlab_provider }}'
@@ -35,7 +39,7 @@ resource:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
           image: default_rocky_8
-          nic_model: NIC_ConnectX_5
+          nic_model: NIC_Basic
           count: 1
   - network:
       - fabric_network:
@@ -53,4 +57,4 @@ resource:
           controller: '{{ node.fabric_node }}'
           image: dtnaas/tools
           profile: fabfed
-          count: 1
+          count: 0

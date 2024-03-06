@@ -11,11 +11,16 @@ on:
 
 env:
   fabfed_image: fabfed:cicd
+  FABRIC_TOKEN: ${{ secrets.FABRIC_TOKEN }}
+  FABRIC_BASTION_KEY: ${{ secrets.FABRIC_BASTION_KEY }}
+  FABRIC_SLIVER_KEY: ${{ secrets.FABRIC_SLIVER_KEY }}
+  FABRIC_SLIVER_PUBKEY: ${{ secrets.FABRIC_SLIVER_PUBKEY }}
 
 jobs:
   DockerBuildAndTest:
     runs-on: ubuntu-22.04
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -42,6 +47,35 @@ jobs:
       - name: Test Stitch Policy
         run: |
           docker run --rm -t ${{ env.fabfed_image }} fabfed stitch-policy -providers "chi,fabric" 
+
+      - name: Save Credentials 
+        run: |
+          mkdir -p ${{ github.workspace }}/creds
+          echo ${{ env.FABRIC_TOKEN }} | base64 --decode > ${{ github.workspace }}/creds/token.json
+          echo ${{ env.FABRIC_BASTION_KEY }} | base64 --decode > ${{ github.workspace }}/creds/bastion
+          echo ${{ env.FABRIC_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver
+          echo ${{ env.FABRIC_SLIVER_PUBKEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver.pub
+
+      - name: Test Fabric Plan
+        run: |
+          mkdir -p  ${{ github.workspace }}/creds
+          echo ${{ env.FABRIC_TOKEN }} | base64 --decode > ${{ github.workspace }}/creds/token.json
+          docker run --rm \
+              -e FABRIC_PROJECT=${{ secrets.FABRIC_PROJECT }} \
+              -e FABRIC_USER=${{ secrets.FABRIC_USER }} \
+              -v ${{ github.workspace }}/creds:/creds \
+              -t ${{ env.fabfed_image }} \
+              /cicd/test_configs/fabric/run-fabfed.sh
+
+      - name: Test Fabric FacilityPort Apply
+        run: |
+          docker run --rm \
+              -e FABRIC_PROJECT=${{ secrets.FABRIC_PROJECT }} \
+              -e FABRIC_USER=${{ secrets.FABRIC_USER }} \
+              -v ${{ github.workspace }}/creds:/creds \
+              -t ${{ env.fabfed_image }} \
+              /cicd/test_configs/fabric_facility_port/run-fabfed.sh
+
 
       - name: Move cache
         run: |

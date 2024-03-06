@@ -7,6 +7,11 @@ provider:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: fabric
+  - janus:
+      - janus_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: janus 
+
 config:
   - layer3:
       - my_layer:
@@ -15,22 +20,35 @@ config:
           ip_start: 192.168.1.2
           ip_end: 192.168.1.254
 resource:
+  - network:
+      - cnet:
+          provider: '{{cloudlab.cloudlab_provider }}'
+          # profile: aes-profile
+          layer3: "{{ layer3.my_layer }}"
+  - node:
+      - cnode:
+          provider: '{{ cloudlab.cloudlab_provider }}'
+          network: "{{ network.cnet }}"
+          count: 1
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
+          site: UTAH # CLEM  # UTAH
           image: default_rocky_8
           nic_model: NIC_Basic
           count: 1
-      - cloudlab_node:
-          provider: '{{ cloudlab.cloudlab_provider }}'
-          network: "{{ network.cloudlab_network }}"
-          count: 2
   - network:
-      - cloudlab_network:
-          provider: '{{cloudlab.cloudlab_provider }}'
-          layer3: "{{ layer3.my_layer }}"
-          stitch_with: '{{ network.fabric_network }}'
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.my_layer }}"
           interface: '{{ node.fabric_node }}'
+          stitch_with: '{{ network.cnet }}'
+          count: 1
+  - service:
+      - dtn_service:
+          provider: '{{ janus.janus_provider }}'
+          node: [ '{{ node.cnode }}', '{{ node.fabric_node }}' ]
+          controller: '{{ node.fabric_node }}'
+          image: dtnaas/tools
+          profile: fabfed
+          count: 0
