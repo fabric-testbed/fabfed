@@ -17,7 +17,7 @@ env:
   FABRIC_SLIVER_PUBKEY: ${{ secrets.FABRIC_SLIVER_PUBKEY }}
 
 jobs:
-  DockerBuildAndTest:
+  UbuntuTest:
     runs-on: ubuntu-latest
     steps:
 
@@ -37,6 +37,11 @@ jobs:
           python3 --version
           pip --version
           whoami
+
+      - name: Install Neo
+        run: |
+          pip install --no-cache-dir --ignore-requires-python neo4j
+          pip list -v | grep neo4j
 
       - name: Install requirements 
         run: |
