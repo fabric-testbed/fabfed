@@ -70,6 +70,7 @@ jobs:
           docker run --rm \
               -e FABRIC_PROJECT=${{ secrets.FABRIC_PROJECT }} \
               -e FABRIC_USER=${{ secrets.FABRIC_USER }} \
+              -v ${{ github.workspace }}/creds:/creds \
               -t ${{ env.fabfed_image }} \
               /cicd/test_configs/fabric_facility_port/run-fabfed.sh
 
