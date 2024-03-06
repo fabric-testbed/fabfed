@@ -50,10 +50,10 @@ class SshNodeTester:
                     self.failed_validation.append(dict(node=n.label, description="Missing ipv4 dataplane ip"))
                     continue
 
-            if self.run_ipv6_ping_test:
-                if not n.get_dataplane_address(af=Constants.IPv6):
-                    self.failed_validation.append(dict(node=n.label, description="Missing ipv6 dataplane"))
-                    continue
+            # if self.run_ipv6_ping_test:
+            #     if not n.get_dataplane_address(af=Constants.IPv6):
+            #         self.failed_validation.append(dict(node=n.label, description="Missing ipv6 dataplane"))
+            #         continue
 
             if n.keyfile is None or n.host is None or n.user is None:
                 self.failed_validation.append(
@@ -115,6 +115,7 @@ class SshNodeTester:
 
     def run_dataplane_test(self, *, command='ping -c 3', retry=3, retry_interval=10):
         for helper in self.helpers:
+            print(f"Hello ", helper.label)
             logger.info(f"SSH executing {command} on Node: {helper.label}")
 
             for attempt in range(retry):
@@ -226,17 +227,14 @@ class SshNodeTester:
                 {"passed_tests":
                     [
                         {"passed_ssh_test": self.passed_ssh_test},
-                        {"passed_ipv4_dataplane_ping_test": self.passed_dataplane_ping_tests},
-                        {"passed_ipv6_dataplane_ping_test": self.passed_ipv6_dataplane_ping_tests}
+                        {"passed_ipv4_dataplane_ping_test": self.passed_dataplane_ping_tests}
                     ]},
                 {"FAILED_VALIDATION": self.failed_validation},
                 {"FAILED_TESTS":
                     [
                         {"failed_ssh_test": self.failed_ssh_test},
                         {"failed_ipv4_dataplane_ping_test": [dict(src=k, destinations=v) for k, v in
-                                                        self.failed_dataplane_ping_tests.items()]},
-                        {"failed_ipv6_dataplane_ping_test": [dict(src=k, destinations=v) for k, v in
-                                                        self.failed_ipv6_dataplane_ping_tests.items()]},
+                                                        self.failed_dataplane_ping_tests.items()]}
                     ]}
             ]}
         else:

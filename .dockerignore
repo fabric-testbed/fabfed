@@ -2,7 +2,12 @@ build
 ALL
 venv
 .github
+cicd
+tests
+examples
+perf
 config
+docs
 
 *.log
 __pycache__

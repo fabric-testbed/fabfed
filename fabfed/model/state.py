@@ -44,6 +44,29 @@ class ProviderState(BaseState):
     def states(self) -> List[BaseState]:
         return self.network_states + self.node_states + self.service_states
 
+    def number_of_created_resources(self):
+        count = 0
+
+        for creation_detail in self.creation_details.values():
+            count += creation_detail['created_count']
+
+        return count
+
+    def number_of_failed_resources(self):
+        count = 0
+
+        for creation_detail in self.creation_details.values():
+            count += creation_detail['failed_count']
+
+        return count
+
+    def number_of_total_resources(self):
+        count = 0
+
+        for creation_detail in self.creation_details.values():
+            count += creation_detail['total_count']
+
+        return count
 
 def provider_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ProviderState:
     return ProviderState(**loader.construct_mapping(node))

@@ -21,10 +21,7 @@ class ProviderFactory:
         module_name = full_name[:idx]
         class_name = full_name[idx+1:]
         cls = getattr(importlib.import_module(module_name), class_name)
-        try:
-            provider = cls(type=type, label=label, name=name, logger=logger, config=attributes)
-        except:
-            provider = cls(type=type, label=label, name=name, config=attributes)
+        provider = cls(type=type, label=label, name=name, config=attributes)
 
         try:
             provider.init()

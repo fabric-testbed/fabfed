@@ -1,11 +1,7 @@
-variable:
-  - fabric_site:
-      default: WASH 
-
 provider:
   - fabric:
     - fabric_provider:
-         credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
+         credential_file: ~/.fabfed/fabfed_credentials.yml
          profile: fabric
 config:
   - layer3:
@@ -17,22 +13,18 @@ config:
 
 resource:
   - node:
-      - rocky_node:
+      - anode:
             provider:  '{{ fabric.fabric_provider }}'
-            site: '{{ var.fabric_site }}' 
-            count: 1
             image: default_rocky_8
             nic_model: NIC_Basic
+            site: MAX 
             flavor: {'cores': 2, 'ram': 8, 'disk': 10}
-      - ubuntu_node:
+      - bnode:
             provider:  '{{ fabric.fabric_provider }}'
-            site: '{{ var.fabric_site }}' 
-            count: 1
-            # image: default_ubuntu_22
+            site: WASH
             image: default_rocky_8
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.my_layer }}"
-          interface: [ '{{ node.rocky_node }}', '{{ node.ubuntu_node }}' ]
-          count: 1
+          interface: [ '{{ node.anode }}', '{{ node.bnode }}' ]
