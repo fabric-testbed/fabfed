@@ -32,5 +32,7 @@ jobs:
 
       - name: Install Neo
         run: |
+          pip install --upgrade pip 
+          pip install setuptools --upgrade
           pip install --no-cache-dir --ignore-requires-python neo4j==5.18.0
           pip list -v | grep neo4j
