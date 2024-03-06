@@ -28,8 +28,7 @@ resource:
             provider:  '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}' 
             count: 1
-            # image: default_ubuntu_22
-            image: default_rocky_8
+            image: default_ubuntu_22
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'

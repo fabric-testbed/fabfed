@@ -84,12 +84,17 @@ class DummyService(Service):
     def delete(self):
         self.logger.info(f" Dummy Service {self.name} deleted")
 
+from fabfed.util.utils import get_logger
+
+logger: logging.Logger = get_logger()
+
+
 class DummyProvider(Provider):
 
     def setup_environment(self):
         pass
 
-    def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
+    def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
 
     def _validate_resource(self, resource: dict):

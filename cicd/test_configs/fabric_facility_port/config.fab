@@ -1,3 +1,6 @@
+variable:
+  - vlan:
+      default: 3101
 provider:
   - fabric:
       - fabric_provider:
@@ -26,5 +29,4 @@ resource:
           device_name: Utah-Cloudlab-Powder
           site: UTAH
           interface:
-          - vlan: 3101 
-          count: 1
+          - vlan: '{{ var.vlan }}'

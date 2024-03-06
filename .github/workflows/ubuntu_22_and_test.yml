@@ -15,6 +15,8 @@ env:
   FABRIC_BASTION_KEY: ${{ secrets.FABRIC_BASTION_KEY }}
   FABRIC_SLIVER_KEY: ${{ secrets.FABRIC_SLIVER_KEY }}
   FABRIC_SLIVER_PUBKEY: ${{ secrets.FABRIC_SLIVER_PUBKEY }}
+  FABRIC_PROJECT: ${{ secrets.FABRIC_PROJECT }}
+  FABRIC_USER: ${{ secrets.FABRIC_USER }}
 
 jobs:
   UbuntuTest:
@@ -54,3 +56,21 @@ jobs:
         run: |
           fabfed sessions -show 
           fabfed sessions -show -json
+
+      - name: Save Credentials
+        run: |
+          mkdir -p ${{ github.workspace }}/creds
+          echo ${{ env.FABRIC_TOKEN }} | base64 --decode > ${{ github.workspace }}/creds/token.json
+          echo ${{ env.FABRIC_BASTION_KEY }} | base64 --decode > ${{ github.workspace }}/creds/bastion
+          echo ${{ env.FABRIC_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver
+          echo ${{ env.FABRIC_SLIVER_PUBKEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver.pub
+
+      - name: Test Fabric FacilityPort
+        run: |
+          session=fabric-facility-port
+          echo "vlan: 3102" > $session-varfile.yml
+          ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_facility_port $session $session-varfile.yml
+
+      - name: Test L2VPN with nodes.
+        run: |
+          ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_l2_vpn fabric-l2-vpn

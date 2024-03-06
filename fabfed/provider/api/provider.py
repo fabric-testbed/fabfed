@@ -228,7 +228,7 @@ class Provider(ABC):
         if label in self._added:
             try:
                 self.do_create_resource(resource=resource)
-            except Exception as e:
+            except (Exception, KeyboardInterrupt) as e:
                 self.failed[label] = 'CREATE'
                 failed_count = resource[Constants.RES_COUNT] - len(self.creation_details[label]['resources'])
                 self.creation_details[label]['failed_count'] = failed_count
