@@ -12,6 +12,7 @@ on:
 env:
   fabfed_image: fabfed:cicd
   FABRIC_TOKEN: ${{ secrets.FABRIC_TOKEN }}
+  TOKEN: ${{ vars.TOKEN }}
 
 jobs:
   DockerBuildAndTest:
@@ -45,13 +46,21 @@ jobs:
         run: |
           docker run --rm -t ${{ env.fabfed_image }} fabfed stitch-policy -providers "chi,fabric" 
 
-      - name: Save Credentials 
+      - name: Test1 
         run: |
           mkdir  ${{ github.workspace }}/creds
-          echo '$FABRIC_TOKEN' | base64 --decode > ${{ github.workspace }}/creds/token.json
+          echo $TOKEN
 
-      - name: Test Fabric
+          echo ${{ env.TOKEN }} | base64 --decode > ${{ github.workspace }}/creds/token.json
+          docker run --rm \
+              -v ${{ github.workspace }}/creds:/creds \
+              -t ${{ env.fabfed_image }} \
+              /cicd/test_configs/fabric/run-fabfed.sh
+
+      - name: Test1 
         run: |
+          mkdir  ${{ github.workspace }}/creds
+          echo '${{ env.TOKEN }}' | base64 --decode > ${{ github.workspace }}/creds/token.json
           docker run --rm \
               -v ${{ github.workspace }}/creds:/creds \
               -t ${{ env.fabfed_image }} \
