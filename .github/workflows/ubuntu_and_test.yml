@@ -1,0 +1,47 @@
+name: Build And Test 
+
+on:
+  push:
+    branches:
+      - develop 
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  fabfed_image: fabfed:cicd
+  FABRIC_TOKEN: ${{ secrets.FABRIC_TOKEN }}
+  FABRIC_BASTION_KEY: ${{ secrets.FABRIC_BASTION_KEY }}
+  FABRIC_SLIVER_KEY: ${{ secrets.FABRIC_SLIVER_KEY }}
+  FABRIC_SLIVER_PUBKEY: ${{ secrets.FABRIC_SLIVER_PUBKEY }}
+
+jobs:
+  DockerBuildAndTest:
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print Versions 
+        run: |
+          python3 --version
+          pip --version
+
+      - name: Install requirements 
+        run: |
+          pip install --no-cache-dir --ignore-requires-python -r requirements.txt
+
+      - name: Install requirements 
+        run: |
+          python3 -m pip install --no-cache-dir .
+          pip install .
+
+      - name: Run Unit Tests
+        run: |
+          pytest tests/
+
+      - name: Test Stitch Policy
+        run: |
+          fabfed stitch-policy -providers "chi,fabric" 
