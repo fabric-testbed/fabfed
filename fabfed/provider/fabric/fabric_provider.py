@@ -28,7 +28,15 @@ class FabricProvider(Provider):
         os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = config.get(FABRIC_SLICE_PRIVATE_KEY_LOCATION)
         os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = config.get(FABRIC_SLICE_PUBLIC_KEY_LOCATION)
 
+        from pathlib import Path
+
         token_location = config.get(FABRIC_TOKEN_LOCATION)
+        token_location = str(Path(token_location).expanduser().absolute())
+
+        with open(token_location, 'r') as fp:
+            import json
+
+            json.load(fp)
 
         if Constants.COPY_TOKENS:
             import shutil

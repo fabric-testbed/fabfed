@@ -107,7 +107,8 @@ class CloudlabProvider(Provider):
 
         creation_details = resource[Constants.RES_CREATION_DETAILS]
         self.modified = self.modified \
-                        or (creation_details['created_count'] != creation_details['total_count']) or \
+                        or (creation_details['created_count'] > 0 and
+                            creation_details['created_count'] != creation_details['total_count']) or \
                         not creation_details['in_config_file']
 
         if not creation_details['in_config_file']:
