@@ -58,7 +58,7 @@ resource:
           count: 1
           stitch_with: '{{ network.fabric_network }}'
           stitch_option: 
-              device_name: agg4.ashb.net.internet2.edu
+              device_name: agg4.ashb
 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'

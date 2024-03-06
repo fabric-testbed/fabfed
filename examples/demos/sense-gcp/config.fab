@@ -25,7 +25,7 @@ config:
           # FOR FABRIC
           # cloud_account: "296256999979" # pairing key
           # cloud_facility:
-          # local_device: "agg3.ashb.net.internet2.edu"
+          # local_device: "agg3.ashb"
           # local_port: "Bundle-Ether5"
           # cloud_region: "us-east4"
           # cloud_vlan: 

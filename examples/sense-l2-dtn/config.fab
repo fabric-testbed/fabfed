@@ -24,7 +24,7 @@ resource:
               # site: UKY
               # device_name : UKY-AL2S
               interface:
-                - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24
+                - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui:port+HundredGigE0_0_0_24
   - network:
       - net1:
           provider: '{{ sense.sense_provider }}'
@@ -33,7 +33,7 @@ resource:
           # bandwidth: "500"
           layer3: "{{ layer3.my_layer }}"
           # interface:
-          #  - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24
+          #  - id: urn:ogf:network:al2s.internet2.net:oess:node+core1.loui:port+HundredGigE0_0_0_24
           # stitch_with: '{{ network.fabric_network }}'
   - service:
       - dtn_service:
