@@ -46,7 +46,7 @@ jobs:
 
       - name: Save Credentials 
         run: |
-          mkdir creds
+          mkdir  ${{ github.workspace }}/creds
           echo "${{ secrets.FABRIC_TOKEN }}" > ${{ github.workspace }}/creds/token.json
 
       - name: Test Fabric
