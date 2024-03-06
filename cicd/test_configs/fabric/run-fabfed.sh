@@ -9,8 +9,6 @@ mkdir -p ~/work/fabric_config
 mkdir -p ~/.fabfed
 
 ls -l /creds
-
-cat /creds/token.json
 cp ../../fabfed_credentials.yml.cicd ~/.fabfed/
 fabfed workflow -s test-fabric -plan 
-exit 0
+exit $? 
