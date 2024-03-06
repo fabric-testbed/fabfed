@@ -30,18 +30,6 @@ jobs:
           pip --version
           whoami
 
-      - name: Upgrade 
-        run: |
-          sudo apt-get update 
-          sudo apt-get -u -y install lsb-release python3 binutils python3-venv python3-pip wget git
-          pip3 install --upgrade pip 
-          pip install setuptools --upgrade
-
-          python3 --version
-          pip --version
-          whoami
-	  pip3 --version
-
       - name: Install Neo
         run: |
           pip install --no-cache-dir --ignore-requires-python neo4j==5.18.0
