@@ -6,6 +6,7 @@ from fabfed.exceptions import ControllerException
 from fabfed.util import utils
 from fabfed.util import state as sutil
 from fabfed.util.config import WorkflowConfig
+from fabfed.util.stats import FabfedStats, Duration
 
 
 def manage_workflow(args):
@@ -39,7 +40,12 @@ def manage_workflow(args):
             sys.exit(1)
 
     if args.apply:
+        sutil.delete_stats(args.session)
+        import time
+
+        start = time.time()
         config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        controller_duration_start = time.time()
 
         try:
             controller = Controller(config=config,
@@ -47,53 +53,82 @@ def manage_workflow(args):
                                     policy=policy,
                                     use_local_policy=not args.use_remote_policy)
         except Exception as e:
-            logger.error(f"Exceptions while initializing controller .... {e}")
-            logger.error(e, exc_info=True)
-            sys.exit(1)
-
-        try:
-            controller.init(session=args.session, provider_factory=default_provider_factory)
-        except Exception as e:
-            logger.error(f"Exceptions while initializing providers  .... {e}")
-            logger.error(e, exc_info=True)
+            logger.error(f"Exceptions while initializing controller .... {e}", exc_info=True)
             sys.exit(1)
 
         states = sutil.load_states(args.session)
 
         try:
-            controller.plan(provider_states=states)
-        except ControllerException as e:
-            logger.error(f"Exceptions while adding resources ... {e}")
+            controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
         except Exception as e:
-            logger.error(f"Exceptioin while planning ... {e}")
+            logger.error(f"Exceptions while initializing providers  .... {e}", exc_info=True)
+            sys.exit(1)
+
+        try:
+            controller.plan(provider_states=states)
+        except Exception as e:
+            logger.error(f"Exception while planning ... {e}")
+            sys.exit(1)
+        except KeyboardInterrupt as kie:
+            logger.error(f"Keyboard Interrupt while planning ... {kie}")
+            sys.exit(1)
+
+        try:
+            controller.add(provider_states=states)
+        except Exception as e:
+            logger.error(f"Exception while adding ... {e}")
+            sys.exit(1)
         except KeyboardInterrupt as kie:
             logger.error(f"Keyboard Interrupt while adding  resources ... {kie}")
             sys.exit(1)
 
+        workflow_failed = False
+
         try:
-            controller.create(provider_states=states)
+            controller.apply(provider_states=states)
         except KeyboardInterrupt as kie:
             logger.error(f"Keyboard Interrupt while creating resources ... {kie}")
+            workflow_failed = True
         except ControllerException as ce:
             logger.error(f"Exceptions while creating resources ... {ce}")
+            workflow_failed = True
+
+        controller_duration = time.time() - controller_duration_start
+        providers_duration = 0
+
+        for stats in controller.get_stats():
+            logger.debug(f"STATS:provider={stats.provider}, provider_duration={stats.provider_duration}")
+            controller_duration -= stats.provider_duration.duration
+            providers_duration += stats.provider_duration.duration
 
         states = controller.get_states()
-        pending = 0
-        nodes = 0
-        networks = 0
-        services = 0
-        failed = 0
+        nodes, networks, services, pending, failed = utils.get_counters(states=states)
 
-        for state in states:
-            pending += len(state.pending)
-            pending += len(state.pending_internal)
-            nodes += len([n for n in state.node_states if n.label not in state.failed])
-            networks += len([n for n in state.network_states if n.label not in state.failed])
-            services += len([s for s in state.service_states if s.label not in state.failed])
-            failed += len(state.failed)
+        if pending or failed:
+            workflow_failed = True
 
-        logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
         sutil.save_states(states, args.session)
+        provider_stats = controller.get_stats()
+        workflow_duration = time.time() - start
+        workflow_duration = Duration(duration=workflow_duration,
+                                     comment="total time spent in creating workflow")
+        controller_duration = Duration(duration=controller_duration,
+                                       comment="time spent in controller. It does not include time spent in providers")
+        providers_duration = Duration(duration=providers_duration,
+                                      comment="time spent in all providers")
+        validate_config_duration = Duration(duration=config.parse_and_validate_config_duration,
+                                            comment="time spent in parsing and validating config")
+
+        fabfed_stats = FabfedStats(action="apply",
+                                   has_failures=workflow_failed,
+                                   workflow_duration=workflow_duration,
+                                   workflow_config=validate_config_duration,
+                                   controller=controller_duration,
+                                   providers=providers_duration,
+                                   provider_stats=provider_stats)
+        logger.info(f"STATS:duration_in_seconds={workflow_duration}")
+        logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
+        sutil.save_stats(dict(comment="all durations are in seconds", stats=fabfed_stats), args.session)
         return
 
     if args.init:
@@ -102,7 +137,8 @@ def manage_workflow(args):
                                 logger=logger,
                                 policy=policy,
                                 use_local_policy=not args.use_remote_policy)
-        controller.init(session=args.session, provider_factory=default_provider_factory)
+        states = sutil.load_states(args.session)
+        controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
         sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
         return
 
@@ -112,16 +148,12 @@ def manage_workflow(args):
                                 logger=logger,
                                 policy=policy,
                                 use_local_policy=not args.use_remote_policy)
-        controller.init(session=args.session, provider_factory=default_provider_factory)
         states = sutil.load_states(args.session)
+        controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
+        controller.plan(provider_states=states)
+        cr, dl = sutil.dump_plan(resources=controller.resources, to_json=args.json, summary=args.summary)
 
-        try:
-            controller.plan(provider_states=states)
-        except ControllerException as e:
-            logger.error(f"Exceptions while adding resources ... {e}")
-
-        states = controller.get_states()
-        sutil.dump_states(states, args.json, args.summary)
+        logger.warning(f"Applying this plan would create {cr} resource(s) and destroy {dl} resource(s)")
         return
 
     if args.show:
@@ -129,35 +161,81 @@ def manage_workflow(args):
         sutil.dump_states(states, args.json, args.summary)
         return
 
+    if args.stats:
+        stats = sutil.load_stats(args.session)
+        sutil.dump_stats(stats, args.json)
+        return
+
     if args.destroy:
-        states = sutil.load_states(args.session) if args.session in sessions else []
+        sutil.delete_stats(args.session)
+
+        if args.session not in sessions:
+            return
+
+        states = sutil.load_states(args.session)
+
+        if not states:
+            sutil.destroy_session(args.session)
+            return
+
+        import time
+
+        start = time.time()
+        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        controller_duration_start = time.time()
 
         try:
-            if states:
-                config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
-                controller = Controller(config=config,
-                                        logger=logger,
-                                        policy=policy,
-                                        use_local_policy=True)
-                controller.init(session=args.session, provider_factory=default_provider_factory)
-                controller.delete(provider_states=states)
+            controller = Controller(config=config,
+                                    logger=logger,
+                                    policy=policy,
+                                    use_local_policy=not args.use_remote_policy)
+            controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
+        except Exception as e:
+            logger.error(f"Exceptions while initializing controller .... {e}")
+            sys.exit(1)
 
-            if not states:
-                if args.session in sessions:
-                    logger.info(f"Destroying session {args.session} ...")
-
-                sutil.destroy_session(args.session)
-                return
+        try:
+            controller.destroy(provider_states=states)
         except ControllerException as e:
             logger.error(f"Exceptions while deleting resources ...{e}")
-            import traceback
-
-            logger.error(traceback.format_exc())
         except KeyboardInterrupt as kie:
             logger.error(f"Keyboard Interrupt while deleting resources ... {kie}")
             sys.exit(1)
 
-        sutil.save_states(states, args.session)
+        controller_duration = time.time() - controller_duration_start
+        providers_duration = 0
+
+        for stats in controller.get_stats():
+            logger.info(f"STATS:provider={stats.provider}, provider_duration={stats.provider_duration}")
+            controller_duration -= stats.provider_duration.duration
+            providers_duration += stats.provider_duration.duration
+
+        if not states:
+            logger.info(f"Destroying session {args.session} ...")
+            sutil.destroy_session(args.session)
+        else:
+            sutil.save_states(states, args.session)
+
+        end = time.time()
+        workflow_duration = end - start
+        workflow_duration = Duration(duration=workflow_duration,
+                                     comment="total time spent in destroying workflow")
+        controller_duration = Duration(duration=controller_duration,
+                                       comment="time spent in controller. It does not include time spent in providers")
+        providers_duration = Duration(duration=providers_duration, comment="time spent in all providers")
+        validate_config_duration = Duration(duration=config.parse_and_validate_config_duration,
+                                            comment="time spent in parsing and validating config")
+
+        provider_stats = controller.get_stats()
+        fabfed_stats = FabfedStats(action="destroy",
+                                   has_failures=len(states) > 0,
+                                   workflow_duration=workflow_duration,
+                                   workflow_config=validate_config_duration,
+                                   controller=controller_duration,
+                                   providers=providers_duration,
+                                   provider_stats=provider_stats)
+        logger.info(f"STATS:duration_in_seconds={workflow_duration}")
+        sutil.save_stats(dict(comment="all durations are in seconds", stats=fabfed_stats), args.session)
         return
 
 

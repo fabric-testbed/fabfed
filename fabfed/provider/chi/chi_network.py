@@ -10,6 +10,7 @@ from fabfed.model import Network
 from .chi_util import LeaseHelper
 from ...util.config_models import Config
 from ...util.constants import Constants
+from .chi_constants import INCLUDE_ROUTER
 
 
 class ChiNetwork(Network):
@@ -57,15 +58,22 @@ class ChiNetwork(Network):
         network_vlan = None
         chameleon_network_id = None
 
-        while not network_vlan:
+        for attempt in range(self._retry):
             try:
                 chameleon_network = chi.network.get_network(self.name)
                 chameleon_network_id = chameleon_network['id']
                 network_vlan = chameleon_network['provider:segmentation_id']
+                break
             except Exception as e:
-                self.logger.warning(f'Network is not ready {self.name}. Trying again! {e}')
-                time.sleep(10)
+                if attempt == self._retry - 1:
+                    self.logger.error(f'Giving up. Network is not ready {self.name}:{e}')
+                    raise e
 
+                self.logger.warning(f'Network is not ready {self.name}. Trying again! attempt={attempt}:{e}')
+
+            time.sleep(12)
+
+        assert network_vlan
         self.logger.info(f'Got network. network_name: {self.name}, network_vlan: {network_vlan}')
         self.vlans.append(network_vlan)
 
@@ -96,6 +104,9 @@ class ChiNetwork(Network):
                 chameleon_router = router
                 break
 
+        if not INCLUDE_ROUTER:
+            return
+
         if chameleon_router:
             self.logger.info(f'Router already created: {self.router_name}')
             self.logger.debug(f'Router: {chameleon_router}')
@@ -125,15 +136,16 @@ class ChiNetwork(Network):
             if "No subnets found with" not in str(re) and "No routers found with" not in str(re):
                 raise re
 
-        try:
-            router_id = chi.network.get_router_id(self.router_name)
-            chi.network.delete_router(router_id)
-            self.logger.info(f"Deleted router  {self.router_name} net_id={router_id}")
-        except NotFound:
-            pass
-        except RuntimeError as re:
-            if "No routers found with" not in str(re):
-                raise re
+        if INCLUDE_ROUTER:
+            try:
+                router_id = chi.network.get_router_id(self.router_name)
+                chi.network.delete_router(router_id)
+                self.logger.info(f"Deleted router  {self.router_name} net_id={router_id}")
+            except NotFound:
+                pass
+            except RuntimeError as re:
+                if "No routers found with" not in str(re):
+                    raise re
 
         try:
             subnet_id = chi.network.get_subnet_id(self.subnet_name)

@@ -1,0 +1,12 @@
+build
+ALL
+venv
+.github
+config
+
+*.log
+__pycache__
+.eggs
+fabfed_py.egg-info
+.egg-info
+venv

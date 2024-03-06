@@ -39,3 +39,5 @@ DEFAULT_PROJECT_IDS = dict(
 )
 
 DEFAULT_DISCOVERY_URL = "https://auth.chameleoncloud.org/auth/realms/chameleon/.well-known/openid-configuration"
+
+INCLUDE_ROUTER = True 

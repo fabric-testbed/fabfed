@@ -7,11 +7,6 @@ provider:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: fabric
-  - janus:
-      - janus_provider:
-          credential_file: ~/.fabfed/fabfed_credentials.yml
-          profile: janus
-
 config:
   - layer3:
       - fab_layer:
@@ -58,7 +53,7 @@ resource:
           count: 1
           stitch_with: '{{ network.fabric_network }}'
           stitch_option: 
-              device_name: agg4.ashb.net.internet2.edu
+              device_name: agg3.ashb
 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
@@ -66,12 +61,3 @@ resource:
           peering: "{{ peering.my_peering }}"
           interface: '{{ node.fabric_node }}'
           count: 1
-
-  - service:
-      - dtn_service:
-          provider: '{{ janus.janus_provider }}'
-          node: [ '{{ node.sense_node }}', '{{ node.fabric_node }}' ]
-          controller: '{{ node.fabric_node }}'
-          image: dtnaas/tools
-          profile: fabfed
-          count: 0   # SET THIS TO 1 if you want use janus service
