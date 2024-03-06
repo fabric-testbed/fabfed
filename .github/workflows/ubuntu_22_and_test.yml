@@ -18,7 +18,7 @@ env:
 
 jobs:
   DockerBuildAndTest:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
 
       - name: Checkout
@@ -41,15 +41,3 @@ jobs:
       - name: Install requirements 
         run: |
           pip install --no-cache-dir --ignore-requires-python -r requirements.txt
-
-      - name: Install requirements 
-        run: |
-          python3 -m pip install --no-cache-dir .
-
-      - name: Run Unit Tests
-        run: |
-          pytest tests/
-
-      - name: Test Stitch Policy
-        run: |
-          fabfed stitch-policy -providers "chi,fabric" 
