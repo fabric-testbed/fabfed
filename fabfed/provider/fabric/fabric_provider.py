@@ -55,6 +55,7 @@ class FabricProvider(Provider):
 
             destination = f'/tmp/tokens/token-{self.name}-{uuid.uuid4()}.json'
             shutil.copy2(token_location, destination)
+            token_location = destination
 
         os.environ['FABRIC_TOKEN_LOCATION'] = token_location
 
@@ -66,8 +67,6 @@ class FabricProvider(Provider):
             self.logger.debug("Initializing fablib extensions logging ...")
             fablib.get_default_fablib_manager().set_log_file(location)
             fablib.get_default_fablib_manager().set_log_level(get_log_level())
-
-            json.load(fp)
 
     def _init_slice(self, destroy_phase=False):
         if not self.slice_init:
