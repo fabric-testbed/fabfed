@@ -48,19 +48,17 @@ jobs:
 
       - name: Test1 
         run: |
-          mkdir  ${{ github.workspace }}/creds
-          echo $TOKEN
-
+          mkdir -p ${{ github.workspace }}/creds
           echo ${{ env.TOKEN }} | base64 --decode > ${{ github.workspace }}/creds/token.json
           docker run --rm \
               -v ${{ github.workspace }}/creds:/creds \
               -t ${{ env.fabfed_image }} \
               /cicd/test_configs/fabric/run-fabfed.sh
 
-      - name: Test1 
+      - name: Test2 
         run: |
-          mkdir  ${{ github.workspace }}/creds
-          echo '${{ env.TOKEN }}' | base64 --decode > ${{ github.workspace }}/creds/token.json
+          mkdir -p  ${{ github.workspace }}/creds
+          echo ${{ env.FABRIC_TOKEN }} | base64 --decode > ${{ github.workspace }}/creds/token.json
           docker run --rm \
               -v ${{ github.workspace }}/creds:/creds \
               -t ${{ env.fabfed_image }} \
