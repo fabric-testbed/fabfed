@@ -52,7 +52,7 @@ jobs:
       - name: Test Fabric
         run: |
           docker run --rm \
-              -v ${{ github.workspace }}/creds:/creds
+              -v ${{ github.workspace }}/creds:/creds \
               -t ${{ env.fabfed_image }} \
               /cicd/test_configs/fabric/run-fabfed.sh
 
