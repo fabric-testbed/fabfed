@@ -36,3 +36,5 @@ jobs:
           pip install setuptools --upgrade
           pip install --no-cache-dir --ignore-requires-python neo4j==5.18.0
           pip list -v | grep neo4j
+          pip install --no-cache-dir --ignore-requires-python -r requirements.txt
+          python3 -m pip install --no-cache-dir .
