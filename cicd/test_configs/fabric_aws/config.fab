@@ -1,0 +1,57 @@
+variable:
+  - vpc:
+      default: vpc-0936b973cf039f794
+provider:
+  - aws:
+      - aws_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
+          profile: aws
+  - fabric:
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
+          profile: fabric
+config:
+  - layer3:
+      - fab_layer:
+          subnet: 192.168.10.0/24
+          gateway: 192.168.10.1
+          ip_start: 192.168.10.2
+          ip_end: 192.168.10.254
+      - aws_layer:
+          subnet: 10.0.1.0/24
+  - peering:
+      - my_peering:
+          # FOR FABRIC
+          cloud_account: "296256999979"
+          # FOR AWS and FABRIC  
+          cloud_region: "us-east-1"
+          cloud_vpc: '{{ var.vpc }}'
+          remote_asn: 64512 # amazon_asn
+          local_asn: 55038 # customer_asn
+          # FOR FABRIC
+          local_address: "192.168.1.1/30" # customer_ip
+          remote_address: "192.168.1.2/30" # amazon_ip
+resource:
+  - network:
+      - aws_net:
+          provider: '{{ aws.aws_provider }}'
+          name: aws-net
+          layer3: "{{ layer3.aws_layer }}"
+          peering: "{{ peering.my_peering }}"
+          stitch_with: '{{ network.fabric_network }}'
+          stitch_option:
+            device_name: agg3.ashb
+          count: 1
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.fab_layer }}"
+          peering: "{{ peering.my_peering }}"
+          interface: '{{ node.fabric_node }}'
+          count: 1
+  - node:
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          site: MAX # Use RENC when deploying to fabric beta environment
+          image: default_rocky_8
+          count: 1
+          nic_model: NIC_Basic
