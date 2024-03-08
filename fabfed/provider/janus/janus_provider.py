@@ -59,12 +59,16 @@ class JanusService(Service):
         self._do_ansible(delete=True)
         self.logger.info(f" Service {self.name} deleted. service_nodes={self._nodes}")
 
+from fabfed.util.utils import get_logger
+
+logger: logging.Logger = get_logger()
+
 
 class JanusProvider(Provider):
     def setup_environment(self):
         pass
 
-    def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
+    def __init__(self, *, type, label, name,  config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         credential_file = self.config.get(Constants.CREDENTIAL_FILE)
 

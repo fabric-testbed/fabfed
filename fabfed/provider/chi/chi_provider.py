@@ -6,9 +6,13 @@ from fabfed.util.constants import Constants
 from .chi_constants import *
 import fabfed.provider.api.dependency_util as util
 
+from fabfed.util.utils import get_logger
+
+logger: logging.Logger = get_logger()
+
 
 class ChiProvider(Provider):
-    def __init__(self, *, type, label, name, logger: logging.Logger, config: dict):
+    def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         self.helper = None
 
