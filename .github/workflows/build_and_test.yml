@@ -42,7 +42,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache-new
       - name: Run Unit Tests
         run: |
-          docker run --rm -t ${{ env.fabfed_image }} pytest tests
+          docker run --rm -v ${{ github.workspace }}/tests:/tests -t ${{ env.fabfed_image }} pytest tests
 
       - name: Test Stitch Policy
         run: |
@@ -56,26 +56,25 @@ jobs:
           echo ${{ env.FABRIC_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver
           echo ${{ env.FABRIC_SLIVER_PUBKEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver.pub
 
-      - name: Test Fabric Plan
-        run: |
-          mkdir -p  ${{ github.workspace }}/creds
-          echo ${{ env.FABRIC_TOKEN }} | base64 --decode > ${{ github.workspace }}/creds/token.json
-          docker run --rm \
-              -e FABRIC_PROJECT=${{ secrets.FABRIC_PROJECT }} \
-              -e FABRIC_USER=${{ secrets.FABRIC_USER }} \
-              -v ${{ github.workspace }}/creds:/creds \
-              -t ${{ env.fabfed_image }} \
-              /cicd/test_configs/fabric/run-fabfed.sh
-
-      - name: Test Fabric FacilityPort Apply
+      - name: Test Fabric L2 Bridge
         run: |
           docker run --rm \
               -e FABRIC_PROJECT=${{ secrets.FABRIC_PROJECT }} \
               -e FABRIC_USER=${{ secrets.FABRIC_USER }} \
+              -v ${{ github.workspace }}/cicd:/cicd \
               -v ${{ github.workspace }}/creds:/creds \
               -t ${{ env.fabfed_image }} \
-              /cicd/test_configs/fabric_facility_port/run-fabfed.sh
+              /cicd/run-fabfed.sh cicd/test_configs/fabric fab-l2-bridge 
 
+      - name: Test Facility Port With Defaul Vlan 
+        run: |
+          docker run --rm \
+              -e FABRIC_PROJECT=${{ secrets.FABRIC_PROJECT }} \
+              -e FABRIC_USER=${{ secrets.FABRIC_USER }} \
+              -v ${{ github.workspace }}/cicd:/cicd \
+              -v ${{ github.workspace }}/creds:/creds \
+              -t ${{ env.fabfed_image }} \
+              /cicd/run-fabfed.sh cicd/test_configs/fabric_facility_port fab-facility-port
 
       - name: Move cache
         run: |

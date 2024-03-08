@@ -50,7 +50,9 @@ class Controller:
                                            name=name,
                                            attributes=provider_config.attributes,
                                            logger=self.logger)
-        if not self.policy:
+        networks = [resource for resource in self.resources if resource.is_network]
+
+        if networks and not self.policy:
             if self.use_local_policy:
                 from fabfed.policy.policy_helper import load_policy
 
@@ -71,15 +73,20 @@ class Controller:
 
         self.resources = self.config.get_resource_configs()
 
-        from fabfed.policy.policy_helper import handle_stitch_info, fix_node_site, fix_network_site
+        if networks:
+            from fabfed.policy.policy_helper import handle_stitch_info
 
-        self.resources = handle_stitch_info(self.config, self.policy, self.resources)
+            self.resources = handle_stitch_info(self.config, self.policy, self.resources)
 
-        for resource in self.resources:
-            if resource.is_node:
-                fix_node_site(resource, self.resources)
-            elif resource.is_network:
-                fix_network_site(resource)
+            from fabfed.policy.policy_helper import fix_node_site, fix_network_site
+
+            for resource in self.resources:
+                from fabfed.policy.policy_helper import fix_node_site, fix_network_site
+
+                if resource.is_node:
+                    fix_node_site(resource, self.resources)
+                elif resource.is_network:
+                    fix_network_site(resource)
 
         for resource in self.resources:
             resource_dict = resource.attributes
@@ -304,7 +311,7 @@ class Controller:
                 if tester.has_failures():
                     raise ControllerException([Exception("Node testing over ssh failed see node test summary ...")])
 
-                self.logger.info(f"Node testing over ssh pass for {[n.name for n in nodes]}")
+                self.logger.info(f"Node testing over ssh passed for {[n.name for n in nodes]}")
 
         exceptions = []
 
