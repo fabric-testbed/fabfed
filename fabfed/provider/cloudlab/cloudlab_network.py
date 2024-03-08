@@ -79,7 +79,7 @@ class CloudNetwork(Network):
         else:
             raise CloudlabException(exitval=exitval, response=response)
 
-        while True:
+        for attempt in range(CLOUDLAB_RETRY):
             exitval, response = api.experimentStatus(server, exp_params).apply()
 
             # sometimes the response is not what we expect (network glitch). We keep checking status ...
@@ -123,6 +123,9 @@ class CloudNetwork(Network):
                 logger.warning(f"Still waiting for experiment to be ready exitval={exitval}:{response}")
 
             time.sleep(CLOUDLAB_SLEEP_TIME)
+
+        if attempt == CLOUDLAB_RETRY:
+            raise CloudlabException("Please Apply Again. Giving up on waiting for experiment ...")
 
         exitval, response = api.experimentManifests(server, exp_params).apply()
 

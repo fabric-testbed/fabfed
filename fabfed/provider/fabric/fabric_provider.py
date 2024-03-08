@@ -4,6 +4,7 @@ from fabfed.provider.api.provider import Provider
 from ...util.constants import Constants
 from .fabric_constants import *
 from fabfed.util.utils import get_logger
+from fabfed.exceptions import ProviderException
 
 logger = get_logger()
 
@@ -20,34 +21,51 @@ class FabricProvider(Provider):
         FC.DEFAULT_FABRIC_CONFIG_DIR = get_base_dir(self.name)
         FC.DEFAULT_FABRIC_RC = f"{FC.DEFAULT_FABRIC_CONFIG_DIR}/fabric_rc"
 
+    def _to_abs_for(self, env_var: str, config:dict):
+        path = config.get(env_var)
+
+        from pathlib import Path
+
+        path = str(Path(path).expanduser().absolute())
+
+        try:
+            with open(path, 'r') as f:
+                f.read()
+                logger.debug(f"was able to read {path}")
+        except Exception as e:
+            raise ProviderException(f"{self.name}:Unable to read {path} for {env_var}")
+
+        try:
+            if path.endswith(".json"):
+                with open(path, 'r') as fp:
+                    import json
+
+                    json.load(fp)
+        except Exception as e:
+            raise ProviderException(f"{self.name}:Unable to parse {path} to json for {env_var}")
+
+        return path
+
     def setup_environment(self):
         config = self.config
 
         import os
+
+        for attr in FAB_CONF_ATTRS:
+            if config.get(attr) is None:
+                raise ProviderException(f"{self.name}: Expecting a value for {attr}")
 
         os.environ['FABRIC_CREDMGR_HOST'] = config.get(FABRIC_CM_HOST, DEFAULT_CM_HOST)
         os.environ['FABRIC_ORCHESTRATOR_HOST'] = config.get(FABRIC_OC_HOST, DEFAULT_OC_HOST)
         os.environ['FABRIC_PROJECT_ID'] = config.get(FABRIC_PROJECT_ID)
         os.environ['FABRIC_BASTION_HOST'] = config.get(FABRIC_BASTION_HOST, DEFAULT_BASTION_HOST)
         os.environ['FABRIC_BASTION_USERNAME'] = config.get(FABRIC_BASTION_USER_NAME)
-        os.environ['FABRIC_BASTION_KEY_LOCATION'] = config.get(FABRIC_BASTION_KEY_LOCATION)
-        os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = config.get(FABRIC_SLICE_PRIVATE_KEY_LOCATION)
-        os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = config.get(FABRIC_SLICE_PUBLIC_KEY_LOCATION)
 
-        from pathlib import Path
-        from fabfed.util.utils import get_log_level, get_log_location
+        os.environ['FABRIC_BASTION_KEY_LOCATION'] = self._to_abs_for(FABRIC_BASTION_KEY_LOCATION, config)
+        os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE'] = self._to_abs_for(FABRIC_SLICE_PRIVATE_KEY_LOCATION, config)
+        os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE'] = self._to_abs_for(FABRIC_SLICE_PUBLIC_KEY_LOCATION, config)
 
-        token_location = config.get(FABRIC_TOKEN_LOCATION)
-        token_location = str(Path(token_location).expanduser().absolute())
-
-        with open(token_location, 'r') as f:
-            text = f.read()
-            logger.info(f"{text}")
-
-        with open(token_location, 'r') as fp:
-            import json
-
-            json.load(fp)
+        token_location = self._to_abs_for(FABRIC_TOKEN_LOCATION, config)
 
         if Constants.COPY_TOKENS:
             import shutil
@@ -58,15 +76,6 @@ class FabricProvider(Provider):
             token_location = destination
 
         os.environ['FABRIC_TOKEN_LOCATION'] = token_location
-
-        from fabrictestbed_extensions.fablib.fablib import fablib
-
-        location = get_log_location()
-
-        if fablib.get_default_fablib_manager().get_log_file() != location:
-            self.logger.debug("Initializing fablib extensions logging ...")
-            fablib.get_default_fablib_manager().set_log_file(location)
-            fablib.get_default_fablib_manager().set_log_level(get_log_level())
 
     def _init_slice(self, destroy_phase=False):
         if not self.slice_init:

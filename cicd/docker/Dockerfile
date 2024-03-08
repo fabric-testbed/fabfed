@@ -10,5 +10,7 @@ RUN apt-get update && apt-get -u -y install lsb-release python3 binutils python3
 COPY /requirements.txt /tmp/
 RUN pip install --no-cache-dir --break-system-packages --ignore-requires-python -r /tmp/requirements.txt
 
-ADD ./ /
-RUN python3 -m pip install  --break-system-packages --no-cache-dir .
+COPY ./setup.py ./tools ./README.md ./MANIFEST.in /requirements.txt /
+COPY ./fabfed /fabfed
+COPY ./tools /tools
+RUN python3 -m pip install --break-system-packages --no-cache-dir .

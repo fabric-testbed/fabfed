@@ -17,23 +17,26 @@ class CloudlabProvider(Provider):
         self.modified = False
 
     def setup_environment(self):
-        config = self.config
-        credential_file = config.get(Constants.CREDENTIAL_FILE, None)
+        for attr in CLOUDLAB_CONF_ATTRS:
+            if self.config.get(attr) is None:
+                raise ProviderException(f"{self.name}: Expecting a value for {attr}")
 
-        if credential_file:
-            from fabfed.util import utils
+        pkey = self.config[CLOUDLAB_SLICE_PRIVATE_KEY_LOCATION]
 
-            profile = config.get(Constants.PROFILE)
-            config = utils.load_yaml_from_file(credential_file)
+        from fabfed.util.utils import can_read, is_private_key, absolute_path
 
-            if profile not in config:
-                from fabfed.exceptions import ProviderException
+        pkey = absolute_path(pkey)
 
-                raise ProviderException(
-                    f"credential file does {credential_file} does not have a section for keyword {profile}"
-                )
+        if not can_read(pkey) or not is_private_key(pkey):
+            raise ProviderException(f"{self.name}: unable to read/parse ssh key in {pkey}")
 
-            self.config = config[profile]
+        self.config[CLOUDLAB_SLICE_PRIVATE_KEY_LOCATION] = pkey
+
+        cert = self.config[CLOUDLAB_CERTIFICATE]
+        cert = absolute_path(cert)
+
+        if not can_read(cert):
+            raise ProviderException(f"{self.name}: unable to read/parse ssh key in {cert}")
 
     @property
     def project(self):

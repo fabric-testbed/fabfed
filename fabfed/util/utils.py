@@ -167,7 +167,8 @@ def load_as_ns_from_yaml(*, dir_path=None, content=None):
             file_name = os.path.join(dir_path, config)
 
             with open(file_name, 'r') as stream:
-                obj = yaml.load(stream, Loader=yaml.FullLoader)
+                loader = yaml.FullLoader
+                obj = yaml.load(stream, Loader=loader)
                 obj = json.loads(json.dumps(obj), object_hook=lambda dct: SimpleNamespace(**dct))
                 objs.append(obj)
     else:
@@ -261,3 +262,47 @@ def get_counters(*, states):
             failed += detail['failed_count']
 
     return nodes, networks, services, pending, failed
+
+
+def can_read(path: str):
+    from pathlib import Path
+
+    path = str(Path(path).expanduser().absolute())
+
+    try:
+        with open(path, 'r') as f:
+            f.read()
+        return True
+    except:
+        return False
+
+
+def can_read_json(path: str):
+    try:
+        with open(path, 'r') as fp:
+            import json
+
+            json.load(fp)
+
+        return True
+    except:
+        return False
+
+
+# noinspection PyBroadException
+def is_private_key(private_key_file: str):
+    import paramiko
+
+    try:
+        paramiko.RSAKey.from_private_key_file(private_key_file)
+        return True
+    except Exception:
+        pass
+
+    try:
+        paramiko.ecdsakey.ECDSAKey.from_private_key_file(private_key_file)
+        return True
+    except Exception:
+        pass
+
+    return False

@@ -23,13 +23,12 @@ resource:
   - network:
       - cnet:
           provider: '{{cloudlab.cloudlab_provider }}'
-          # profile: aes-profile
           layer3: "{{ layer3.my_layer }}"
-  - node:
-      - cnode:
-          provider: '{{ cloudlab.cloudlab_provider }}'
-          network: "{{ network.cnet }}"
-          count: 1
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+          interface: '{{ node.fabric_node }}'
+          stitch_with: '{{ network.cnet }}'
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
@@ -37,12 +36,9 @@ resource:
           image: default_rocky_8
           nic_model: NIC_Basic
           count: 1
-  - network:
-      - fabric_network:
-          provider: '{{ fabric.fabric_provider }}'
-          layer3: "{{ layer3.my_layer }}"
-          interface: '{{ node.fabric_node }}'
-          stitch_with: '{{ network.cnet }}'
+      - cnode:
+          provider: '{{ cloudlab.cloudlab_provider }}'
+          network: "{{ network.cnet }}"
           count: 1
   - service:
       - dtn_service:

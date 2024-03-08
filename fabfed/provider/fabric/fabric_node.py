@@ -49,51 +49,42 @@ class FabricNode(Node):
             stitch_iface = slice_object.get_interface(name=f"{self.name}-{FABRIC_STITCH_NET_IFACE_NAME}-p1")
             stitch_dev = stitch_iface.get_device_name()
             logger.info(f" Node {self.name} has stitch device={stitch_dev}")
-        except:
-            logger.warning(f" Node {self.name} has no stitch network/device")
-            pass
+        except Exception as e:
+            logger.warning(f" Node {self.name} checking for stitch network/device: {e}")
 
-        if INCLUDE_FABNETS:
-            v4_net = slice_object.get_network(name=self.v4net_name)
-            v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net and v4_net.get_interfaces() else None
-            logger.info(f" Node {self.name} has v4 device={v4_dev}")
+        try:
+            if INCLUDE_FABNETS:
+                v4_net = slice_object.get_network(name=self.v4net_name)
+                v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net and v4_net.get_interfaces() else None
+                logger.info(f" Node {self.name} has v4 device={v4_dev}")
 
-            v6_net = slice_object.get_network(name=self.v6net_name)
-            v6_dev = v6_net.get_interfaces()[0].get_device_name() if v6_net and v6_net.get_interfaces() else None
-            logger.info(f" Node {self.name} has v6 device={v6_dev}")
+                v6_net = slice_object.get_network(name=self.v6net_name)
+                v6_dev = v6_net.get_interfaces()[0].get_device_name() if v6_net and v6_net.get_interfaces() else None
+                logger.info(f" Node {self.name} has v6 device={v6_dev}")
+        except Exception as e:
+            logger.warning(f"Node {self.name} checking for ipv4/ipv6: {e}")
 
-        for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
-            ifname = ip_addr['ifname']
-            self.addr_list[ifname] = []
+        try:
+            for ip_addr in self._delegate.ip_addr_list(output='json', update=False):
+                ifname = ip_addr['ifname']
+                self.addr_list[ifname] = []
 
-            for addr_info in ip_addr['addr_info']:
-                self.addr_list[ifname].append(addr_info['local'])
-                if stitch_dev:
-                    if stitch_dev == ifname and addr_info['family'] == 'inet':
-                        self.dataplane_ipv4 = addr_info['local']
+                for addr_info in ip_addr['addr_info']:
+                    self.addr_list[ifname].append(addr_info['local'])
+                    if stitch_dev:
+                        if stitch_dev == ifname and addr_info['family'] == 'inet':
+                            self.dataplane_ipv4 = addr_info['local']
 
-                    if stitch_dev == ifname and addr_info['family'] == 'inet6':
-                        self.dataplane_ipv6 = addr_info['local']
-                else:
-                    if v4_dev == ifname and addr_info['family'] == 'inet':
-                        self.dataplane_ipv4 = addr_info['local']
+                        if stitch_dev == ifname and addr_info['family'] == 'inet6':
+                            self.dataplane_ipv6 = addr_info['local']
+                    else:
+                        if v4_dev == ifname and addr_info['family'] == 'inet':
+                            self.dataplane_ipv4 = addr_info['local']
 
-                    if v6_dev == ifname and addr_info['family'] == 'inet6':
-                        self.dataplane_ipv6 = addr_info['local']
-        # print("""""""""""""""""""""""""""""""""""""""""""")
-        # print("Interfaces:")
-        # for iface in delegate.get_interfaces():
-        #     print(iface)
-        #
-        # print()
-        # print("Components:")
-        # for component in delegate.get_components():
-        #     print(component)
-        #
-        # print()
-        # print("IPV4", self.dataplane_ipv4)
-        # print("IPV6", self.dataplane_ipv6)
-        # print("""""""""""""""""""""""""""""""""""""""""""")
+                        if v6_dev == ifname and addr_info['family'] == 'inet6':
+                            self.dataplane_ipv6 = addr_info['local']
+        except Exception as e:
+            logger.warning(f"Node {self.name} checking for dataplane address: {e}")
 
     @property
     def delegate(self) -> Delegate:
@@ -115,7 +106,6 @@ class FabricNode(Node):
 
     def set_used_dataplane_ipv4(self, used_dataplane_ipv4):
         self._used_dataplane_ipv4 = used_dataplane_ipv4
-        self.dused_dataplane_ipv4 = str(used_dataplane_ipv4)
 
     def get_interfaces(self):
         return self._delegate.get_interfaces()

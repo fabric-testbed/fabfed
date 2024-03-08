@@ -1,6 +1,6 @@
 from fabfed.model.state import ProviderState
 from fabfed.util.utils import get_base_dir, get_stats_base_dir
-from typing import List
+from typing import List, Dict
 
 import json
 
@@ -304,6 +304,16 @@ def load_states(friendly_name) -> List[ProviderState]:
                 raise StateException(f'Exception while loading state at {file_path}:{e}')
 
     return []
+
+
+def load_states_as_dict(friendly_name) -> Dict[str, ProviderState]:
+    states = load_states(friendly_name)
+    state_map = {}
+
+    for state in states:
+        state_map[state.label] = state
+
+    return state_map
 
 
 def load_stats(friendly_name):
