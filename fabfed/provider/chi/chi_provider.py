@@ -1,5 +1,7 @@
 import logging
 import os
+from fabfed.exceptions import ResourceTypeNotSupported, ProviderException
+from typing import List
 
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
@@ -12,45 +14,55 @@ logger: logging.Logger = get_logger()
 
 
 class ChiProvider(Provider):
-    def __init__(self, *, type, label, name, config: dict):
+    def __init__(self, *, type, label, name, config: dict[str, str]):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         self.helper = None
+        self.existing_map = {}
 
     def setup_environment(self):
-        pass
-
-    def supports_modify(self):
-        return True
-
-    def _setup_environment(self, *, site: str):
-        """
-        Setup the environment variables for Chameleon
-        Should be invoked before any of the chi packages are imported otherwise, none of the CHI APIs work and
-        fail with BAD REQUEST error
-        @param site: site name
-        """
+        site = "CHI@UC"
         config = self.config
-        credential_file = config.get(Constants.CREDENTIAL_FILE, None)
 
-        if credential_file:
-            from fabfed.util import utils
+        for attr in CHI_CONF_ATTRS:
+            if config.get(attr) is None:
+                raise ProviderException(f"{self.name}: Expecting a value for {attr}")
 
-            profile = config.get(Constants.PROFILE)
-            config = utils.load_yaml_from_file(credential_file)
+        if not isinstance(config[CHI_PROJECT_ID], dict):
+            raise ProviderException(f"{self.name}: Expecting a dictionary for {CHI_PROJECT_ID}")
 
-            if profile not in config:
-                from fabfed.exceptions import ProviderException
+        temp = {}
 
-                raise ProviderException(
-                    f"credential file {credential_file} does not have a section for keyword {profile}")
+        for k, v in config[CHI_PROJECT_ID].items():
+            temp[k.lower()] = config[CHI_PROJECT_ID][k]
 
-            self.config = config = config[profile]
+        if "uc" not in temp or "tacc" not in temp:
+            raise ProviderException(f"{self.name}: Expecting a dictionary for {CHI_PROJECT_ID} for uc and tacc")
+
+        config[CHI_PROJECT_ID] = temp
+
+        from fabfed.util.utils import can_read, is_private_key, absolute_path
+
+        pkey = config[CHI_SLICE_PRIVATE_KEY_LOCATION]
+        pkey = absolute_path(pkey)
+
+        if not can_read(pkey) or not is_private_key(pkey):
+            raise ProviderException(f"{self.name}: unable to read/parse ssh key in {pkey}")
+
+        self.config[CHI_SLICE_PRIVATE_KEY_LOCATION] = pkey
+
+        pub_key = self.config[CHI_SLICE_PUBLIC_KEY_LOCATION]
+        pubkey = absolute_path(pub_key)
+
+        if not can_read(pubkey):
+            raise ProviderException(f"{self.name}: unable to read/parse ssh key in {pubkey}")
+
+        self.config[CHI_SLICE_PUBLIC_KEY_LOCATION] = pub_key
 
         site_id = self.__get_site_identifier(site=site)
         os.environ['OS_AUTH_URL'] = config.get(CHI_AUTH_URL, DEFAULT_AUTH_URLS)[site_id]
         os.environ['OS_IDENTITY_API_VERSION'] = "3"
         os.environ['OS_INTERFACE'] = "public"
-        os.environ['OS_PROJECT_ID'] = config.get(CHI_PROJECT_ID, DEFAULT_PROJECT_IDS)[site_id]
+        os.environ['OS_PROJECT_ID'] = config.get(CHI_PROJECT_ID)[site_id]
         os.environ['OS_USERNAME'] = config.get(CHI_USER)
         os.environ['OS_PROTOCOL'] = "openid"
         os.environ['OS_AUTH_TYPE'] = "v3oidcpassword"
@@ -63,6 +75,32 @@ class ChiProvider(Provider):
         os.environ['OS_REGION_NAME'] = site
         os.environ['OS_SLICE_PRIVATE_KEY_FILE'] = config.get(CHI_SLICE_PRIVATE_KEY_LOCATION)
         os.environ['OS_SLICE_PUBLIC_KEY_FILE'] = config.get(CHI_SLICE_PUBLIC_KEY_LOCATION)
+
+    def do_validate_resource(self, *, resource: dict):
+        label = resource[Constants.LABEL]
+        rtype = resource.get(Constants.RES_TYPE)
+
+        if rtype not in [Constants.RES_TYPE_NETWORK, Constants.RES_TYPE_NODE]:
+            raise ResourceTypeNotSupported(f"resource {rtype} not supported")
+
+        site = resource.get(Constants.RES_SITE)
+
+        if site is None and Constants.CONFIG in resource:
+            site = resource[Constants.CONFIG].get(Constants.RES_SITE)
+
+            if site is None:
+                raise ProviderException(f"{self.label} expecting a site in {rtype} resource {label}")
+
+        resource[Constants.RES_SITE] = site
+
+    def supports_modify(self):
+        return True
+
+    def _setup_environment(self, *, site: str):
+        site_id = self.__get_site_identifier(site=site)
+        os.environ['OS_AUTH_URL'] = self.config.get(CHI_AUTH_URL, DEFAULT_AUTH_URLS)[site_id]
+        os.environ['OS_PROJECT_ID'] = self.config.get(CHI_PROJECT_ID)[site_id]
+        os.environ['OS_CLIENT_ID'] = self.config.get(CHI_CLIENT_ID, DEFAULT_CLIENT_IDS)[site_id]
 
     @staticmethod
     def __get_site_identifier(*, site: str):
@@ -80,21 +118,39 @@ class ChiProvider(Provider):
             return "uc"
 
     def do_add_resource(self, *, resource: dict):
-        site = resource.get(Constants.RES_SITE)
+        label = resource[Constants.LABEL]
+        rtype = resource[Constants.RES_TYPE]
+        site = resource[Constants.RES_SITE]
+        self.existing_map[label] = []
+        creation_details = resource[Constants.RES_CREATION_DETAILS]
+
+        if self.saved_state and label in self.saved_state.creation_details:
+            creation_details = self.saved_state.creation_details[label]
+
+            if rtype == Constants.RES_NODES:
+                for n in range(0, creation_details['total_count']):
+                    node_name = f"{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}{n}"
+                    self.existing_map[label].append(node_name)
+            else:
+                assert creation_details['total_count'] == 1
+                net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+                self.existing_map[label].append(net_name)
+
+        if not creation_details['in_config_file']:
+            return
+
         self._setup_environment(site=site)
         key_pair = self.config[CHI_KEY_PAIR]
         project_name = self.config[CHI_PROJECT_NAME]
-        label = resource.get(Constants.LABEL)
-        rtype = resource.get(Constants.RES_TYPE)
 
-        if rtype == Constants.RES_TYPE_NETWORK.lower():
+        if rtype == Constants.RES_TYPE_NETWORK:
             layer3 = resource.get(Constants.RES_LAYER3)
             stitch_info = resource.get(Constants.RES_STITCH_INFO)
             assert stitch_info and stitch_info.consumer, f"resource {label} missing stitch provider"
             net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
             from fabfed.provider.chi.chi_network import ChiNetwork
 
-            net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
+            net = ChiNetwork(label=label, name=net_name, site=site,
                              layer3=layer3, stitch_provider=stitch_info.consumer,
                              project_name=project_name)
             self._networks.append(net)
@@ -109,20 +165,20 @@ class ChiProvider(Provider):
                 net = util.get_single_value_for_dependency(resource=resource, attribute='network')
                 network = net.name
 
-            node_count = resource.get(Constants.RES_COUNT, 1)
+            node_count = resource[Constants.RES_COUNT]
             image = resource.get(Constants.RES_IMAGE)
             node_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
             flavor = resource.get(Constants.RES_FLAVOR, DEFAULT_FLAVOR)
-            label = resource.get(Constants.LABEL)
 
             for n in range(0, node_count):
                 node_name = f"{self.name}-{node_name_prefix}{n}"
+                self.existing_map[label].append(node_name)
 
                 from fabfed.provider.chi.chi_node import ChiNode
 
-                node = ChiNode(label=label, name=node_name, image=image, site=site, flavor=flavor, logger=self.logger,
+                node = ChiNode(label=label, name=node_name, image=image, site=site, flavor=flavor,
                                key_pair=key_pair, network=network, project_name=project_name)
-                self._nodes.append(node)
+                self.nodes.append(node)
 
                 if self.resource_listener:
                     self.resource_listener.on_added(source=self, provider=self, resource=node)
@@ -134,6 +190,27 @@ class ChiProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
 
         if rtype == Constants.RES_TYPE_NETWORK.lower():
+            existing_names = self.existing_map[label]
+
+            if existing_names:
+                net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+                from fabfed.provider.chi.chi_network import ChiNetwork
+                from ...util.config_models import Config
+
+                layer3 = Config("", "", {})
+                project_name = self.config[CHI_PROJECT_NAME]
+
+                net = ChiNetwork(label=label, name=net_name, site=site,
+                                 layer3=layer3, stitch_provider='', project_name=project_name)
+                net.delete()
+
+                self.logger.info(f"Deleted network: {net_name} at site {site}")
+
+                if self.resource_listener:
+                    self.resource_listener.on_deleted(source=self, provider=self, resource=net)
+
+                return
+
             temp = [net for net in self._networks if net.label == label]
 
             for net in temp:
@@ -143,7 +220,27 @@ class ChiProvider(Provider):
                     self.resource_listener.on_created(source=self, provider=self, resource=net)
 
         else:
-            temp = [node for node in self._nodes if node.label == label]
+            from fabfed.provider.chi.chi_node import ChiNode
+
+            temp: List[ChiNode] = [node for node in self._nodes if node.label == label]
+            names = [node.name for node in temp]
+            existing_names = self.existing_map[label]
+
+            for node_name in existing_names:
+                key_pair = self.config[CHI_KEY_PAIR]
+                project_name = self.config[CHI_PROJECT_NAME]
+
+                if node_name not in names:
+                    from fabfed.provider.chi.chi_node import ChiNode
+
+                    node = ChiNode(label=label, name=node_name, image='', site=site, flavor='',
+                                   key_pair=key_pair, network='', project_name=project_name)
+                    node.delete()
+
+                    self.logger.info(f"Deleted node: {node_name} at site {site}")
+
+                    if self.resource_listener:
+                        self.resource_listener.on_deleted(source=self, provider=self, resource=node)
 
             for node in temp:
                 node.create()
@@ -174,7 +271,7 @@ class ChiProvider(Provider):
 
             layer3 = Config("", "", {})
 
-            net = ChiNetwork(label=label, name=net_name, site=site, logger=self.logger,
+            net = ChiNetwork(label=label, name=net_name, site=site,
                              layer3=layer3, stitch_provider=None, project_name=project_name)
             net.delete()
             self.logger.info(f"Deleted network: {net_name} at site {site}")
@@ -191,7 +288,7 @@ class ChiProvider(Provider):
 
                 from fabfed.provider.chi.chi_node import ChiNode
 
-                node = ChiNode(label=label, name=node_name, image=None, site=site, flavor=None, logger=self.logger,
+                node = ChiNode(label=label, name=node_name, image=None, site=site, flavor=None,
                                key_pair=key_pair, network=None, project_name=project_name)
                 node.delete()
                 self.logger.info(f"Deleted node: {node_name} at site {site}")

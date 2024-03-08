@@ -9,7 +9,7 @@ class ProviderFactory:
         self._providers: Dict[str, Provider] = {}
 
     # noinspection PyBroadException
-    def init_provider(self, *, type: str, label: str, name: str, attributes, logger):
+    def init_provider(self, *, type: str, label: str, name: str, attributes, logger) -> Provider:
         if type not in Constants.PROVIDER_CLASSES:
             from fabfed.exceptions import ProviderTypeNotSupported
             raise ProviderTypeNotSupported(type)
@@ -30,6 +30,7 @@ class ProviderFactory:
 
             raise ProviderException(f"Exception encountered while initializing {label}: {e}")
         self._providers[label] = provider
+        return provider
 
     @property
     def providers(self) -> List[Provider]:

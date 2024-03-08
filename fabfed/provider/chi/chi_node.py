@@ -36,10 +36,14 @@ import fabfed.provider.chi.chi_util as util
 from fabfed.util.constants import Constants
 from .chi_constants import INCLUDE_ROUTER
 
+from fabfed.util.utils import get_logger
+
+logger: logging.Logger = get_logger()
+
 
 class ChiNode(Node):
     def __init__(self, *, label, name: str, image: str, site: str, flavor: str, project_name: str,
-                 logger: logging.Logger, key_pair: str, network: str):
+                 key_pair: str, network: str):
         super().__init__(label=label, name=name, image=image, site=site, flavor=flavor)
         self.project_name = project_name
         self.key_pair = key_pair
@@ -50,7 +54,6 @@ class ChiNode(Node):
         self.username = "cc"
         self.user = self.username
         self.state = None
-        # self.name = f'{prefix}-{self.name}'
         self.lease_name = f'{self.name}-lease'
         self.addresses = []
         self.reservations = []
