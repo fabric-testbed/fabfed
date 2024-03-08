@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List, Dict, Union
 
 from fabfed.model import Resource, Node, Network, Service
 from fabfed.model.state import ProviderState
@@ -28,6 +28,7 @@ class Provider(ABC):
         self.pending_internal = []
 
         self.add_duration = self.create_duration = self.delete_duration = self.init_duration = 0
+        self._saved_state: ProviderState = Union[ProviderState, None]
 
     @property
     def resources(self) -> List:
@@ -39,6 +40,13 @@ class Provider(ABC):
     @property
     def nodes(self) -> List[Node]:
         return self._nodes
+
+    @property
+    def saved_state(self) -> Union[ProviderState, None]:
+        return self._saved_state
+
+    def set_saved_state(self, state: Union[ProviderState, None]):
+        self._saved_state = state
 
     @property
     def networks(self) -> List[Network]:

@@ -45,11 +45,13 @@ class Controller:
 
             name = provider_config.attributes.get('name')
             name = f"{session}-{name}" if name else session
-            provider_factory.init_provider(type=provider_config.type,
-                                           label=provider_config.label,
-                                           name=name,
-                                           attributes=provider_config.attributes,
-                                           logger=self.logger)
+            provider = provider_factory.init_provider(type=provider_config.type,
+                                                      label=provider_config.label,
+                                                      name=name,
+                                                      attributes=provider_config.attributes,
+                                                      logger=self.logger)
+            saved_state = next(filter(lambda s: s.label == provider.label, provider_states), None)
+            provider.set_saved_state(saved_state)
 
         self.resources = self.config.get_resource_configs()
         networks = [resource for resource in self.resources if resource.is_network]
@@ -169,12 +171,12 @@ class Controller:
             creation_details['in_config_file'] = True
             creation_details['provider_supports_modifiable'] = provider.supports_modify()
 
-        for resource in resources:
+        # for resource in resources:
             if resource.label in resource_state_map:
-                states = resource_state_map.get(resource.label)
-                provider_state = states[0].attributes.get('provider_state')
+                # states = resource_state_map.get(resource.label)
+                # provider_state = states[0].attributes.get(Constants.PROVIDER_STATE)
                 resource_dict = resource.attributes
-                resource_dict[Constants.RES_CREATION_DETAILS].update(provider_state.creation_details[resource.label])
+                resource_dict[Constants.RES_CREATION_DETAILS].update(provider.saved_state.creation_details[resource.label])
                 resource_dict[Constants.RES_CREATION_DETAILS]['total_count'] = resource_dict[Constants.RES_COUNT]
 
             planned_resources.append(resource)
@@ -339,7 +341,7 @@ class Controller:
             temp_list = provider_state.states()
 
             for state in temp_list:
-                state.attributes['provider_state'] = provider_state
+                state.attributes[Constants.PROVIDER_STATE] = provider_state
 
                 if state.label in resource_state_map:
                     resource_state_map[state.label].append(state)
