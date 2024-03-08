@@ -50,6 +50,8 @@ class Controller:
                                            name=name,
                                            attributes=provider_config.attributes,
                                            logger=self.logger)
+
+        self.resources = self.config.get_resource_configs()
         networks = [resource for resource in self.resources if resource.is_network]
 
         if networks and not self.policy:
@@ -70,8 +72,6 @@ class Controller:
 
         for provider in providers:
             provider.set_resource_listener(self.resource_listener)
-
-        self.resources = self.config.get_resource_configs()
 
         if networks:
             from fabfed.policy.policy_helper import handle_stitch_info
