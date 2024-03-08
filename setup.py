@@ -47,7 +47,7 @@ setup(
     name="fabfed-py",
     version=__VERSION__,
     description="Fabfed Framework",
-    author="Abdelilah Essiari",
+    author="Abdelilah Essiari,Ezra Kissel,Liang Zhang",
     author_email="aessiari@lbl.gov",
     url="https://github.com/fabric-testbed/fabfed",
     keywords=["Fabfed Framework", "Cloud", "FABRIC", "Chameleon", "MOC"],
