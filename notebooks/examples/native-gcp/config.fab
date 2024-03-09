@@ -1,13 +1,15 @@
+variable:
+  - vpc:
+      default: vpc-69acc1d9-8c24-47cd-90b8-33be57167dbf
 provider:
   - gcp:
       - gcp_provider:
-          - credential_file: ~/.fabfed/fabfed_credentials.yml
-            profile: gcp 
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: gcp
   - fabric:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: fabric
-
 config:
   - layer3:
       - fab_layer:
@@ -21,14 +23,12 @@ config:
       - my_peering:
           # FOR GCP  
           cloud_region: "us-east4"
-          cloud_vpc:  "vpc-69acc1d9-8c24-47cd-90b8-33be57167dbf"
-
+          cloud_vpc: '{{ var.vpc }}'
           # uncomment and override cloud_vlan with a value between 3 and 4095. The default is 4.
           # cloud_vlan:
 
           # FOR GCP AND FABRIC. 
           remote_asn: 16550 # google_asn
-
           # FOR FABRIC
           local_address: "192.168.1.1/30" # customer_ip
           remote_address: "192.168.1.2/30" # google_ip
@@ -52,5 +52,5 @@ resource:
           provider: '{{ fabric.fabric_provider }}'
           site: MAX
           image: default_rocky_8
-          count: 1 
+          count: 1
           nic_model: NIC_Basic
