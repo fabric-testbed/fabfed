@@ -173,7 +173,7 @@ class Provider(ABC):
         count = resource.get(Constants.RES_COUNT, 1)
         label = resource.get(Constants.LABEL)
         assert count > 0
-        assert label not in self._added
+        assert label not in self._added, f"{label} already in {self._added}"
 
         if len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
             self.logger.info(f"Adding {label} to pending using {self.label}")
@@ -205,6 +205,8 @@ class Provider(ABC):
             label = resource.get(Constants.LABEL)
 
             self.failed[label] = 'ADD'
+            failed_count = resource[Constants.RES_COUNT] - len(self.creation_details[label]['resources'])
+            self.creation_details[label]['failed_count'] = failed_count
             raise e
         finally:
             end = time.time()
@@ -218,18 +220,34 @@ class Provider(ABC):
 
         if self.no_longer_pending:
             self.logger.info(f"Checking internal dependencies using {self.label}")
-            for no_longer_pending_resource in self.no_longer_pending:
-                self.add_resource(resource=no_longer_pending_resource)
-
-                temp = self.pending_internal
-                self.pending_internal = []
-
-                for internal_dependency in temp:
-                    internal_dependency_label = internal_dependency[Constants.LABEL]
-                    self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
-                    self.add_resource(resource=internal_dependency)
-
+            temp_no_longer_pending = self._no_longer_pending
             self._no_longer_pending = []
+
+            for no_longer_pending_resource in temp_no_longer_pending:
+                external_dependency_label = no_longer_pending_resource[Constants.LABEL]
+
+                try:
+                    self.logger.info(f"Adding no longer pending external_dependency {external_dependency_label}")
+                    self.add_resource(resource=no_longer_pending_resource)
+                    added = True
+                except Exception as e:
+                    self.logger.warning(f"Adding no longer pending externally {external_dependency_label} failed: {e}")
+                    added = False
+                    self.no_longer_pending.append(no_longer_pending_resource)
+
+                if added:
+                    temp = self.pending_internal
+                    self.pending_internal = []
+
+                    for internal_dependency in temp:
+                        internal_dependency_label = internal_dependency[Constants.LABEL]
+                        self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
+
+                        try:
+                            self.add_resource(resource=internal_dependency)
+                        except Exception as e2:
+                            self.logger.warning(
+                                f"Adding no longer pending internally {internal_dependency_label} failed using {e2}")
 
         self.logger.info(f"Creating {label} using {self.label}")
 

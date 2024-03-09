@@ -143,9 +143,11 @@ class Controller:
                         network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
         for network in [net for net in networks if net.attributes.get(Constants.NETWORK_STITCH_WITH)]:
-            stitch_with = network.attributes.get(Constants.NETWORK_STITCH_WITH)
+            temp_label = network.attributes[Constants.LABEL]
+            stitch_with = network.attributes[Constants.NETWORK_STITCH_WITH]
             stitch_info = network.attributes.get(Constants.RES_STITCH_INFO)
 
+            assert stitch_info is not None, f"network {temp_label} does not have {stitch_info}"
             self.logger.info(f"{network}:stitch_with={stitch_with}: stitch_info={stitch_info}")
 
         self.resources = [r for r in self.resources if r.attributes[Constants.RES_COUNT] > 0]

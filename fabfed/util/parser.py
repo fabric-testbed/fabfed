@@ -142,8 +142,8 @@ class Parser:
 
     @staticmethod
     def _validate_resources(resources: List[ResourceConfig]):
-        if len(resources) == 0:
-            raise ParseConfigException("no resources found ...")
+        # if len(resources) == 0:
+        #     raise ParseConfigException("no resources found ...")
 
         if len(resources) != len(set(resources)):
             raise ParseConfigException(f'detected duplicate resources')

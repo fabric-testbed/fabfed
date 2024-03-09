@@ -119,22 +119,25 @@ class ChiProvider(Provider):
 
     def do_add_resource(self, *, resource: dict):
         label = resource[Constants.LABEL]
+        self.logger.info(f"ADDDDDDDDDING {label}")
         rtype = resource[Constants.RES_TYPE]
         site = resource[Constants.RES_SITE]
         self.existing_map[label] = []
-        creation_details = resource[Constants.RES_CREATION_DETAILS]
 
         if self.saved_state and label in self.saved_state.creation_details:
-            creation_details = self.saved_state.creation_details[label]
+            provider_saved_creation_details = self.saved_state.creation_details[label]
 
             if rtype == Constants.RES_NODES:
-                for n in range(0, creation_details['total_count']):
+                for n in range(0, provider_saved_creation_details['total_count']):
                     node_name = f"{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}{n}"
                     self.existing_map[label].append(node_name)
             else:
-                assert creation_details['total_count'] == 1
+                assert provider_saved_creation_details['total_count'] == 1
                 net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+                self.logger.info(f"WOW ADDDDDDDDDING {label}")
                 self.existing_map[label].append(net_name)
+
+        creation_details = resource[Constants.RES_CREATION_DETAILS]
 
         if not creation_details['in_config_file']:
             return
@@ -190,10 +193,13 @@ class ChiProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
 
         if rtype == Constants.RES_TYPE_NETWORK.lower():
+            from fabfed.provider.chi.chi_network import ChiNetwork
             existing_names = self.existing_map[label]
+            temp: List[ChiNetwork] = [net for net in self._networks if net.label == label]
+            added_names = [net.name for net in temp]
+            net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
 
-            if existing_names:
-                net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+            if net_name in existing_names and net_name not in added_names:
                 from fabfed.provider.chi.chi_network import ChiNetwork
                 from ...util.config_models import Config
 
@@ -211,13 +217,11 @@ class ChiProvider(Provider):
 
                 return
 
-            temp = [net for net in self._networks if net.label == label]
+            net = next(filter(lambda n: n.label == label, self.networks))
+            net.create()
 
-            for net in temp:
-                net.create()
-
-                if self.resource_listener:
-                    self.resource_listener.on_created(source=self, provider=self, resource=net)
+            if self.resource_listener:
+                self.resource_listener.on_created(source=self, provider=self, resource=net)
 
         else:
             from fabfed.provider.chi.chi_node import ChiNode
