@@ -23,7 +23,7 @@ config:
           cloud_facility:
           local_device:
           local_port:
-          cloud_region:
+          cloud_region: "us-east-1"
 
           # FOR SENSE and FABRIC
           local_asn: "55038" # customer_asn (hard coded for now)
