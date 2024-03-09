@@ -133,9 +133,7 @@ class CloudlabProvider(Provider):
             else:
                 assert provider_saved_creation_details['total_count'] == 1
                 net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
-                self.logger.info(f"WOW ADDDDDDDDDING {label}")
                 self.existing_map[label].append(net_name)
-
 
         creation_details = resource[Constants.RES_CREATION_DETAILS]
 
@@ -248,7 +246,7 @@ class CloudlabProvider(Provider):
 
                 net.delete()
                 self.logger.info(f"Done deleting cloudlab resources ....")
-                self.modified = False;
+                self.modified = False
                 self.resource_listener.on_deleted(source=self, provider=self, resource=net)
             except Exception as e:
                 self.logger.error(f"Exception deleting cloudlab resources ....", e)
