@@ -119,7 +119,6 @@ class ChiProvider(Provider):
 
     def do_add_resource(self, *, resource: dict):
         label = resource[Constants.LABEL]
-        self.logger.info(f"ADDDDDDDDDING {label}")
         rtype = resource[Constants.RES_TYPE]
         site = resource[Constants.RES_SITE]
         self.existing_map[label] = []
@@ -134,7 +133,6 @@ class ChiProvider(Provider):
             else:
                 assert provider_saved_creation_details['total_count'] == 1
                 net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
-                self.logger.info(f"WOW ADDDDDDDDDING {label}")
                 self.existing_map[label].append(net_name)
 
         creation_details = resource[Constants.RES_CREATION_DETAILS]
