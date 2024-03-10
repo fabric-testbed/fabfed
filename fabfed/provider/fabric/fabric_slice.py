@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Union
 
 import fabfed.provider.api.dependency_util as util
 from fabfed.model import Node, Network
@@ -21,7 +21,7 @@ class FabricSlice:
 
         from fabrictestbed_extensions.fablib.slice import Slice
 
-        self.slice_object: Slice = None
+        self.slice_object: Union[Slice, None] = None
         self.retry = 10
         self.existing_nodes = []
         self.existing_networks = []
@@ -182,8 +182,7 @@ class FabricSlice:
 
         self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
 
-        days = DEFAULT_RENEWAL_IN_DAYS
-
+        # days = DEFAULT_RENEWAL_IN_DAYS
         # try:
         #     import datetime
         #     end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
@@ -440,4 +439,3 @@ class FabricSlice:
             self.slice_object = None
             self.slice_created = False
             self.logger.info(f"Destroyed slice {self.name}")  # TODO EMIT DELETE EVENT
-

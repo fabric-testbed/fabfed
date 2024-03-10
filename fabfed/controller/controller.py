@@ -173,12 +173,10 @@ class Controller:
             creation_details['in_config_file'] = True
             creation_details['provider_supports_modifiable'] = provider.supports_modify()
 
-        # for resource in resources:
             if resource.label in resource_state_map:
-                # states = resource_state_map.get(resource.label)
-                # provider_state = states[0].attributes.get(Constants.PROVIDER_STATE)
                 resource_dict = resource.attributes
-                resource_dict[Constants.RES_CREATION_DETAILS].update(provider.saved_state.creation_details[resource.label])
+                resource_dict[Constants.RES_CREATION_DETAILS].update(
+                    provider.saved_state.creation_details[resource.label])
                 resource_dict[Constants.RES_CREATION_DETAILS]['total_count'] = resource_dict[Constants.RES_COUNT]
 
             planned_resources.append(resource)
@@ -187,23 +185,22 @@ class Controller:
             if state_label not in resources_labels:
                 state = states[0]
                 resource_dict = state.attributes.copy()
-                provider_state = resource_dict.pop('provider_state')
+                provider_state = resource_dict.pop(Constants.PROVIDER_STATE)
                 provider = pf.get_provider(label=provider_state.label)
 
-                creation_details = provider_state.creation_details[state_label]
+                import copy
+
+                creation_details: Dict = copy.deepcopy(provider_state.creation_details[state_label])
                 creation_details['in_config_file'] = False
                 creation_details['provider_supports_modifiable'] = provider.supports_modify()
 
                 from ..util.config_models import ProviderConfig
 
                 var_name, _ = tuple(provider_state.label.split('@'))
-
                 provider_config = ProviderConfig(type=provider.type, name=var_name, attrs=provider.config)
 
-                var_name, _ = tuple(state.label.split('@'))
-                # resource_config = ResourceConfig(type=state.type, name=var_name, provider=provider_config,
-                #                                  attrs=resource_dict)
                 resource_dict = {}
+                var_name, _ = tuple(state.label.split('@'))
 
                 if var_name != creation_details['name_prefix']:
                     resource_dict['name'] = creation_details['name_prefix']
@@ -359,8 +356,6 @@ class Controller:
         failed_resources = []
 
         for provider_state in provider_states:
-            key = provider_state.label
-
             for k in provider_state.failed:
                 failed_resources.append(k)
 
