@@ -17,8 +17,8 @@ class FabricNode(Node):
         logger.info(f" Node {self.name} construtor called ... ")
         self._delegate = delegate
         self.nic_model = nic_model
-        slice_object = delegate.get_slice()
-        self.slice_name = slice_object.get_name()
+        self._slice_object = delegate.get_slice()
+        self.slice_name = self._slice_object.get_name()
         self.mgmt_ip = delegate.get_management_ip()
         self.mgmt_ip = str(self.mgmt_ip) if self.mgmt_ip else None
         self.network_label = network_label
@@ -37,6 +37,9 @@ class FabricNode(Node):
         self.id = delegate.get_reservation_id()
         self.components = [dict(name=c.get_name(), model=c.get_model()) for c in delegate.get_components()]
         self.addr_list = {}
+
+    def handle_networking(self):
+        slice_object = self._slice_object
 
         if not self.mgmt_ip:
             logger.warning(f" Node {self.name} has no management ip ")

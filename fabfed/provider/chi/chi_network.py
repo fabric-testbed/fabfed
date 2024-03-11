@@ -13,9 +13,13 @@ from ...util.constants import Constants
 from .chi_constants import INCLUDE_ROUTER
 
 
+from fabfed.util.utils import get_logger
+
+logger: logging.Logger = get_logger()
+
+
 class ChiNetwork(Network):
-    def __init__(self, *, label, name: str, site: str, project_name: str,
-                 logger: logging.Logger, layer3: Config, stitch_provider: str):
+    def __init__(self, *, label, name: str, site: str, project_name: str, layer3: Config, stitch_provider: str):
         super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
         self.subnet = layer3.attributes.get(Constants.RES_SUBNET)
