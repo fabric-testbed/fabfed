@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Union
 
 import fabfed.provider.api.dependency_util as util
 from fabfed.model import Node, Network
@@ -21,7 +21,7 @@ class FabricSlice:
 
         from fabrictestbed_extensions.fablib.slice import Slice
 
-        self.slice_object: Slice = None
+        self.slice_object: Union[Slice, None] = None
         self.retry = 10
         self.existing_nodes = []
         self.existing_networks = []
@@ -63,11 +63,11 @@ class FabricSlice:
 
     def _add_network(self, resource: dict):
         label = resource[Constants.LABEL]
-        name_prefix = resource[Constants.RES_NAME_PREFIX]
+        net_name = self.provider.resource_name(resource)
 
-        if name_prefix in self.existing_networks:
-            delegate = self.slice_object.get_network(name_prefix)
-            assert delegate is not None, "expected to find network {name_prefix} in slice {self.name}"
+        if net_name in self.existing_networks:
+            delegate = self.slice_object.get_network(net_name)
+            assert delegate is not None, "expected to find network {net_name} in slice {self.name}"
             layer3 = resource.get(Constants.RES_LAYER3)
             peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
             peering = resource.get(Constants.RES_PEERING)
@@ -87,7 +87,7 @@ class FabricSlice:
 
             return
 
-        network_builder = NetworkBuilder(label, self.provider, self.slice_object, name_prefix, resource)
+        network_builder = NetworkBuilder(label, self.provider, self.slice_object, net_name, resource)
         network_builder.handle_facility_port()
         temp = []
         if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
@@ -108,7 +108,6 @@ class FabricSlice:
 
     def _add_node(self, resource: dict):
         node_count = resource[Constants.RES_COUNT]
-        name_prefix = resource[Constants.RES_NAME_PREFIX]
         label = resource[Constants.LABEL]
         states = resource[Constants.SAVED_STATES]
         state_map = {}
@@ -117,7 +116,7 @@ class FabricSlice:
             state_map[state.attributes['name']] = state.attributes
 
         for i in range(node_count):
-            name = f"{name_prefix}{i}"
+            name = self.provider.resource_name(resource, i)
 
             if name in self.existing_nodes:
                 delegate = self.slice_object.get_node(name)
@@ -182,8 +181,7 @@ class FabricSlice:
 
         self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
 
-        days = DEFAULT_RENEWAL_IN_DAYS
-
+        # days = DEFAULT_RENEWAL_IN_DAYS
         # try:
         #     import datetime
         #     end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
@@ -205,6 +203,7 @@ class FabricSlice:
             n.set_network_label(node.network_label)
             n.set_used_dataplane_ipv4(node.used_dataplane_ipv4())
             temp.append(n)
+            n.handle_networking()
 
         self.provider._nodes = temp
 
@@ -297,7 +296,7 @@ class FabricSlice:
                 temp = [n for n in self.nodes if n.network_label == network.label]
 
                 for node in temp:
-                    if node.used_dataplane_ipv4():
+                    if node.used_dataplane_ipv4() and node.used_dataplane_ipv4() in available_ips:
                         available_ips.remove(node.used_dataplane_ipv4())
 
                 for node in temp:
@@ -370,7 +369,17 @@ class FabricSlice:
 
                     self.slice_object.get_fim_topology().remove_node(name=n)
                     self.slice_modified = True
-                    self.logger.info(f"Done  emoving node {n} from slice {self.name}")
+                    self.logger.info(f"Done removing node {n} from slice {self.name}")
+
+            aset = set(self.existing_networks)
+            bset = {n.name for n in self.networks}
+            diff = aset - bset
+
+            if diff:
+                for n in diff:
+                    self.slice_object.get_fim_topology().remove_network_service(name=n)
+                    self.slice_modified = True
+                    self.logger.info(f"Done removing network {n} from slice {self.name}")
 
             for network in [net for net in self.networks if net.name in self.existing_networks]:
                 temp = (bset - aset)
@@ -440,4 +449,3 @@ class FabricSlice:
             self.slice_object = None
             self.slice_created = False
             self.logger.info(f"Destroyed slice {self.name}")  # TODO EMIT DELETE EVENT
-

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List, Dict, Union
 
 from fabfed.model import Resource, Node, Network, Service
 from fabfed.model.state import ProviderState
@@ -28,6 +28,17 @@ class Provider(ABC):
         self.pending_internal = []
 
         self.add_duration = self.create_duration = self.delete_duration = self.init_duration = 0
+        self._saved_state: ProviderState = Union[ProviderState, None]
+        self._existing_map: Dict[str, List[str]] = {}
+        self._added_map: Union[Dict[str, List[str]], None] = None
+
+    @property
+    def existing_map(self) -> Dict[str, List[str]]:
+        return self._existing_map
+
+    @property
+    def added_map(self) -> Dict[str, List[str]]:
+        return self._added_map
 
     @property
     def resources(self) -> List:
@@ -39,6 +50,13 @@ class Provider(ABC):
     @property
     def nodes(self) -> List[Node]:
         return self._nodes
+
+    @property
+    def saved_state(self) -> Union[ProviderState, None]:
+        return self._saved_state
+
+    def set_saved_state(self, state: Union[ProviderState, None]):
+        self._saved_state = state
 
     @property
     def networks(self) -> List[Network]:
@@ -134,6 +152,62 @@ class Provider(ABC):
     def supports_modify(self):
         return False
 
+    def resource_name(self, resource: dict, idx: int = 0):
+        return f"{self.name}-{resource[Constants.RES_NAME_PREFIX]}-{idx}"
+
+    def add_to_existing_map(self, resource: dict):
+        label = resource.get(Constants.LABEL)
+        self.existing_map[label] = []
+
+        if self.saved_state and resource.get(Constants.LABEL) in self.saved_state.creation_details:
+            provider_saved_creation_details = self.saved_state.creation_details[label]
+
+            for n in range(0, provider_saved_creation_details['total_count']):
+                resource_name = self.resource_name(resource, n)
+                self.existing_map[label].append(resource_name)
+
+    def _compute_added_map(self):
+        if self.added_map is None:
+            self._added_map = {}
+
+            for net in self.networks:
+                if net.label not in self.added_map:
+                    self.added_map[net.label] = []
+
+                self.added_map[net.label].append(net.name)
+
+            for node in self.nodes:
+                if node.label not in self.added_map:
+                    self.added_map[node.label] = []
+
+                self.added_map[node.label].append(node.name)
+
+            for service in self.services:
+                if service.label not in self.added_map:
+                    self.added_map[service.label] = []
+
+                self.added_map[service.label].append(service.name)
+
+    @property
+    def modified(self):
+        if self.saved_state:
+            self._compute_added_map()
+            return self._existing_map and self.added_map != self._existing_map
+
+        return False
+
+    def retrieve_attribute_from_saved_state(self, resource, resource_name, attribute):
+        if self.saved_state:
+            for state in resource[Constants.SAVED_STATES]:
+                if state.attributes['name'] == resource_name:
+                    ret = state.attributes.get(attribute)
+
+                    if isinstance(ret, list) and len(ret) == 1:
+                        return ret[0]
+
+                    return ret
+        return None
+
     def validate_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
 
@@ -144,6 +218,7 @@ class Provider(ABC):
         self.creation_details[label]['failed_count'] = 0
         self.creation_details[label]['created_count'] = 0
         self.creation_details[label]['name_prefix'] = resource[Constants.RES_NAME_PREFIX]
+        self.add_to_existing_map(resource)
 
         import time
 
@@ -165,7 +240,7 @@ class Provider(ABC):
         count = resource.get(Constants.RES_COUNT, 1)
         label = resource.get(Constants.LABEL)
         assert count > 0
-        assert label not in self._added
+        assert label not in self._added, f"{label} already in {self._added}"
 
         if len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
             self.logger.info(f"Adding {label} to pending using {self.label}")
@@ -197,6 +272,8 @@ class Provider(ABC):
             label = resource.get(Constants.LABEL)
 
             self.failed[label] = 'ADD'
+            failed_count = resource[Constants.RES_COUNT] - len(self.creation_details[label]['resources'])
+            self.creation_details[label]['failed_count'] = failed_count
             raise e
         finally:
             end = time.time()
@@ -210,20 +287,36 @@ class Provider(ABC):
 
         if self.no_longer_pending:
             self.logger.info(f"Checking internal dependencies using {self.label}")
-            for no_longer_pending_resource in self.no_longer_pending:
-                self.add_resource(resource=no_longer_pending_resource)
-
-                temp = self.pending_internal
-                self.pending_internal = []
-
-                for internal_dependency in temp:
-                    internal_dependency_label = internal_dependency[Constants.LABEL]
-                    self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
-                    self.add_resource(resource=internal_dependency)
-
+            temp_no_longer_pending = self._no_longer_pending
             self._no_longer_pending = []
 
-        self.logger.info(f"Creating {label} using {self.label}")
+            for no_longer_pending_resource in temp_no_longer_pending:
+                external_dependency_label = no_longer_pending_resource[Constants.LABEL]
+
+                try:
+                    self.logger.info(f"Adding no longer pending external_dependency {external_dependency_label}")
+                    self.add_resource(resource=no_longer_pending_resource)
+                    added = True
+                except Exception as e:
+                    self.logger.warning(f"Adding no longer pending externally {external_dependency_label} failed: {e}")
+                    added = False
+                    self.no_longer_pending.append(no_longer_pending_resource)
+
+                if added:
+                    temp = self.pending_internal
+                    self.pending_internal = []
+
+                    for internal_dependency in temp:
+                        internal_dependency_label = internal_dependency[Constants.LABEL]
+                        self.logger.info(f"Adding internal_dependency {internal_dependency_label}")
+
+                        try:
+                            self.add_resource(resource=internal_dependency)
+                        except Exception as e2:
+                            self.logger.warning(
+                                f"Adding no longer pending internally {internal_dependency_label} failed using {e2}")
+
+        self.logger.info(f"Creating {label} using {self.label}: {self._added}")
 
         if label in self._added:
             try:
@@ -272,12 +365,6 @@ class Provider(ABC):
         service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in services]
         pending = [res['label'] for res in self.pending]
         pending_internal = [res['label'] for res in self.pending_internal]
-        # # nodes = [n for n in self.nodes if n.labelin self.failed]
-        # for n in nodes:
-        #    self.failed[n.label] = {"phase": "xxx" , 'resource': cleanup_attrs(vars(n))}
-        # for n in networks:
-        #    self.failed[n.label] = {"phase": "yyy" , 'resource': cleanup_attrs(vars(n))}
-   
         return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
                              pending, pending_internal, self.failed, self.creation_details)
 

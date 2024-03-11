@@ -3,7 +3,6 @@ from fabfed.exceptions import ResourceTypeNotSupported
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
-from . import sense_utils
 from .sense_exceptions import SenseException
 
 logger = get_logger()
@@ -12,7 +11,9 @@ logger = get_logger()
 class SenseProvider(Provider):
     def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
-        self.supported_resources = [Constants.RES_TYPE_NETWORK.lower(),  Constants.RES_TYPE_NODE.lower()]
+        self.supported_resources = [Constants.RES_TYPE_NETWORK,  Constants.RES_TYPE_NODE]
+        self.initialized = False
+        self._handled_modify = False
 
     def setup_environment(self):
         from fabfed.util import utils
@@ -29,9 +30,6 @@ class SenseProvider(Provider):
             )
 
         self.config = config[profile]
-        from .sense_client import init_client
-
-        init_client(self.config)
 
     @property
     def private_key_file_location(self):
@@ -62,27 +60,47 @@ class SenseProvider(Provider):
 
         return peering
 
+    def _init_client(self):
+        if not self.initialized:
+            from .sense_client import init_client
+
+            init_client(self.config)
+            self.initialized = True
+
     def do_add_resource(self, *, resource: dict):
+        self._init_client()
+
+        creation_details = resource[Constants.RES_CREATION_DETAILS]
+
+        if not creation_details['in_config_file']:
+            return
+
         label = resource.get(Constants.LABEL)
         rtype = resource.get(Constants.RES_TYPE)
 
         if rtype not in self.supported_resources:
             raise ResourceTypeNotSupported(f"{rtype} for {label}")
 
-        name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-
-        if rtype == Constants.RES_TYPE_NODE.lower():
+        if rtype == Constants.RES_TYPE_NODE:
             from .sense_node import SenseNode
             import fabfed.provider.api.dependency_util as util
+            from . import sense_utils
 
             assert util.has_resolved_internal_dependencies(resource=resource, attribute='network')
             net = util.get_single_value_for_dependency(resource=resource, attribute='network')
             profile_uuid = sense_utils.get_profile_uuid(profile=net.profile)
             vms = sense_utils.get_vms_specs_from_profile(profile_uuid=profile_uuid)
-            node_name = f'{self.name}-{name_prefix}'
+
+            count = resource[Constants.RES_COUNT]
+
+            if count != len(vms):
+                from fabfed.exceptions import ProviderException
+
+                raise ProviderException(f'count {count} != sense_vm_specs: {len(vms)}')
 
             for idx, vm in enumerate(vms):
-                node = SenseNode(label=label, name=f'{node_name}-{idx}', network=net.name, spec=vm, provider=self)
+                node_name = self.resource_name(resource, idx)
+                node = SenseNode(label=label, name=f'{node_name}', network=net.name, spec=vm, provider=self)
                 self._nodes.append(node)
 
                 if self.resource_listener:
@@ -101,7 +119,7 @@ class SenseProvider(Provider):
                 if not interface.get(Constants.RES_BANDWIDTH):
                     interface[Constants.RES_BANDWIDTH] = resource.get(Constants.RES_BANDWIDTH)
 
-        net_name = f'{self.name}-{name_prefix}'
+        net_name = self.resource_name(resource)
         profile = resource.get(Constants.RES_PROFILE)
 
         if not profile and sense_stitch_port:
@@ -125,12 +143,32 @@ class SenseProvider(Provider):
             self.resource_listener.on_added(source=self, provider=self, resource=net)
 
     def do_create_resource(self, *, resource: dict):
+        assert self.initialized
         rtype = resource.get(Constants.RES_TYPE)
         assert rtype in self.supported_resources
+        label = resource.get(Constants.LABEL)
+
+        if not self._handled_modify and self.modified:
+            assert rtype == Constants.RES_TYPE_NETWORK, "sense expects network to be created first"
+            self._handled_modify = True
+
+            self.logger.info(f"Deleting sense resources ....")
+
+            from .sense_network import SenseNetwork
+
+            net_name = self.resource_name(resource)
+            net = SenseNetwork(label=label, name=net_name, bandwidth=None, profile=None, layer3=None, interfaces=None,
+                               peering=None)
+
+            try:
+                net.delete()
+                self.logger.warning(f"Deleted sense resources ....")
+            except Exception as e:
+                self.logger.error(f"Exception deleting cloudlab resources ....", e)
 
         label = resource.get(Constants.LABEL)
 
-        if rtype == Constants.RES_TYPE_NODE.lower():
+        if rtype == Constants.RES_TYPE_NODE:
             for node in [node for node in self._nodes if node.label == label]:
                 self.logger.debug(f"Creating node: {vars(node)}")
                 node.create()
@@ -156,11 +194,11 @@ class SenseProvider(Provider):
         assert rtype in self.supported_resources
         label = resource.get(Constants.LABEL)
 
-        if rtype == Constants.RES_TYPE_NODE.lower():
+        if rtype == Constants.RES_TYPE_NODE:
             # DO NOTHING
             return
 
-        net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+        net_name = self.resource_name(resource)
 
         logger.debug(f"Deleting network: {net_name}")
 

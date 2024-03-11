@@ -101,7 +101,9 @@ def find_node_clusters(*, resources):
                 visited_networks.append(peer.label)
                 nodes.extend(find_nodes_related_to_network(network=peer, resources=resources))
                 visited_nodes.extend([n.label for n in nodes])
-                clusters.append(nodes)
+
+                if nodes:
+                    clusters.append(nodes)
 
     for net in networks:
         if net.label not in visited_networks:
@@ -111,7 +113,9 @@ def find_node_clusters(*, resources):
                 visited_networks.append(net.label)
                 nodes = find_nodes_related_to_network(network=net, resources=resources)
                 visited_nodes.extend([n.label for n in nodes])
-                clusters.append(nodes)
+
+                if nodes:
+                    clusters.append(nodes)
 
     nodes = [r for r in resources if r.is_node]
 

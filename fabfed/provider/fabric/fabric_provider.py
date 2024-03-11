@@ -8,6 +8,7 @@ from fabfed.exceptions import ProviderException
 
 logger = get_logger()
 
+
 class FabricProvider(Provider):
     def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
@@ -15,13 +16,14 @@ class FabricProvider(Provider):
         self.retry = 5
         self.slice_init = False
 
+        # TODO Should not be needed for fablib 1.6.4
         from fabrictestbed_extensions.fablib.constants import Constants as FC
         from fabfed.util.utils import get_base_dir
 
         FC.DEFAULT_FABRIC_CONFIG_DIR = get_base_dir(self.name)
         FC.DEFAULT_FABRIC_RC = f"{FC.DEFAULT_FABRIC_CONFIG_DIR}/fabric_rc"
 
-    def _to_abs_for(self, env_var: str, config:dict):
+    def _to_abs_for(self, env_var: str, config: dict):
         path = config.get(env_var)
 
         from pathlib import Path
@@ -33,7 +35,7 @@ class FabricProvider(Provider):
                 f.read()
                 logger.debug(f"was able to read {path}")
         except Exception as e:
-            raise ProviderException(f"{self.name}:Unable to read {path} for {env_var}")
+            raise ProviderException(f"{self.name}:Unable to read {path} for {env_var}:{e}")
 
         try:
             if path.endswith(".json"):
@@ -42,7 +44,7 @@ class FabricProvider(Provider):
 
                     json.load(fp)
         except Exception as e:
-            raise ProviderException(f"{self.name}:Unable to parse {path} to json for {env_var}")
+            raise ProviderException(f"{self.name}:Unable to parse {path} to json for {env_var}:{e}")
 
         return path
 
@@ -131,4 +133,3 @@ class FabricProvider(Provider):
     def do_delete_resource(self, *, resource: dict):
         self._init_slice(True)
         self.slice.delete_resource(resource=resource)
-
