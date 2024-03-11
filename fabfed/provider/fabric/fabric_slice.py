@@ -296,7 +296,7 @@ class FabricSlice:
                 temp = [n for n in self.nodes if n.network_label == network.label]
 
                 for node in temp:
-                    if node.used_dataplane_ipv4():
+                    if node.used_dataplane_ipv4() and node.used_dataplane_ipv4() in available_ips:
                         available_ips.remove(node.used_dataplane_ipv4())
 
                 for node in temp:
