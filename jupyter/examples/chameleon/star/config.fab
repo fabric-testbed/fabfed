@@ -1,0 +1,55 @@
+provider:
+  - fabric:
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: fabric
+  - chi:
+      - chi_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: chi
+  - janus:
+      - janus_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: janus 
+
+config:
+  - layer3:
+      - my_layer:
+          subnet: 192.168.100.0/24
+          gateway: 192.168.100.1
+          ip_start: 192.168.100.100
+          ip_end: 192.168.100.250
+resource:
+  - network:
+      - chi_network:
+          provider: '{{ chi.chi_provider }}'
+          name: stitch_net
+          layer3: "{{ layer3.my_layer }}"
+          count: 1
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          interface: '{{ node.fabric_node }}'
+          layer3: "{{ layer3.my_layer }}"
+          count: 1
+          stitch_with: '{{ network.chi_network }}'
+          stitch_option:
+             site: STAR
+  - node:
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          count: 1
+          image: default_rocky_8
+      - chi_node:
+          provider: '{{ chi.chi_provider }}'
+          image: CC-Ubuntu20.04
+          network: '{{ network.chi_network }}'
+          count: 1
+          flavor: m1.medium
+  - service:
+      - dtn_service:
+          provider: '{{ janus.janus_provider }}'
+          node: [ '{{ node.chi_node }}', '{{ node.fabric_node }}' ]
+          controller: '{{ node.fabric_node }}'
+          image: dtnaas/tools
+          profile: fabfed
+          count: 1
