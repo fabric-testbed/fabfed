@@ -12,6 +12,9 @@ def has_resolved_internal_dependencies(*, resource, attribute):
 
 
 def get_values_for_dependency(*, resource, attribute):
+    assert has_resolved_external_dependencies(resource=resource, attribute=attribute) \
+           or has_resolved_internal_dependencies(resource=resource, attribute=attribute)
+
     values = []
 
     for temp in resource.get(attribute):
@@ -20,6 +23,10 @@ def get_values_for_dependency(*, resource, attribute):
 
     return values
 
+def get_single_value_for_dependency_if_any(*, resource, attribute):
+    values = get_values_for_dependency(resource=resource, attribute=attribute)
+
+    return values[0]
 
 def get_single_value_for_dependency(*, resource, attribute):
     values = get_values_for_dependency(resource=resource, attribute=attribute)
