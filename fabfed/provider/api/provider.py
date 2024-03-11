@@ -29,6 +29,16 @@ class Provider(ABC):
 
         self.add_duration = self.create_duration = self.delete_duration = self.init_duration = 0
         self._saved_state: ProviderState = Union[ProviderState, None]
+        self._existing_map: Dict[str, List[str]] = {}
+        self._added_map: Union[Dict[str, List[str]], None] = None
+
+    @property
+    def existing_map(self) -> Dict[str, List[str]]:
+        return self._existing_map
+
+    @property
+    def added_map(self) -> Dict[str, List[str]]:
+        return self._added_map
 
     @property
     def resources(self) -> List:
@@ -142,6 +152,62 @@ class Provider(ABC):
     def supports_modify(self):
         return False
 
+    def resource_name(self, resource: dict, idx: int = 0):
+        return f"{self.name}-{resource[Constants.RES_NAME_PREFIX]}-{idx}"
+
+    def add_to_existing_map(self, resource: dict):
+        label = resource.get(Constants.LABEL)
+        self.existing_map[label] = []
+
+        if self.saved_state and resource.get(Constants.LABEL) in self.saved_state.creation_details:
+            provider_saved_creation_details = self.saved_state.creation_details[label]
+
+            for n in range(0, provider_saved_creation_details['total_count']):
+                resource_name = self.resource_name(resource, n)
+                self.existing_map[label].append(resource_name)
+
+    def _compute_added_map(self):
+        if self.added_map is None:
+            self._added_map = {}
+
+            for net in self.networks:
+                if net.label not in self.added_map:
+                    self.added_map[net.label] = []
+
+                self.added_map[net.label].append(net.name)
+
+            for node in self.nodes:
+                if node.label not in self.added_map:
+                    self.added_map[node.label] = []
+
+                self.added_map[node.label].append(node.name)
+
+            for service in self.services:
+                if service.label not in self.added_map:
+                    self.added_map[service.label] = []
+
+                self.added_map[service.label].append(service.name)
+
+    @property
+    def modified(self):
+        if self.saved_state:
+            self._compute_added_map()
+            return self._existing_map and self.added_map != self._existing_map
+
+        return False
+
+    def retrieve_attribute_from_saved_state(self, resource, resource_name, attribute):
+        if self.saved_state:
+            for state in resource[Constants.SAVED_STATES]:
+                if state.attributes['name'] == resource_name:
+                    ret = state.attributes.get(attribute)
+
+                    if isinstance(ret, list) and len(ret) == 1:
+                        return ret[0]
+
+                    return ret
+        return None
+
     def validate_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
 
@@ -152,6 +218,7 @@ class Provider(ABC):
         self.creation_details[label]['failed_count'] = 0
         self.creation_details[label]['created_count'] = 0
         self.creation_details[label]['name_prefix'] = resource[Constants.RES_NAME_PREFIX]
+        self.add_to_existing_map(resource)
 
         import time
 
@@ -249,7 +316,7 @@ class Provider(ABC):
                             self.logger.warning(
                                 f"Adding no longer pending internally {internal_dependency_label} failed using {e2}")
 
-        self.logger.info(f"Creating {label} using {self.label}")
+        self.logger.info(f"Creating {label} using {self.label}: {self._added}")
 
         if label in self._added:
             try:
@@ -298,12 +365,6 @@ class Provider(ABC):
         service_states = [ServiceState(label=s.label, attributes=cleanup_attrs(vars(s))) for s in services]
         pending = [res['label'] for res in self.pending]
         pending_internal = [res['label'] for res in self.pending_internal]
-        # # nodes = [n for n in self.nodes if n.labelin self.failed]
-        # for n in nodes:
-        #    self.failed[n.label] = {"phase": "xxx" , 'resource': cleanup_attrs(vars(n))}
-        # for n in networks:
-        #    self.failed[n.label] = {"phase": "yyy" , 'resource': cleanup_attrs(vars(n))}
-   
         return ProviderState(self.label, dict(name=self.name), net_states, node_states, service_states,
                              pending, pending_internal, self.failed, self.creation_details)
 

@@ -13,9 +13,8 @@ class CloudlabProvider(Provider):
 
     def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
-        self.supported_resources = [Constants.RES_TYPE_NETWORK.lower(), Constants.RES_TYPE_NODE.lower()]
-        self.modified = None
-        self.existing_map = {}
+        self.supported_resources = [Constants.RES_TYPE_NETWORK, Constants.RES_TYPE_NODE]
+        self._handled_modify = False
 
     def setup_environment(self):
         for attr in CLOUDLAB_CONF_ATTRS:
@@ -110,54 +109,41 @@ class CloudlabProvider(Provider):
 
     def _get_interfaces(self, resource):
         interfaces = resource.get(Constants.RES_INTERFACES, list())
-        cloudlab_stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
 
         if not interfaces:
+            cloudlab_stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
+
             if 'option' in cloudlab_stitch_port and Constants.RES_INTERFACES in cloudlab_stitch_port['option']:
                 interfaces = cloudlab_stitch_port['option'][Constants.RES_INTERFACES]
 
         return interfaces
 
     def do_add_resource(self, *, resource: dict):
-        rtype = resource.get(Constants.RES_TYPE)
-        label = resource.get(Constants.LABEL)
-        self.existing_map[label] = []
-
-        if self.saved_state and label in self.saved_state.creation_details:
-            provider_saved_creation_details = self.saved_state.creation_details[label]
-
-            if rtype == Constants.RES_NODES:
-                for n in range(0, provider_saved_creation_details['total_count']):
-                    node_name = f"{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}-{n}"
-                    self.existing_map[label].append(node_name)
-            else:
-                assert provider_saved_creation_details['total_count'] == 1
-                net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
-                self.existing_map[label].append(net_name)
-
         creation_details = resource[Constants.RES_CREATION_DETAILS]
 
         if not creation_details['in_config_file']:
             return
 
+        rtype = resource.get(Constants.RES_TYPE)
+        label = resource.get(Constants.LABEL)
+
         if rtype == Constants.RES_TYPE_NETWORK:
-            states = resource[Constants.SAVED_STATES]
+            net_name = self.resource_name(resource)
+            interface = self.retrieve_attribute_from_saved_state(resource, net_name, attribute='interface')
 
-            if states:
-                state = states[0]
-                vlan = state.attributes['interface'][0]['vlan']
-                interfaces = self._get_interfaces(resource)
+            assert interface, "expecting a vlan interface in saved state for {label}"
+            vlan = interface['vlan']
 
-                if isinstance(vlan, str):
-                    vlan = int(vlan)
+            if isinstance(vlan, str):
+                vlan = int(vlan)
 
-                if interfaces and interfaces[0]['vlan'] != vlan:
-                    self.logger.warning(
-                        f"{self.label} ignoring: {label}'s interface does not match provisioned vlan {vlan}")
+            interfaces = self._get_interfaces(resource)
 
-                resource[Constants.RES_INTERFACES] = [{'vlan': vlan}]
+            if interfaces and interfaces[0]['vlan'] != vlan:
+                self.logger.warning(
+                    f"{self.label} ignoring: {label}'s interface does not match provisioned vlan {vlan}")
 
-        name_prefix = resource[Constants.RES_NAME_PREFIX]
+            resource[Constants.RES_INTERFACES] = [{'vlan': vlan}]
 
         if rtype == Constants.RES_TYPE_NODE:
             from .cloudlab_node import CloudlabNode
@@ -168,7 +154,7 @@ class CloudlabProvider(Provider):
             node_count = resource[Constants.RES_COUNT]
 
             for idx in range(0, node_count):
-                node_name = f'{self.name}-{name_prefix}'
+                node_name = self.resource_name(resource, idx)
                 node = CloudlabNode(label=label, name=f'{node_name}-{idx}', provider=self, network=net)
                 self._nodes.append(node)
                 self.resource_listener.on_added(source=self, provider=self, resource=node)
@@ -176,7 +162,7 @@ class CloudlabProvider(Provider):
 
         from .cloudlab_network import CloudNetwork
 
-        net_name = f'{self.name}-{name_prefix}'
+        net_name = self.resource_name(resource)
         profile = resource.get(Constants.RES_PROFILE)
         cloudlab_stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
 
@@ -211,29 +197,13 @@ class CloudlabProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
         label = resource.get(Constants.LABEL)
 
-        if self.modified is None:
-            added_map = {}
-
-            for net in self.networks:
-                if net.label not in added_map:
-                    added_map[net.label] = []
-
-                added_map[net.label].append(net.name)
-
-            for node in self.nodes:
-                if node.label not in added_map:
-                    added_map[node.label] = []
-
-                added_map[node.label].append(node.name)
-
-            self.modified = (self.existing_map != added_map)
-
-        if self.modified:
-            assert rtype == Constants.RES_TYPE_NETWORK
+        if not self._handled_modify and self.modified:
+            assert rtype == Constants.RES_TYPE_NETWORK, "cloudlab expects network to be created first"
+            self._handled_modify = True
 
             try:
                 self.logger.info(f"Deleting cloudlab resources ....")
-                net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+                net_name = self.resource_name(resource)
                 logger.debug(f"Deleting network: {net_name}")
 
                 from .cloudlab_network import CloudNetwork
@@ -246,19 +216,18 @@ class CloudlabProvider(Provider):
 
                 net.delete()
                 self.logger.info(f"Done deleting cloudlab resources ....")
-                self.modified = False
                 self.resource_listener.on_deleted(source=self, provider=self, resource=net)
             except Exception as e:
                 self.logger.error(f"Exception deleting cloudlab resources ....", e)
 
-        if rtype == Constants.RES_TYPE_NETWORK.lower():
+        if rtype == Constants.RES_TYPE_NETWORK:
             if self.networks:
                 self._networks[0].create()
                 self.resource_listener.on_created(source=self, provider=self, resource=self._networks[0])
 
             return
 
-        if rtype == Constants.RES_TYPE_NODE.lower():
+        if rtype == Constants.RES_TYPE_NODE:
             for node in [node for node in self._nodes if node.label == label]:
                 self.logger.debug(f"Creating node: {vars(node)}")
                 node.create()
@@ -271,11 +240,11 @@ class CloudlabProvider(Provider):
         assert rtype in self.supported_resources
         label = resource.get(Constants.LABEL)
 
-        if rtype == Constants.RES_TYPE_NODE.lower():
+        if rtype == Constants.RES_TYPE_NODE:
             # DO NOTHING
             return
 
-        net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+        net_name = self.resource_name(resource)
         logger.debug(f"Deleting network: {net_name}")
 
         from .cloudlab_network import CloudNetwork

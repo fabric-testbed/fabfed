@@ -115,7 +115,6 @@ class SshNodeTester:
 
     def run_dataplane_test(self, *, command='ping -c 3', retry=3, retry_interval=10):
         for helper in self.helpers:
-            print(f"Hello ", helper.label)
             logger.info(f"SSH executing {command} on Node: {helper.label}")
 
             for attempt in range(retry):
