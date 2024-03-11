@@ -89,7 +89,7 @@ def dump_plan(*, resources, to_json: bool, summary: bool = False):
         if not provider_supports_modifiable:
             in_config_file = details['in_config_file']
             changed = not in_config_file or details['total_count'] != details['created_count']
-            provider_resource_map[resource.provider.label] =  provider_resource_map[resource.provider.label] or changed
+            provider_resource_map[resource.provider.label] = provider_resource_map[resource.provider.label] or changed
 
     for resource in resources:
         resource_dict = {}
@@ -105,7 +105,7 @@ def dump_plan(*, resources, to_json: bool, summary: bool = False):
                     resource_dict['to_be_deleted'] = 0
                 else:
                     resource_dict['to_be_created'] = 0
-                    resource_dict['to_be_deleted'] = details['created_count'] -  details['total_count']
+                    resource_dict['to_be_deleted'] = details['created_count'] - details['total_count']
             else:
                 resource_dict['to_be_created'] = 0
                 resource_dict['to_be_deleted'] = details['created_count']
@@ -354,7 +354,7 @@ def save_meta_data(meta_data: dict, friendly_name: str):
             raise StateException(f'Exception while saving state at temp file {file_path}:{e}')
 
 
-def save_states(states: List[ProviderState], friendly_name):
+def save_states(states: List[ProviderState], friendly_name: str):
     import yaml
     import os
     from fabfed.model.state import get_dumper
@@ -373,6 +373,43 @@ def save_states(states: List[ProviderState], friendly_name):
     import shutil
 
     shutil.move(temp_file_path, file_path)
+
+
+def reconcile_state(provider_state: ProviderState, saved_provider_state: ProviderState):
+    assert provider_state.number_of_created_resources() != provider_state.number_of_total_resources()
+
+    creation_details = provider_state.creation_details
+
+    for resource_state in saved_provider_state.states():
+        resource_label = resource_state.label
+
+        if resource_label in creation_details:
+            resource_details = creation_details[resource_label]
+
+            if resource_details['total_count'] == resource_details['created_count']:
+                continue
+
+        provider_state.add_if_not_found(resource_state)
+
+
+def reconcile_states(provider_states: List[ProviderState], friendly_name: str) -> List[ProviderState]:
+    saved_states_map = load_states_as_dict(friendly_name)
+    if next(filter(lambda s: s.number_of_created_resources() > 0, saved_states_map.values()), None) is None:
+        return provider_states
+
+    reconciled_states = []
+
+    for provider_state in provider_states:
+        if provider_state.label not in saved_states_map:
+            reconciled_states.append(provider_state)
+        elif provider_state.number_of_created_resources() == provider_state.number_of_total_resources():
+            reconciled_states.append(provider_state)
+        else:
+            saved_provider_state = saved_states_map.get(provider_state.label)
+            reconcile_state(provider_state=provider_state, saved_provider_state=saved_provider_state)
+            reconciled_states.append(provider_state)
+
+    return reconciled_states
 
 
 def save_stats(stats, friendly_name):

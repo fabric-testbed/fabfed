@@ -7,6 +7,7 @@ from fabfed.util import utils
 from fabfed.util import state as sutil
 from fabfed.util.config import WorkflowConfig
 from fabfed.util.stats import FabfedStats, Duration
+from fabfed.util.constants import Constants
 
 
 def manage_workflow(args):
@@ -57,7 +58,7 @@ def manage_workflow(args):
             sys.exit(1)
 
         states = sutil.load_states(args.session)
-        have_created_resources = next(filter(lambda s: s.number_of_created_resources() > 0, states), None)
+        # have_created_resources = next(filter(lambda s: s.number_of_created_resources() > 0, states), None)
 
         try:
             controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
@@ -84,13 +85,11 @@ def manage_workflow(args):
             sys.exit(1)
 
         workflow_failed = False
-        interrupted = False
 
         try:
             controller.apply(provider_states=states)
         except KeyboardInterrupt as kie:
             logger.error(f"Keyboard Interrupt while creating resources ... {kie}")
-            interrupted = True
             workflow_failed = True
         except ControllerException as ce:
             logger.error(f"Exceptions while creating resources ... {ce}")
@@ -105,24 +104,13 @@ def manage_workflow(args):
             providers_duration += stats.provider_duration.duration
 
         states = controller.get_states()
-
-        if interrupted and have_created_resources:
-            saved_states_map = sutil.load_states_as_dict(args.session)
-            reconciled_states = []
-
-            for state in states:
-                if (state.number_of_failed_resources() + state.number_of_created_resources()) \
-                        == state.number_of_total_resources():
-                    reconciled_states.append(state)
-                else:
-                    reconciled_states.append(saved_states_map.get(state.label, state))
-
-            states = reconciled_states
-
         nodes, networks, services, pending, failed = utils.get_counters(states=states)
 
         if pending or failed:
             workflow_failed = True
+
+        if Constants.RECONCILE_STATES:
+            states = sutil.reconcile_states(states, args.session)
 
         sutil.save_states(states, args.session)
         provider_stats = controller.get_stats()

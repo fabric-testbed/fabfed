@@ -61,7 +61,7 @@ def run_destroy_workflow(*, session, config_str) -> List[ProviderState]:
     controller = Controller(config=config, logger=logger)
     states = sutil.load_states(session)
     controller.init(session=session, provider_factory=default_provider_factory, provider_states=states)
-    controller.delete(provider_states=states)
+    controller.destroy(provider_states=states)
     sutil.save_states(states, session)
 
     if not states:

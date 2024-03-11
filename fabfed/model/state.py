@@ -4,6 +4,7 @@ import yaml
 
 from fabfed.util.config_models import Config, ResourceConfig, BaseConfig, ProviderConfig, Dependency, DependencyInfo
 from fabfed.model import ResolvedDependency
+from fabfed.util.constants import Constants
 
 
 class BaseState:
@@ -13,19 +14,43 @@ class BaseState:
         self.attributes = attributes
 
 
-class NetworkState(BaseState):
+class ResourceState(BaseState):
+    def __init__(self, type: str, label: str, attributes: Dict):
+        super().__init__(type, label, attributes)
+        self.type = type
+        self.label = label
+        self.attributes = attributes
+
+    @property
+    def name(self) -> str:
+        return self.attributes['name']
+
+    @property
+    def is_node_state(self):
+        return self.type == Constants.RES_TYPE_NODE
+
+    @property
+    def is_network_state(self):
+        return self.type == Constants.RES_TYPE_NETWORK
+
+    @property
+    def is_service_state(self):
+        return self.type == Constants.RES_TYPE_SERVICE
+
+
+class NetworkState(ResourceState):
     def __init__(self, *, label, attributes):
-        super().__init__("network", label, attributes)
+        super().__init__(Constants.RES_TYPE_NETWORK, label, attributes)
 
 
-class NodeState(BaseState):
+class NodeState(ResourceState):
     def __init__(self, *, label, attributes):
-        super().__init__("node", label, attributes)
+        super().__init__(Constants.RES_TYPE_NODE, label, attributes)
 
 
-class ServiceState(BaseState):
+class ServiceState(ResourceState):
     def __init__(self, *, label, attributes):
-        super().__init__("service", label, attributes)
+        super().__init__(Constants.RES_TYPE_SERVICE, label, attributes)
 
 
 class ProviderState(BaseState):
@@ -41,8 +66,57 @@ class ProviderState(BaseState):
         self.failed = failed
         self.creation_details = creation_details
 
-    def states(self) -> List[BaseState]:
-        return self.network_states + self.node_states + self.service_states
+    def add_if_not_found(self, resource_state: ResourceState):
+        from typing import cast
+        assert resource_state.type in [Constants.RES_TYPE_NODE,
+                                       Constants.RES_TYPE_NETWORK,
+                                       Constants.RES_TYPE_SERVICE]
+
+        def exists(state, states: list):
+            temp = next(filter(lambda s: s.label == state.label and s.name == state.name, states), None)
+
+            return temp is not None
+
+        if exists(resource_state, self.states()):
+            return
+
+        if resource_state.is_node_state:
+            self.node_states.append(cast(NodeState, resource_state))
+        elif resource_state.is_network_state:
+            self.network_states.append(cast(NetworkState, resource_state))
+        elif resource_state.is_service_state:
+            self.service_states.append(cast(ServiceState, resource_state))
+
+    def add(self, resource_state: ResourceState):
+        from typing import cast
+        assert resource_state.type in [Constants.RES_TYPE_NODE,
+                                       Constants.RES_TYPE_NETWORK,
+                                       Constants.RES_TYPE_SERVICE]
+
+        def exists(state, states: list):
+            temp = next(filter(lambda s: s.label == state.label and s.name == state.name, states), None)
+
+            return temp is not None
+
+        assert not exists(resource_state, self.states())
+
+        if resource_state.is_node_state:
+            self.node_states.append(cast(NodeState, resource_state))
+        elif resource_state.is_network_state:
+            self.network_states.append(cast(NetworkState, resource_state))
+        elif resource_state.is_service_state:
+            self.service_states.append(cast(ServiceState, resource_state))
+
+    def add_all(self, resource_states: List[ResourceState]):
+        for resource_state in resource_states:
+            self.add(resource_state)
+
+    def states(self) -> List[ResourceState]:
+        temp = []
+        temp.extend(self.network_states)
+        temp.extend(self.node_states)
+        temp.extend(self.service_states)
+        return temp
 
     def number_of_created_resources(self):
         count = 0
@@ -67,6 +141,7 @@ class ProviderState(BaseState):
             count += creation_detail['total_count']
 
         return count
+
 
 def provider_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> ProviderState:
     return ProviderState(**loader.construct_mapping(node))

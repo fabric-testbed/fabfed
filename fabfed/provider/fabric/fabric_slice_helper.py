@@ -129,7 +129,9 @@ def init_slice(name: str, destroy_phase):
         logger.info(f"Found slice {name}:state={slice_object.get_state()}")
     except Exception:
         if not destroy_phase:
-            return fablib.new_slice(name=name)
+            slice_object = fablib.new_slice(name=name)
+            logger.info(f"Created fresh slice {name}:state={slice_object.get_state()}")
+            return slice_object
 
     if destroy_phase:
         return slice_object

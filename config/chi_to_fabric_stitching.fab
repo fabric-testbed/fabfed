@@ -37,7 +37,7 @@ resource:
           site: '{{ var.fabric_site }}'
           count: 1
           image: default_rocky_8
-          nic_model: NIC_ConnectX_5
+          # nic_model: NIC_ConnectX_5. Defaults to NIC_Basic
       - chi_node:
           provider: '{{ chi.chi_provider }}'
           site: '{{ var.chi_site }}'

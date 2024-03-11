@@ -13,6 +13,14 @@ CHI_KEY_PAIR = "key_pair"
 CHI_SLICE_PRIVATE_KEY_LOCATION = "slice-private-key-location"
 CHI_SLICE_PUBLIC_KEY_LOCATION = "slice-public-key-location"
 
+CHI_CONF_ATTRS = [CHI_USER,
+                  CHI_PASSWORD,
+                  CHI_KEY_PAIR,
+                  CHI_PROJECT_NAME,
+                  CHI_PROJECT_ID,
+                  CHI_SLICE_PRIVATE_KEY_LOCATION,
+                  CHI_SLICE_PUBLIC_KEY_LOCATION]
+
 DEFAULT_NETWORK = "sharednet1"
 DEFAULT_NETWORKS = [DEFAULT_NETWORK, "sharedwan1", "containernet1"]
 DEFAULT_FLAVOR = "m1.medium"
