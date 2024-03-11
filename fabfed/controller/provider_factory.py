@@ -36,6 +36,9 @@ class ProviderFactory:
     def providers(self) -> List[Provider]:
         return list(self._providers.values())
 
+    def has_provider(self, *, label: str) -> bool:
+        return label in self._providers
+
     def get_provider(self, *, label: str) -> Provider:
         return self._providers[label]
 

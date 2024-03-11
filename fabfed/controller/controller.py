@@ -2,7 +2,7 @@ import logging
 from typing import List, Union, Dict
 
 from fabfed.exceptions import ControllerException
-from fabfed.model.state import BaseState, ProviderState
+from fabfed.model.state import ResourceState, ProviderState
 from fabfed.util.config import WorkflowConfig
 from .helper import ControllerResourceListener, partition_layer3_config
 from fabfed.policy.policy_helper import ProviderPolicy
@@ -333,7 +333,7 @@ class Controller:
             raise ControllerException(exceptions)
 
     @staticmethod
-    def _build_state_map(provider_states: List[ProviderState]) -> Dict[str, List[BaseState]]:
+    def _build_state_map(provider_states: List[ProviderState]) -> Dict[str, List[ResourceState]]:
         resource_state_map = dict()
 
         for provider_state in provider_states:
@@ -414,92 +414,9 @@ class Controller:
                 skip_resources.update([external_state.label for external_state in external_states])
                 exceptions.append(e)
 
-        provider_states_copy = provider_states.copy()
-        provider_states.clear()
-
-        for provider_state in provider_states_copy:
-            provider_state.node_states.clear()
-            provider_state.network_states.clear()
-            provider_state.service_states.clear()
-            provider = self.provider_factory.get_provider(label=provider_state.label)
-            provider_state.failed = provider.failed
-
-            for remaining_resource in remaining_resources:
-                resource_state = resource_state_map[remaining_resource.label]
-
-                if remaining_resource.provider.label == provider_state.label:
-                    if remaining_resource.is_network:
-                        provider_state.network_states.extend(resource_state)
-                    elif remaining_resource.is_node:
-                        provider_state.node_states.extend(resource_state)
-                    elif remaining_resource.is_service:
-                        provider_state.service_states.extend(resource_state)
-
-            if provider_state.node_states or provider_state.network_states or provider_state.service_states:
-                provider_states.append(provider_state)
-
-        if exceptions:
-            raise ControllerException(exceptions)
-
-    def delete(self, *, provider_states: List[ProviderState]):
-        exceptions = []
-        resource_state_map = Controller._build_state_map(provider_states)
-        provider_resource_map = dict()
-
-        for provider_state in provider_states:
-            key = provider_state.label
-            provider_resource_map[key] = list()
-
-        temp = self.resources
-        temp.reverse()
-
-        for resource in temp:
-            if resource.label in resource_state_map:
-                key = resource.provider.label
-                external_dependencies = resource.attributes.get(Constants.EXTERNAL_DEPENDENCIES, [])
-                external_states = [resource_state_map[ed.resource.label] for ed in external_dependencies]
-                resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES] = sum(external_states, [])
-                provider_resource_map[key].append(resource)
-                resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
-
-        remaining_resources = list()
-        skip_resources = set()
-
-        for resource in temp:
-            if resource.label not in resource_state_map:
-                continue
-
-            provider_label = resource.provider.label
-            provider = self.provider_factory.get_provider(label=provider_label)
-            external_states = resource.attributes[Constants.EXTERNAL_DEPENDENCY_STATES]
-
-            if resource.label in skip_resources:
-                self.logger.warning(f"Skipping deleting resource: {resource} with {provider_label}")
-                remaining_resources.append(resource)
-                skip_resources.update([external_state.label for external_state in external_states])
-                continue
-
-            fabric_work_around = False
-            # TODO: THIS FABRIC SPECIFIC AS WE DON"T SUPPORT SLICE MODIFY API JUST YET
-            for remaining_resource in remaining_resources:
-                if provider_label == remaining_resource.provider.label \
-                        and "@fabric" in remaining_resource.provider.label:
-                    fabric_work_around = True
-                    break
-
-            if fabric_work_around:
-                self.logger.warning(f"Skipping deleting fabric resource: {resource} with {provider_label}")
-                remaining_resources.append(resource)
-                skip_resources.update([external_state.label for external_state in external_states])
-                continue
-
-            try:
-                provider.delete_resource(resource=resource.attributes)
-            except Exception as e:
-                self.logger.warning(f"Exception occurred while deleting resource: {e} using {provider_label}")
-                remaining_resources.append(resource)
-                skip_resources.update([external_state.label for external_state in external_states])
-                exceptions.append(e)
+        if not remaining_resources:
+            provider_states.clear()
+            return
 
         provider_states_copy = provider_states.copy()
         provider_states.clear()
@@ -508,22 +425,17 @@ class Controller:
             provider_state.node_states.clear()
             provider_state.network_states.clear()
             provider_state.service_states.clear()
-            provider = self.provider_factory.get_provider(label=provider_state.label)
-            provider_state.failed = provider.failed
 
-            for remaining_resource in remaining_resources:
-                resource_state = resource_state_map[remaining_resource.label]
+            if self.provider_factory.has_provider(label=provider_state.label):
+                provider = self.provider_factory.get_provider(label=provider_state.label)
+                provider_state.failed = provider.failed
 
-                if remaining_resource.provider.label == provider_state.label:
-                    if remaining_resource.is_network:
-                        provider_state.network_states.extend(resource_state)
-                    elif remaining_resource.is_node:
-                        provider_state.node_states.extend(resource_state)
-                    elif remaining_resource.is_service:
-                        provider_state.service_states.extend(resource_state)
+                for remaining_resource in [r for r in remaining_resources if r.provider.label == provider_state.label]:
+                    resource_states = resource_state_map[remaining_resource.label]
+                    provider_state.add_all(resource_states)
 
-            if provider_state.node_states or provider_state.network_states or provider_state.service_states:
-                provider_states.append(provider_state)
+                if provider_state.states():
+                    provider_states.append(provider_state)
 
         if exceptions:
             raise ControllerException(exceptions)

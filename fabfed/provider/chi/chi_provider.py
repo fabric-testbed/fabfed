@@ -17,7 +17,6 @@ class ChiProvider(Provider):
     def __init__(self, *, type, label, name, config: dict[str, str]):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         self.helper = None
-        self.existing_map = {}
 
     def setup_environment(self):
         site = "CHI@UC"
@@ -121,20 +120,6 @@ class ChiProvider(Provider):
         label = resource[Constants.LABEL]
         rtype = resource[Constants.RES_TYPE]
         site = resource[Constants.RES_SITE]
-        self.existing_map[label] = []
-
-        if self.saved_state and label in self.saved_state.creation_details:
-            provider_saved_creation_details = self.saved_state.creation_details[label]
-
-            if rtype == Constants.RES_NODES:
-                for n in range(0, provider_saved_creation_details['total_count']):
-                    node_name = f"{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}{n}"
-                    self.existing_map[label].append(node_name)
-            else:
-                assert provider_saved_creation_details['total_count'] == 1
-                net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
-                self.existing_map[label].append(net_name)
-
         creation_details = resource[Constants.RES_CREATION_DETAILS]
 
         if not creation_details['in_config_file']:
@@ -146,13 +131,22 @@ class ChiProvider(Provider):
 
         if rtype == Constants.RES_TYPE_NETWORK:
             layer3 = resource.get(Constants.RES_LAYER3)
-            stitch_info = resource.get(Constants.RES_STITCH_INFO)
-            assert stitch_info and stitch_info.consumer, f"resource {label} missing stitch provider"
-            net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+            from typing import Union
+            from fabfed.policy.policy_helper import StitchInfo
+            stitch_info: Union[str, StitchInfo] = resource.get(Constants.RES_STITCH_INFO)
+            assert stitch_info, f"resource {label} missing stitch info"
+
+            if isinstance(stitch_info, str):
+                stitch_provider = stitch_info
+            else:
+                stitch_provider = stitch_info.consumer
+
+            assert stitch_provider, f"resource {label} missing stitch provider"
+            net_name = self.resource_name(resource)
             from fabfed.provider.chi.chi_network import ChiNetwork
 
             net = ChiNetwork(label=label, name=net_name, site=site,
-                             layer3=layer3, stitch_provider=stitch_info.consumer,
+                             layer3=layer3, stitch_provider=stitch_provider,
                              project_name=project_name)
             self._networks.append(net)
 
@@ -168,11 +162,10 @@ class ChiProvider(Provider):
 
             node_count = resource[Constants.RES_COUNT]
             image = resource.get(Constants.RES_IMAGE)
-            node_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
             flavor = resource.get(Constants.RES_FLAVOR, DEFAULT_FLAVOR)
 
             for n in range(0, node_count):
-                node_name = f"{self.name}-{node_name_prefix}{n}"
+                node_name = self.resource_name(resource, n)
                 self.existing_map[label].append(node_name)
 
                 from fabfed.provider.chi.chi_node import ChiNode
@@ -190,30 +183,27 @@ class ChiProvider(Provider):
         label = resource.get(Constants.LABEL)
         rtype = resource.get(Constants.RES_TYPE)
 
-        if rtype == Constants.RES_TYPE_NETWORK.lower():
-            from fabfed.provider.chi.chi_network import ChiNetwork
-            existing_names = self.existing_map[label]
-            temp: List[ChiNetwork] = [net for net in self._networks if net.label == label]
-            added_names = [net.name for net in temp]
-            net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+        if rtype == Constants.RES_TYPE_NETWORK:
+            if self.modified:
+                net_name = self.resource_name(resource)
 
-            if net_name in existing_names and net_name not in added_names:
-                from fabfed.provider.chi.chi_network import ChiNetwork
-                from ...util.config_models import Config
+                if net_name in self.existing_map[label] and net_name not in self.added_map.get(label, list()):
+                    from fabfed.provider.chi.chi_network import ChiNetwork
+                    from ...util.config_models import Config
 
-                layer3 = Config("", "", {})
-                project_name = self.config[CHI_PROJECT_NAME]
+                    layer3 = Config("", "", {})
+                    project_name = self.config[CHI_PROJECT_NAME]
 
-                net = ChiNetwork(label=label, name=net_name, site=site,
-                                 layer3=layer3, stitch_provider='', project_name=project_name)
-                net.delete()
+                    net = ChiNetwork(label=label, name=net_name, site=site,
+                                     layer3=layer3, stitch_provider='', project_name=project_name)
+                    net.delete()
 
-                self.logger.info(f"Deleted network: {net_name} at site {site}")
+                    self.logger.info(f"Deleted network: {net_name} at site {site}")
 
-                if self.resource_listener:
-                    self.resource_listener.on_deleted(source=self, provider=self, resource=net)
+                    if self.resource_listener:
+                        self.resource_listener.on_deleted(source=self, provider=self, resource=net)
 
-                return
+                    return
 
             net = next(filter(lambda n: n.label == label, self.networks))
             net.create()
@@ -225,24 +215,23 @@ class ChiProvider(Provider):
             from fabfed.provider.chi.chi_node import ChiNode
 
             temp: List[ChiNode] = [node for node in self._nodes if node.label == label]
-            names = [node.name for node in temp]
-            existing_names = self.existing_map[label]
 
-            for node_name in existing_names:
-                key_pair = self.config[CHI_KEY_PAIR]
-                project_name = self.config[CHI_PROJECT_NAME]
+            if self.modified:
+                for node_name in self.existing_map[label]:
+                    key_pair = self.config[CHI_KEY_PAIR]
+                    project_name = self.config[CHI_PROJECT_NAME]
 
-                if node_name not in names:
-                    from fabfed.provider.chi.chi_node import ChiNode
+                    if node_name not in self.added_map.get(label, list()):
+                        from fabfed.provider.chi.chi_node import ChiNode
 
-                    node = ChiNode(label=label, name=node_name, image='', site=site, flavor='',
-                                   key_pair=key_pair, network='', project_name=project_name)
-                    node.delete()
+                        node = ChiNode(label=label, name=node_name, image='', site=site, flavor='',
+                                       key_pair=key_pair, network='', project_name=project_name)
+                        node.delete()
 
-                    self.logger.info(f"Deleted node: {node_name} at site {site}")
+                        self.logger.info(f"Deleted node: {node_name} at site {site}")
 
-                    if self.resource_listener:
-                        self.resource_listener.on_deleted(source=self, provider=self, resource=node)
+                        if self.resource_listener:
+                            self.resource_listener.on_deleted(source=self, provider=self, resource=node)
 
             for node in temp:
                 node.create()
@@ -266,7 +255,7 @@ class ChiProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
 
         if rtype == Constants.RES_TYPE_NETWORK.lower():
-            net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+            net_name = self.resource_name(resource)
             self.logger.debug(f"Deleting network: {net_name} at site {site}")
             from fabfed.provider.chi.chi_network import ChiNetwork
             from ...util.config_models import Config
@@ -284,8 +273,7 @@ class ChiProvider(Provider):
             node_count = resource.get(Constants.RES_COUNT, 1)
 
             for n in range(0, node_count):
-                node_name_prefix = resource.get(Constants.RES_NAME_PREFIX)
-                node_name = f"{self.name}-{node_name_prefix}{n}"
+                node_name = self.resource_name(resource, n)
                 self.logger.debug(f"Deleting node: {node_name} at site {site}")
 
                 from fabfed.provider.chi.chi_node import ChiNode
