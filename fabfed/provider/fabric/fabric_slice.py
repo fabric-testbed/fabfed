@@ -109,32 +109,60 @@ class FabricSlice:
     def _add_node(self, resource: dict):
         node_count = resource[Constants.RES_COUNT]
         label = resource[Constants.LABEL]
-        states = resource[Constants.SAVED_STATES]
-        state_map = {}
-
-        for state in states:
-            state_map[state.attributes['name']] = state.attributes
 
         for i in range(node_count):
             name = self.provider.resource_name(resource, i)
 
             if name in self.existing_nodes:
-                delegate = self.slice_object.get_node(name)
-                assert delegate is not None, "expected to find node {name} in slice {self.name}"
-                node = FabricNode(label=label, delegate=delegate, network_label="")
+                from fabrictestbed_extensions.fablib.node import Node as NodeDelegate
 
-                if name in state_map:
+                delegate: NodeDelegate = self.slice_object.get_node(name)
+                assert delegate is not None, "expected to find node {name} in slice {self.name}"
+                network_label = self.provider.retrieve_attribute_from_saved_state(resource, name, 'network_label')
+                dataplane_ipv4 = self.provider.retrieve_attribute_from_saved_state(resource, name, 'dataplane_ipv4')
+                node = FabricNode(label=label, delegate=delegate, network_label=network_label)
+
+                if not network_label:
+                    if util.has_resolved_internal_dependencies(resource=resource, attribute='network'):
+                        network = util.get_single_value_for_dependency(resource=resource, attribute='network')
+
+                        if network:
+                            # TODO: Need to talk to fablib team and make sure an existing node's interface
+                            # TODO: can be added to a network after it has been created.
+
+                            from fabrictestbed_extensions.fablib.network_service import NetworkService
+
+                            itf = node.delegate.add_component(model="NIC_Basic",
+                                                              name=FABRIC_STITCH_NET_IFACE_NAME).get_interfaces()[0]
+                            self.logger.info(f"Added interface {itf.get_name()} to node {node.get_name()}")
+                            delegate: NetworkService = network.delegate
+                            self.logger.info(f"adding interface {itf.get_name()} to {delegate.get_name()}")
+                            delegate.add_interface(itf)
+                            node.set_network_label(network.label)
+
+                if dataplane_ipv4:
                     from ipaddress import IPv4Address
 
-                    attributes = state_map[name]
-                    assert 'dataplane_ipv4' in attributes
-
-                    if attributes['dataplane_ipv4']:
-                        node.set_used_dataplane_ipv4(IPv4Address(attributes['dataplane_ipv4']))
+                    node.set_used_dataplane_ipv4(IPv4Address(dataplane_ipv4))
             else:
                 node_builder = NodeBuilder(label, self.slice_object, name, resource)
                 node = node_builder.build()
                 self.slice_modified = True
+                network: Union[Network, None] = None
+
+                if util.has_resolved_internal_dependencies(resource=resource, attribute='network'):
+                    network = util.get_single_value_for_dependency(resource=resource, attribute='network')
+
+                if network:
+                    from fabrictestbed_extensions.fablib.network_service import NetworkService
+
+                    itf = node.delegate.add_component(model="NIC_Basic",
+                                                      name=FABRIC_STITCH_NET_IFACE_NAME).get_interfaces()[0]
+                    self.logger.info(f"Added interface {itf.get_name()} to node {node.get_name()}")
+                    delegate: NetworkService = network.delegate
+                    self.logger.info(f"adding interface {itf.get_name()} to {delegate.get_name()}")
+                    delegate.add_interface(itf)
+                    node.set_network_label(network.label)
 
             self.nodes.append(node)
 
