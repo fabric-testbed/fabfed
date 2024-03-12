@@ -36,6 +36,6 @@ fabfed workflow --session <session> -show [-json]
 ## display sessions
 fabfed sessions -show
 
-## destroy Resources. 
+## destroy resources and the session if sucessful
 fabfed workflow --session <session> -destroy
 ```
