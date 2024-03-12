@@ -35,7 +35,15 @@ class FabricSlice:
         if not destroy_phase:
             self.slice_created = self.slice_object.get_state() == "StableOK"
             self.existing_nodes = [node.get_name() for node in self.slice_object.get_nodes()]
-            self.existing_networks = [net.get_name() for net in self.slice_object.get_networks()]
+            self.existing_networks = []
+
+            for net in self.slice_object.get_networks():
+                net_name = net.get_name()
+
+                if "_aux" in net_name or FABRIC_IPV4_NET_NAME in net_name or FABRIC_IPV6_NET_NAME in net_name:
+                    continue
+
+                self.existing_networks.append(net_name)
 
     @property
     def name(self) -> str:
