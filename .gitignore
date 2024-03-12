@@ -153,3 +153,6 @@ venv
 
 # emacs auto-save
 *.*~
+
+# jupyter artifacts
+*/.ipynb_checkpoints
