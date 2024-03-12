@@ -21,11 +21,17 @@ fabfed workflow --help
 ## validate config
 fabfed workflow --session <session> -validate
 
+## shows the stitch info ... 
+fabfed workflow --session <session> -init [-json]
+
+## prints a summary of what resources will be added or deleted
+fabfed workflow --session <session> -plan [-json]
+
 ## provision resources
 fabfed workflow --session <session> -apply
 
 ## display state. 
-fabfed workflow --session <session> -show
+fabfed workflow --session <session> -show [-json]
 
 ## display sessions
 fabfed sessions -show
