@@ -392,20 +392,6 @@ class Controller:
                 skip_resources.update([external_state.label for external_state in external_states])
                 continue
 
-            fabric_work_around = False
-            # TODO: THIS FABRIC SPECIFIC AS WE DON"T SUPPORT SLICE MODIFY API JUST YET
-            for remaining_resource in remaining_resources:
-                if provider_label == remaining_resource.provider.label \
-                        and "@fabric" in remaining_resource.provider.label:
-                    fabric_work_around = True
-                    break
-
-            if fabric_work_around:
-                self.logger.warning(f"Skipping deleting fabric resource: {resource} with {provider_label}")
-                remaining_resources.append(resource)
-                skip_resources.update([external_state.label for external_state in external_states])
-                continue
-
             try:
                 provider.delete_resource(resource=resource.attributes)
             except Exception as e:
@@ -431,10 +417,11 @@ class Controller:
                 provider_state.failed = provider.failed
 
                 for remaining_resource in [r for r in remaining_resources if r.provider.label == provider_state.label]:
-                    resource_states = resource_state_map[remaining_resource.label]
-                    provider_state.add_all(resource_states)
+                    if remaining_resource.label in resource_state_map:
+                        resource_states = resource_state_map[remaining_resource.label]
+                        provider_state.add_all(resource_states)
 
-                if provider_state.states():
+                if provider_state.states() or provider_state.failed:
                     provider_states.append(provider_state)
 
         if exceptions:
