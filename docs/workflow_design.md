@@ -102,6 +102,9 @@ chi:
    key_pair:
    user:
    password:
+   project_id:
+     tacc: 
+     uc: 
    slice-private-key-location:
    slice-public-key-location:
 ```
@@ -241,11 +244,9 @@ resource:                                                          # Class
 ```
  
 # <a name="dependencies"></a>Dependencies
-A resource can refer to other resources that it depends on. Line 9 in the example below, states that the <i>fabric_network</i> depends 
-on the <i>fabric_node</i>. This is an `internal dependency` as both resources are handled by the same provider. The fabfed 
-controller detects this internal dependency and processes the fabric_node before the fabric_network. 
-Also note that the `interface` attribute implies that the fabric_network is interested in the `interfaces` 
-of the fabric_network.
+A resource can refer to other resources that it depends on. Line 14 in the example below, states that the <i>fabric_nonde</i> depends 
+on the <i>fabric_network</i>. This is an `internal dependency` as both resources are handled by the same provider. The fabfed 
+controller detects this internal dependency and processes the fabric_network before the fabric_network. 
  
 ```
 1. resource:
@@ -256,11 +257,12 @@ of the fabric_network.
 6.             stitch_with: '{{ network.fabric_network }}'  # External Dependency. Normally this would mean fabric_network would be processed first. 
 7.      - fabric_network:
 8.             provider: '{{ fabric.fabric_provider }}'
-9.             interface: '{{ node.fabric_node }}'          # Internal dependency
-10.            layer3: "{{ layer3.my_layer }}"
+9.             layer3: "{{ layer3.my_layer }}"
+10.
 11      - fabric_node:
 12             provider: '{{ fabric.fabric_provider }}'
 13             site: '{{ var.fabric_site }}'
+14             network: '{{ network.fabric_network }}' # Internal dependency
 14             image: default_rocky_8
 15             count: 1
 ```
