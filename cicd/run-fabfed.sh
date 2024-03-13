@@ -22,12 +22,44 @@ then
   options="-v $3"
 fi
 
+echo "***************** APPLYING  ****************"
 echo fabfed workflow -c $conf_dir $options -s $session -apply
 fabfed workflow -c $conf_dir $options -s $session -apply
-fabfed workflow -c $conf_dir $options -s $session -show
+ret1=$?
+
+echo "***************** APPLY SUMMARY  ****************"
+echo fabfed workflow -c $conf_dir $options -s $session -show -summary
+summary=`fabfed workflow -c $conf_dir $options -s $session -show -summary`
+fabfed workflow -c $conf_dir $options -s $session -show -summary
 fabfed sessions -show
+
 echo "***************** DESTOYING ****************"
 echo fabfed workflow -c $conf_dir $options -s $session -destroy
 fabfed workflow -c $conf_dir $options -s $session -destroy
+ret2=$? 
+
+echo "***************** DESTROY SUMMARY  ****************"
+fabfed workflow -c $conf_dir $options -s $session -show -summary
 fabfed sessions -show
-exit $? 
+
+echo "***************** APPLY RESULTS ****************"
+echo "APPLY RESULTS:"
+echo $summary
+
+if [[ ! $ret1 -eq 0 ]]; then
+     echo "Apply failed ....."
+fi
+
+if [[ ! $ret2 -eq 0 ]]; then
+     echo "Destroy failed ....."
+fi
+
+if [[ ! $ret1 -eq 0 ]]; then
+     exit 1
+fi
+
+if [[ ! $ret2 -eq 0 ]]; then
+     exit 2
+fi
+
+exit 0
