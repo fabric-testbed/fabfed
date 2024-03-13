@@ -10,14 +10,17 @@ from .provider_factory import ProviderFactory
 from ..util.constants import Constants
 from ..util.config_models import ResourceConfig
 from ..util.stats import ProviderStats, Duration, Stages
+from fabfed.util.utils import get_logger
 
 
 class Controller:
-    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger,
+    def __init__(self, *, config: WorkflowConfig, logger: Union[logging.Logger, None] = None,
                  policy: Union[Dict[str, ProviderPolicy], None] = None,
                  use_local_policy=True):
-        self.config = config
-        self.logger = logger
+        import copy
+
+        self.config = copy.deepcopy(config)
+        self.logger = logger or get_logger()
         self.provider_factory: Union[ProviderFactory, None] = None
         self.resources: List[ResourceConfig] = []
         self.policy = policy
@@ -27,7 +30,7 @@ class Controller:
     def init(self, *, session: str, provider_factory: ProviderFactory, provider_states: List[ProviderState]):
         init_provider_map: Dict[str, bool] = dict()
 
-        for provider_config in self.config.get_provider_config():
+        for provider_config in self.config.get_provider_configs():
             init_provider_map[provider_config.label] = False
 
         for resource in self.config.get_resource_configs():
@@ -38,7 +41,7 @@ class Controller:
             init_provider_map[provider_state.label] = init_provider_map[provider_state.label] \
                                                       or len(provider_state.states()) > 0
 
-        for provider_config in self.config.get_provider_config():
+        for provider_config in self.config.get_provider_configs():
             if not init_provider_map[provider_config.label]:
                 self.logger.warning(f"Skipping initialization of {provider_config.label}: no resources")
                 continue
