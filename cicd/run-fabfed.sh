@@ -17,6 +17,12 @@ cp $script_dir/fabfed_credentials.yml.cicd ~/.fabfed/
 sed -i "s/FABRIC_PROJECT/$FABRIC_PROJECT/" ~/.fabfed/fabfed_credentials.yml.cicd
 sed -i "s/FABRIC_USER/$FABRIC_USER/" ~/.fabfed/fabfed_credentials.yml.cicd
 
+# SENSE
+sed -i "s/SENSE_USER/$SENSE_USER/" ~/.fabfed/fabfed_credentials.yml.cicd
+sed -i "s/SENSE_PASSWORD/$SENSE_PASSWORD/" ~/.fabfed/fabfed_credentials.yml.cicd
+sed -i "s/SENSE_SECRET/$SENSE_SECRET/" ~/.fabfed/fabfed_credentials.yml.cicd
+
+
 if [ -n "$var_file" ]
 then
   options="-v $3"
@@ -29,7 +35,7 @@ ret1=$?
 
 echo "***************** APPLY SUMMARY  ****************"
 echo fabfed workflow -c $conf_dir $options -s $session -show -summary
-summary=`fabfed workflow -c $conf_dir $options -s $session -show -summary`
+fabfed workflow -c $conf_dir $options -s $session -show -summary > $session-apply-state.yaml
 fabfed workflow -c $conf_dir $options -s $session -show -summary
 fabfed sessions -show
 
@@ -44,7 +50,7 @@ fabfed sessions -show
 
 echo "***************** APPLY RESULTS ****************"
 echo "APPLY RESULTS:"
-echo $summary
+cat $session-apply-state.yaml
 
 if [[ ! $ret1 -eq 0 ]]; then
      echo "Apply failed ....."

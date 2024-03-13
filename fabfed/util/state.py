@@ -19,6 +19,7 @@ def dump_plan(*, resources, to_json: bool, summary: bool = False):
     import sys
 
     plan = {}
+    ResourceSummary = namedtuple("ResourceSummary", "label attributes")
 
     if not summary:
         summaries = []
@@ -55,21 +56,21 @@ def dump_plan(*, resources, to_json: bool, summary: bool = False):
             summaries.append(ResourceDetails(label=label, attributes=resource_dict))
             plan['resource_details'] = summaries
 
-    ResourceSummary = namedtuple("ResourceSummary", "label attributes")
-    summaries = []
+        summaries = []
 
-    for resource in resources:
-        resource_dict = {}
+        for resource in resources:
+            resource_dict = {}
 
-        label = resource.attributes[Constants.LABEL]
+            label = resource.attributes[Constants.LABEL]
 
-        import copy
+            import copy
 
-        details = copy.deepcopy(resource.attributes[Constants.RES_CREATION_DETAILS])
-        resource_dict[Constants.RES_CREATION_DETAILS] = details
-        summaries.append(ResourceSummary(label=label, attributes=resource_dict))
+            details = copy.deepcopy(resource.attributes[Constants.RES_CREATION_DETAILS])
+            resource_dict[Constants.RES_CREATION_DETAILS] = details
+            summaries.append(ResourceSummary(label=label, attributes=resource_dict))
 
-    plan['resource_summaries'] = summaries
+        plan['resource_creation_details'] = summaries
+
     summaries = []
     to_be_created = 0
     to_be_deleted = 0

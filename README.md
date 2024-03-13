@@ -64,10 +64,8 @@ the <i>--config-dir</i>.  If this option is not present, the current directory i
 # Example to view stitch policy from cloudlab to fabric
 fabfed stitch-policy -providers "fabric,cloudlab"
 
+# Validation
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -validate
-
-fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -init [-summary] [-json]
-
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -stitch-info [-summary] [-json]
 
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -plan [-summary] [-json]
