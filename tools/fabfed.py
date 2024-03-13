@@ -33,7 +33,7 @@ def manage_workflow(args):
 
     if args.validate:
         try:
-            WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+            WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
             logger.info("config looks ok")
         except Exception as e:
             logger.error(f"Validation failed .... {type(e)} {e}")
@@ -45,12 +45,12 @@ def manage_workflow(args):
         import time
 
         start = time.time()
-        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
+        parse_and_validate_config_duration = time.time() - start
         controller_duration_start = time.time()
 
         try:
             controller = Controller(config=config,
-                                    logger=logger,
                                     policy=policy,
                                     use_local_policy=not args.use_remote_policy)
         except Exception as e:
@@ -121,7 +121,7 @@ def manage_workflow(args):
                                        comment="time spent in controller. It does not include time spent in providers")
         providers_duration = Duration(duration=providers_duration,
                                       comment="time spent in all providers")
-        validate_config_duration = Duration(duration=config.parse_and_validate_config_duration,
+        validate_config_duration = Duration(duration=parse_and_validate_config_duration,
                                             comment="time spent in parsing and validating config")
 
         fabfed_stats = FabfedStats(action="apply",
@@ -137,9 +137,8 @@ def manage_workflow(args):
         return
 
     if args.init:
-        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config,
-                                logger=logger,
                                 policy=policy,
                                 use_local_policy=not args.use_remote_policy)
         states = sutil.load_states(args.session)
@@ -148,9 +147,8 @@ def manage_workflow(args):
         return
 
     if args.plan:
-        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config,
-                                logger=logger,
                                 policy=policy,
                                 use_local_policy=not args.use_remote_policy)
         states = sutil.load_states(args.session)
@@ -186,12 +184,12 @@ def manage_workflow(args):
         import time
 
         start = time.time()
-        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
+        parse_and_validate_config_duration = time.time() - start
         controller_duration_start = time.time()
 
         try:
             controller = Controller(config=config,
-                                    logger=logger,
                                     policy=policy,
                                     use_local_policy=not args.use_remote_policy)
             controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
@@ -228,7 +226,7 @@ def manage_workflow(args):
         controller_duration = Duration(duration=controller_duration,
                                        comment="time spent in controller. It does not include time spent in providers")
         providers_duration = Duration(duration=providers_duration, comment="time spent in all providers")
-        validate_config_duration = Duration(duration=config.parse_and_validate_config_duration,
+        validate_config_duration = Duration(duration=parse_and_validate_config_duration,
                                             comment="time spent in parsing and validating config")
 
         provider_stats = controller.get_stats()
