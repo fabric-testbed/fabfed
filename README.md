@@ -68,6 +68,8 @@ fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session s
 
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -init [-summary] [-json]
 
+fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -stitch-info [-summary] [-json]
+
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -plan [-summary] [-json]
 
 fabfed workflow --config-dir some_dir [--var-file some_var_file.yml] --session some_session -apply
