@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from .config_models import *
 from .constants import Constants
@@ -220,9 +220,8 @@ class Parser:
         return resource_base_configs
 
     @staticmethod
-    def parse(*, dir_path=None,
-              content=None,
-              var_dict=None) -> Tuple[List[ProviderConfig], List[ResourceConfig]]:
+    def parse(*, dir_path: Union[str, None] = None, content: Union[str, None] = None,
+              var_dict: Union[Dict, None] = None) -> Tuple[List[ProviderConfig], List[ResourceConfig]]:
 
         from .utils import load_as_ns_from_yaml
 
