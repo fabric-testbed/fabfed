@@ -191,6 +191,20 @@ def dump_resources(*, resources, to_json: bool, summary: bool = False):
         sys.stdout.write(yaml.dump(resources, Dumper=get_dumper(), default_flow_style=False, sort_keys=False))
 
 
+def dump_objects(objects, to_json: bool):
+    import sys
+
+    if to_json:
+        import json
+
+        sys.stdout.write(json.dumps(objects, cls=SetEncoder, indent=3))
+    else:
+        import yaml
+        from fabfed.model.state import get_dumper
+
+        sys.stdout.write(yaml.dump(objects, Dumper=get_dumper(), default_flow_style=False, sort_keys=False))
+
+
 def dump_states(states, to_json: bool, summary: bool = False):
     import sys
     from fabfed.model.state import get_dumper

@@ -43,6 +43,7 @@ def build_parser(*, manage_workflow, manage_sessions, display_stitch_info):
                                  help='assembles and validates all .fab files  in the config directory')
     workflow_parser.add_argument('-apply', action='store_true', default=False, help='create resources')
     workflow_parser.add_argument('-init', action='store_true', default=False, help='display resource ordering')
+    workflow_parser.add_argument('-stitch-info', action='store_true', default=False, help='display network stitch-info')
     workflow_parser.add_argument('-plan', action='store_true', default=False, help='shows plan')
     workflow_parser.add_argument('-use-remote-policy', action='store_true', default=False, help='use remote policy')
     workflow_parser.add_argument('-show', action='store_true', default=False, help='display resource.')

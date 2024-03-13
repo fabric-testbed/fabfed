@@ -146,6 +146,60 @@ def manage_workflow(args):
         sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
         return
 
+    if args.stitch_info:
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
+        controller = Controller(config=config,
+                                policy=policy,
+                                use_local_policy=not args.use_remote_policy)
+        states = sutil.load_states(args.session)
+        controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
+        resources = controller.resources
+
+        from collections import namedtuple
+
+        if not args.summary:
+            stitch_info_details = []
+
+            StitchInfoDetails = namedtuple("StitchInfoDetails", "label provider_label stitch_info")
+
+            for network in filter(lambda n: n.is_network, resources):
+                details = StitchInfoDetails(label=network.label,
+                                            provider_label=network.provider.label,
+                                            stitch_info=network.attributes.get(Constants.RES_STITCH_INFO))
+                stitch_info_details.append(details)
+
+            stitch_info_details = dict(StitchNetworkDetails = stitch_info_details )
+            sutil.dump_objects(objects=stitch_info_details, to_json=args.json)
+
+        NetworkInfo = namedtuple("NetworkInfo", "label provider_label")
+        StitchInfoSummary = namedtuple("StitchInfoSummary", "network_infos stitch_info")
+
+        stitch_info_summaries = []
+        stitch_info_map = {}
+        stitch_info_network_info_map = {}
+
+
+        for network in filter(lambda n: n.is_network and n.attributes.get(Constants.RES_STITCH_INFO), resources):
+            stitch_info = network.attributes.get(Constants.RES_STITCH_INFO)
+
+            if stitch_info:
+                network_info = NetworkInfo(label=network.label, provider_label=network.provider.label)
+                stitch_port_name = stitch_info.stitch_port['name']
+                stitch_info_map[stitch_port_name] = stitch_info
+
+                if stitch_port_name not in stitch_info_network_info_map:
+                    stitch_info_network_info_map[stitch_port_name] = []
+
+                stitch_info_network_info_map[stitch_port_name].append(network_info)
+
+        for k, v in stitch_info_network_info_map.items():
+            stitch_info_summary = StitchInfoSummary(network_infos=v, stitch_info=stitch_info_map[k])
+            stitch_info_summaries.append(stitch_info_summary)
+
+        stitch_info_summaries = dict(StitchInfoSummary = stitch_info_summaries)
+        sutil.dump_objects(objects=stitch_info_summaries, to_json=args.json)
+        return
+
     if args.plan:
         config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config,
