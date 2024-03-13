@@ -32,9 +32,9 @@ config:
 
           # FOR SENSE and FABRIC
           local_asn: "55038" # customer_asn (hard coded for now) 
-          local_address: "192.168.1.1/30" # customer_ip (ignore)
+          local_address: "192.168.1.1/16" # customer_ip (ignore)
           remote_asn: "16550" # google_asn (default) 
-          remote_address: "192.168.1.2/30" # google_ip (ignore)
+          remote_address: "192.168.1.2/16" # google_ip (ignore)
 resource:
   - node:
       - sense_node:
