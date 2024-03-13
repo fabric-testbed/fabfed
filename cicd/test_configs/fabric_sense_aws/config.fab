@@ -1,17 +1,12 @@
 provider:
   - sense:
       - sense_provider:
-          - credential_file: ~/.fabfed/fabfed_credentials.yml
+          - credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
             profile: sense
   - fabric:
       - fabric_provider:
-          credential_file: ~/.fabfed/fabfed_credentials.yml
+          credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
           profile: fabric
-  - janus:
-      - janus_provider:
-          credential_file: ~/.fabfed/fabfed_credentials.yml
-          profile: janus
-          url: "{{ node.fabric_node }}"
 
 config:
   - layer3:
@@ -42,19 +37,16 @@ resource:
           provider: '{{ sense.sense_provider }}'
           network: "{{ network.sense_net }}"
           service:
-          count: 1
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
           site: MAX # Use RENC when deploying to fabric beta environment
           image: default_rocky_8
-          count: 1
           nic_model: NIC_Basic
   - network:
       - sense_net:
           provider: '{{ sense.sense_provider }}'
           layer3: "{{ layer3.sense_layer }}"
           peering: "{{ peering.my_peering }}"
-          count: 1
           stitch_with: '{{ network.fabric_network }}'
           stitch_option: 
               device_name: agg3.ashb
@@ -64,13 +56,3 @@ resource:
           layer3: "{{ layer3.fab_layer }}"
           peering: "{{ peering.my_peering }}"
           interface: '{{ node.fabric_node }}'
-          count: 1
-
-  - service:
-      - dtn_service:
-          provider: '{{ janus.janus_provider }}'
-          node: [ '{{ node.sense_node }}', '{{ node.fabric_node }}' ]
-          controller: '{{ node.fabric_node }}'
-          image: dtnaas/tools
-          profile: fabfed
-          count: 0   # SET THIS TO 1 if you want use janus service

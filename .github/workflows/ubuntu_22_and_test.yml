@@ -18,6 +18,12 @@ env:
   FABRIC_PROJECT: ${{ secrets.FABRIC_PROJECT }}
   FABRIC_USER: ${{ secrets.FABRIC_USER }}
 
+  SENSE_USER: ${{ secrets.SENSE_USER }}
+  SENSE_PASSWORD: ${{ secrets.SENSE_PASSWORD }}
+  SENSE_SECRET: ${{ secrets.SENSE_SECRET }}
+  SENSE_SLIVER_KEY: ${{ secrets.SENSE_SLIVER_KEY }}
+  RUN_FABRIC_AWS_SENSE: ${{ vars.RUN_FABRIC_AWS_SENSE }}
+
 jobs:
   UbuntuTest:
     runs-on: ubuntu-latest
@@ -46,6 +52,16 @@ jobs:
 
       - name: Run Unit Tests
         run: |
+          echo "*******************"
+          echo ${{ env.RUN_FABRIC_AWS_SENSE }} 
+          echo "*******************"
+          echo ${{ env.RUN_FABRIC_AWS_SENSE == 'false' }} 
+          echo "*******************"
+          echo ${{ env.RUN_FABRIC_AWS_SENSE == false }} 
+          echo "*******************"
+
+      - name: Run Unit Tests
+        run: |
           pytest tests
 
       - name: Test Stitch Policy
@@ -64,13 +80,21 @@ jobs:
           echo ${{ env.FABRIC_BASTION_KEY }} | base64 --decode > ${{ github.workspace }}/creds/bastion
           echo ${{ env.FABRIC_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver
           echo ${{ env.FABRIC_SLIVER_PUBKEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver.pub
+          echo ${{ env.SENSE_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/sense
 
       - name: Test Fabric FacilityPort
+        if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }} 
         run: |
-          session=fabric-facility-port
+          session=cicd-fabric-facility-port
           echo "vlan: 3102" > $session-varfile.yml
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_facility_port $session $session-varfile.yml
 
       - name: Test L2VPN with nodes.
+        if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }} 
         run: |
-          ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_l2_vpn fabric-l2-vpn
+          ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_l2_vpn cicd-fabric-l2-vpn
+
+      - name: Test SENSE/AWS.
+        if: ${{ env.RUN_FABRIC_AWS_SENSE == 'true' || env.RUN_FABRIC_AWS_SENSE == true  }} 
+        run: |
+          ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_sense_aws cicd-sense-aws 

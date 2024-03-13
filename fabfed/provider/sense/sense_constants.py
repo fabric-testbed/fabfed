@@ -1,7 +1,16 @@
 from fabfed.util.constants import Constants
 import enum
 
+AUTH_ENDPOINT = "auth_endpoint"
+API_ENDPOINT = "api_endpoint"
+CLIENT_ID = "client_id"
+USERNAME = "username"
+PASSWORD = "password"
+SECRET = "secret"
 SENSE_SLICE_PRIVATE_KEY_LOCATION = "slice-private-key-location"
+
+SENSE_CONF_ATTRS = [AUTH_ENDPOINT, API_ENDPOINT, CLIENT_ID, USERNAME, PASSWORD, SECRET, SENSE_SLICE_PRIVATE_KEY_LOCATION]
+
 SENSE_PROFILE_UID = "service_profile_uuid"
 SENSE_ALIAS = "alias"
 SENSE_EDIT = "options"

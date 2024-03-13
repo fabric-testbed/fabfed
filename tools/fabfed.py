@@ -94,6 +94,9 @@ def manage_workflow(args):
         except ControllerException as ce:
             logger.error(f"Exceptions while creating resources ... {ce}")
             workflow_failed = True
+        except Exception as e:
+            logger.error(f"Unknown error while creating resources ... {e}")
+            workflow_failed = True
 
         controller_duration = time.time() - controller_duration_start
         providers_duration = 0
@@ -105,9 +108,7 @@ def manage_workflow(args):
 
         states = controller.get_states()
         nodes, networks, services, pending, failed = utils.get_counters(states=states)
-
-        if pending or failed:
-            workflow_failed = True
+        workflow_failed = workflow_failed or pending or failed
 
         if Constants.RECONCILE_STATES:
             states = sutil.reconcile_states(states, args.session)
@@ -134,7 +135,7 @@ def manage_workflow(args):
         logger.info(f"STATS:duration_in_seconds={workflow_duration}")
         logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
         sutil.save_stats(dict(comment="all durations are in seconds", stats=fabfed_stats), args.session)
-        return
+        sys.exit(1 if workflow_failed else 0)
 
     if args.init:
         config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
@@ -168,7 +169,7 @@ def manage_workflow(args):
                                             stitch_info=network.attributes.get(Constants.RES_STITCH_INFO))
                 stitch_info_details.append(details)
 
-            stitch_info_details = dict(StitchNetworkDetails = stitch_info_details )
+            stitch_info_details = dict(StitchNetworkDetails=stitch_info_details)
             sutil.dump_objects(objects=stitch_info_details, to_json=args.json)
 
         NetworkInfo = namedtuple("NetworkInfo", "label provider_label")
@@ -177,7 +178,6 @@ def manage_workflow(args):
         stitch_info_summaries = []
         stitch_info_map = {}
         stitch_info_network_info_map = {}
-
 
         for network in filter(lambda n: n.is_network and n.attributes.get(Constants.RES_STITCH_INFO), resources):
             stitch_info = network.attributes.get(Constants.RES_STITCH_INFO)
@@ -196,7 +196,7 @@ def manage_workflow(args):
             stitch_info_summary = StitchInfoSummary(network_infos=v, stitch_info=stitch_info_map[k])
             stitch_info_summaries.append(stitch_info_summary)
 
-        stitch_info_summaries = dict(StitchInfoSummary = stitch_info_summaries)
+        stitch_info_summaries = dict(StitchInfoSummary=stitch_info_summaries)
         sutil.dump_objects(objects=stitch_info_summaries, to_json=args.json)
         return
 
@@ -251,10 +251,13 @@ def manage_workflow(args):
             logger.error(f"Exceptions while initializing controller .... {e}")
             sys.exit(1)
 
+        destroy_failed = False
+
         try:
             controller.destroy(provider_states=states)
         except ControllerException as e:
             logger.error(f"Exceptions while deleting resources ...{e}")
+            destroy_failed = True
         except KeyboardInterrupt as kie:
             logger.error(f"Keyboard Interrupt while deleting resources ... {kie}")
             sys.exit(1)
@@ -293,7 +296,7 @@ def manage_workflow(args):
                                    provider_stats=provider_stats)
         logger.info(f"STATS:duration_in_seconds={workflow_duration}")
         sutil.save_stats(dict(comment="all durations are in seconds", stats=fabfed_stats), args.session)
-        return
+        sys.exit(1 if destroy_failed else 0)
 
 
 def manage_sessions(args):
