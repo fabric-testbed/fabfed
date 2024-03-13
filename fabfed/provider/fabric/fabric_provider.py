@@ -79,10 +79,14 @@ class FabricProvider(Provider):
 
         os.environ['FABRIC_TOKEN_LOCATION'] = token_location
 
+        from . import fabric_slice_helper
+
+        fabric_slice_helper.patch_for_token()
+
+
     def _init_slice(self, destroy_phase=False):
         if not self.slice_init:
             self.logger.info(f"Initializing slice {self.name}")
-            self.slice_init = True
 
             import time
             from fabfed.util.utils import get_log_level, get_log_location
@@ -115,8 +119,11 @@ class FabricProvider(Provider):
                     if attempt == self.retry - 1:
                         raise e
 
-                self.logger.info(f"Initializing slice {self.name}. Going to sleep. Will retry ...")
+                    self.logger.info(f"Initializing slice {self.name}. Going to sleep. Will retry ...{e}")
                 time.sleep(2)
+
+            self.logger.info(f"Initialized slice {self.name}")
+            self.slice_init = True
 
     def supports_modify(self):
         return True
