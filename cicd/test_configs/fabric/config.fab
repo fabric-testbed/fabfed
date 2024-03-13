@@ -1,6 +1,8 @@
 variable:
   - fabric_site:
       default: WASH 
+  - other_fabric_site:
+      default: SALT
 
 provider:
   - fabric:
@@ -18,21 +20,14 @@ config:
 resource:
   - node:
       - rocky_node:
-            provider:  '{{ fabric.fabric_provider }}'
+            provider: '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}' 
-            count: 1
-            image: default_rocky_8
-            nic_model: NIC_Basic
-            flavor: {'cores': 2, 'ram': 8, 'disk': 10}
-      - ubuntu_node:
-            provider:  '{{ fabric.fabric_provider }}'
-            site: '{{ var.fabric_site }}' 
-            count: 1
-            # image: default_ubuntu_22
-            image: default_rocky_8
+      - other_node:
+            provider: '{{ fabric.fabric_provider }}'
+            site: '{{ var.other_fabric_site }}' 
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.my_layer }}"
-          interface: [ '{{ node.rocky_node }}', '{{ node.ubuntu_node }}' ]
+          interface: [ '{{ node.rocky_node }}', '{{ node.other_node }}' ]
           count: 1
