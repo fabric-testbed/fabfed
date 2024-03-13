@@ -52,4 +52,4 @@ resource:
           controller: '{{ node.fabric_node }}'
           image: dtnaas/tools
           profile: fabfed
-          count: 1
+          count: 0
