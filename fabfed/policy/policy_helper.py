@@ -501,7 +501,7 @@ def handle_stitch_info(config, policy, resources):
 
         from fabfed.util.resource_dependency_helper import ResourceDependencyEvaluator, order_resources
 
-        dependency_evaluator = ResourceDependencyEvaluator(resources, config.get_provider_config())
+        dependency_evaluator = ResourceDependencyEvaluator(resources, config.get_provider_configs())
         dependency_map = dependency_evaluator.evaluate()
         resources = order_resources(dependency_map)
 
