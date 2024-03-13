@@ -29,8 +29,8 @@ config:
           remote_asn: 64512 # amazon_asn
           local_asn: 55038 # customer_asn
           # FOR FABRIC
-          local_address: "192.168.1.1/30" # customer_ip
-          remote_address: "192.168.1.2/30" # amazon_ip
+          local_address: "192.168.1.1/16" # customer_ip
+          remote_address: "192.168.1.2/16" # amazon_ip
 resource:
   - network:
       - aws_net:
