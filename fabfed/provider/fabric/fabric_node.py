@@ -176,8 +176,12 @@ class NodeBuilder:
         if INCLUDE_FABNETS:
             net_iface_v4 = self.node.add_component(model='NIC_Basic',
                                                    name=FABRIC_IPV4_NET_IFACE_NAME).get_interfaces()[0]
+            # TODO: KOMAL:
+            net_iface_v4.set_mode("auto")
             net_iface_v6 = self.node.add_component(model='NIC_Basic',
                                                    name=FABRIC_IPV6_NET_IFACE_NAME).get_interfaces()[0]
+            # TODO: KOMAL
+            net_iface_v6.set_mode("auto")
             slice_object.add_l3network(name=f"{name}-{FABRIC_IPV4_NET_NAME}", interfaces=[net_iface_v4], type='IPv4')
             slice_object.add_l3network(name=f"{name}-{FABRIC_IPV6_NET_NAME}", interfaces=[net_iface_v6], type='IPv6')
 

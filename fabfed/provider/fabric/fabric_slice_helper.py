@@ -159,3 +159,39 @@ def init_slice(name: str, destroy_phase):
 
     assert slice_object.get_state() == "StableOK"
     return slice_object
+
+
+def patch_for_token():
+    if not PATCH_FOR_TOKENS:
+        return
+
+    def load_tokens(self, refresh: bool = True):
+        """
+        Load Fabric Tokens from the tokens.json if it exists
+        Otherwise, this is the first attempt, create the tokens and save them
+        @note this function is invoked when reloading the tokens to ensure tokens
+        from the token file are read instead of the local variables
+        """
+        import os
+        import json
+
+        # Load the tokens from the JSON
+        if os.path.exists(self.token_location):
+            with open(self.token_location, 'r') as stream:
+                self.tokens = json.loads(stream.read())
+            refresh_token = self.get_refresh_token()
+        else:
+            # First time login, use environment variable to load the tokens
+            from fabrictestbed.util.constants import Constants
+
+            refresh_token = os.environ.get(Constants.CILOGON_REFRESH_TOKEN)
+        if refresh_token is None:
+            return
+        # Renew the tokens to ensure any project_id changes are taken into account
+        if refresh and self.auto_refresh:
+            self.refresh_tokens(refresh_token=refresh_token)
+
+    from fabrictestbed.slice_manager.slice_manager import SliceManager
+
+    mngr = SliceManager
+    mngr._SliceManager__load_tokens = load_tokens

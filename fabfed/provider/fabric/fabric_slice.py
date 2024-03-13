@@ -89,10 +89,7 @@ class FabricSlice:
                     node.set_network_label(label)
 
             self.provider.networks.append(net)
-
-            if self.resource_listener:
-                self.resource_listener.on_added(source=self, provider=self.provider, resource=net)
-
+            self.resource_listener.on_added(source=self, provider=self.provider, resource=net)
             return
 
         network_builder = NetworkBuilder(label, self.provider, self.slice_object, net_name, resource)
@@ -110,9 +107,7 @@ class FabricSlice:
         net = network_builder.build()
         self.provider.networks.append(net)
         self.slice_modified = self.slice_created
-
-        if self.resource_listener:
-            self.resource_listener.on_added(source=self, provider=self.provider, resource=net)
+        self.resource_listener.on_added(source=self, provider=self.provider, resource=net)
 
     def _add_node(self, resource: dict):
         node_count = resource[Constants.RES_COUNT]
@@ -173,9 +168,7 @@ class FabricSlice:
                     node.set_network_label(network.label)
 
             self.nodes.append(node)
-
-            if self.resource_listener:
-                self.resource_listener.on_added(source=self, provider=self.provider, resource=node)
+            self.resource_listener.on_added(source=self, provider=self.provider, resource=node)
 
     def add_resource(self, *, resource: dict):
         rtype = resource.get(Constants.RES_TYPE)
@@ -209,11 +202,15 @@ class FabricSlice:
             self.logger.warning(f"Exception occurred while waiting state={state}:{e}")
             raise e
 
-        # try:
-        #     self.slice_object.update()
-        #     self.slice_object.post_boot_config()
-        # except Exception as e:
-        #     self.logger.warning(f"Exception occurred while update/post_boot_config: {e}")
+        try:
+            self.slice_object.wait_ssh()
+        except Exception as e:
+            self.logger.warning(f"Exception occurred while waiting on ssh: {e}")
+
+        try:
+            self.slice_object.post_boot_config()
+        except Exception as e:
+            self.logger.warning(f"Exception occurred while update/post_boot_config: {e}")
 
         self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
 
@@ -298,6 +295,8 @@ class FabricSlice:
 
         self._ensure_management_ips()
 
+        # TODO KOMAL
+        '''
         for node in self.nodes:
             for attempt in range(self.retry):
                 try:
@@ -320,6 +319,7 @@ class FabricSlice:
             self.slice_object = fablib.get_slice(name=self.provider.name)
             for node in self.nodes:
                 fabric_slice_helper.setup_fabric_networks(self.slice_object, node, node.v4net_name, node.v6net_name)
+        '''
 
         for network in self.networks:
             from ipaddress import IPv4Network
@@ -446,7 +446,7 @@ class FabricSlice:
             else:
                 self.logger.debug(f"already provisioned. {self.name}: state={state}")
 
-            if not self.notified_create and self.resource_listener:
+            if not self.notified_create:
                 self._handle_node_networking()
 
                 for node in self.nodes:
@@ -462,19 +462,27 @@ class FabricSlice:
         self.slice_created = True
         self.slice_modified = False
         self.existing_nodes = [n.name for n in self.nodes]
-        self.existing_networks = [n.get_name() for n in self.networks]
+        # self.existing_networks = [n.get_name() for n in self.networks]
+        self.existing_networks = []
+
+        for net in self.slice_object.get_networks():
+            net_name = net.get_name()
+
+            if "_aux" in net_name or FABRIC_IPV4_NET_NAME in net_name or FABRIC_IPV6_NET_NAME in net_name:
+                continue
+
+            self.existing_networks.append(net_name)
 
         if self.nodes:
             self._handle_node_networking()
 
-        if self.resource_listener:
-            for node in self.nodes:
-                self.resource_listener.on_created(source=self, provider=self.provider, resource=node)
+        for node in self.nodes:
+            self.resource_listener.on_created(source=self, provider=self.provider, resource=node)
 
-            for net in self.networks:
-                self.resource_listener.on_created(source=self, provider=self.provider, resource=net)
+        for net in self.networks:
+            self.resource_listener.on_created(source=self, provider=self.provider, resource=net)
 
-            self.notified_create = True
+        self.notified_create = True
 
     def delete_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
