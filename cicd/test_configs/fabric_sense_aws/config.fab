@@ -36,7 +36,6 @@ resource:
       - sense_node:
           provider: '{{ sense.sense_provider }}'
           network: "{{ network.sense_net }}"
-          service:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
           site: MAX # Use RENC when deploying to fabric beta environment
