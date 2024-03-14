@@ -130,6 +130,9 @@ class Controller:
         peering_to_network_mapping = {}
 
         for network in networks:
+            if Constants.RES_PEER_LAYER3 in network.attributes: # This is for testing
+                continue
+
             network.attributes[Constants.RES_PEER_LAYER3] = []
             peering = network.attributes.get(Constants.RES_PEERING)
 

@@ -564,6 +564,12 @@ def get_stitch_port_for_provider(*, resource: dict, provider: str):
     if not stitch_info:
         return None
 
+    if isinstance(stitch_info, dict):  # This is for testing purposes.
+        producer = stitch_info['producer']
+        consumer = stitch_info['consumer']
+        stitch_info = StitchInfo(stitch_port=stitch_info['stitch_port'], producer=producer, consumer=consumer)
+        resource[Constants.RES_STITCH_INFO] = stitch_info
+
     stitch_ports = [stitch_info.stitch_port]
 
     if PEER in stitch_info.stitch_port:
