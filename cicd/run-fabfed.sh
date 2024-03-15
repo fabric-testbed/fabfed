@@ -22,6 +22,8 @@ sed -i "s/SENSE_USER/$SENSE_USER/" ~/.fabfed/fabfed_credentials.yml.cicd
 sed -i "s/SENSE_PASSWORD/$SENSE_PASSWORD/" ~/.fabfed/fabfed_credentials.yml.cicd
 sed -i "s/SENSE_SECRET/$SENSE_SECRET/" ~/.fabfed/fabfed_credentials.yml.cicd
 
+# CLAB
+sed -i "s/CLAB_USER/$CLAB_USER/" ~/.fabfed/fabfed_credentials.yml.cicd
 
 if [ -n "$var_file" ]
 then

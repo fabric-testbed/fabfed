@@ -81,6 +81,8 @@ jobs:
           echo ${{ env.FABRIC_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver
           echo ${{ env.FABRIC_SLIVER_PUBKEY }} | base64 --decode > ${{ github.workspace }}/creds/sliver.pub
           echo ${{ env.SENSE_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/sense
+          echo ${{ env.CLAB_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/cloudlab
+          echo ${{ env.CLAB_PEM_FILE }} | base64 --decode > ${{ github.workspace }}/creds/cloudlab.pem
 
       - name: Test Fabric FacilityPort
         if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }} 
@@ -100,6 +102,13 @@ jobs:
           session=aes-aws-native
           echo "vlan: 4" > $session-varfile.yml
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_native_aws $session $session-varfile.yml
+
+      - name: Test Cloudlab
+        if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }}
+        run: |
+          session=cicd-clab
+          echo "site: CLEM" > $session-varfile.yml
+          ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/cloudlab $session $session-varfile.yml
 
       - name: Test SENSE/AWS.
         if: ${{ env.RUN_FABRIC_AWS_SENSE == 'true' || env.RUN_FABRIC_AWS_SENSE == true  }} 
