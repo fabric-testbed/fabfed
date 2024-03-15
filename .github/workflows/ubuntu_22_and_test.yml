@@ -97,7 +97,7 @@ jobs:
         run: |
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_l2_vpn cicd-fabric-l2-vpn
 
-      - name: Test Fabric FacilityPort
+      - name: Test Fabric AWS (Fabric Only)
         if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }} 
         run: |
           session=aes-aws-native
