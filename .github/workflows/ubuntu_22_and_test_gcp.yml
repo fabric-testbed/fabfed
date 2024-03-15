@@ -14,6 +14,8 @@ env:
   FABRIC_PROJECT: ${{ secrets.FABRIC_PROJECT }}
   FABRIC_USER: ${{ secrets.FABRIC_USER }}
 
+  GCP_SERVICE_KEY_PATH: ${{ secrets.GCP_SERVICE_KEY_PATH }}
+
   RUN_GCP: ${{ vars.RUN_GCP }}
 
 jobs:
