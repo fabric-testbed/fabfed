@@ -23,6 +23,8 @@ env:
   SENSE_SLIVER_KEY: ${{ secrets.SENSE_SLIVER_KEY }}
 
   CLAB_USER: ${{ secrets.CLAB_USER }}
+  CLAB_SLIVER_KEY: ${{ secrets.CLAB_SLIVER_KEY }}
+  CLAB_PEM_FILE: ${{ secrets.CLAB_PEM_FILE }}
   
   RUN_FABRIC_AWS_SENSE: ${{ vars.RUN_FABRIC_AWS_SENSE }}
   RUN_CLAB: ${{ vars.RUN_CLAB }}
