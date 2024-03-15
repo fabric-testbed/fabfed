@@ -155,7 +155,7 @@ class CloudlabProvider(Provider):
 
             for idx in range(0, node_count):
                 node_name = self.resource_name(resource, idx)
-                node = CloudlabNode(label=label, name=f'{node_name}-{idx}', provider=self, network=net)
+                node = CloudlabNode(label=label, name=f'{node_name}', provider=self, network=net)
                 self._nodes.append(node)
                 self.resource_listener.on_added(source=self, provider=self, resource=node)
             return
