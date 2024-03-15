@@ -16,6 +16,7 @@ config_dir = "examples/fabric"
 session="some_session"
 fabfed_manager = FabfedManager(config_dir=config_dir)
 fabfed_manager.validate()
+fabfed_manager.show_available_stitch_ports(from_provider='chi', to_provider="fabric")
 fabfed_manager.stitch_info(session=session)
 to_be_created_count, to_be_deleted_count = fabfed_manager.plan(session=session)
 status_code = fabfed_manager.apply(session=session)
@@ -200,3 +201,44 @@ class FabfedManager:
 
     def show_sessions(self, *, to_json: bool = False):
         self.sessions = utils.dump_sessions(to_json)
+
+    def show_available_stitch_ports(self, *, from_provider, to_provider):
+        from fabfed.policy.policy_helper import load_policy
+
+        policy = load_policy()
+
+        from fabfed.policy.policy_helper import find_stitch_port_for_providers, peer_stitch_ports
+
+        providers = [from_provider, to_provider]
+        stitch_infos = find_stitch_port_for_providers(policy, providers)
+        stitch_infos = peer_stitch_ports(stitch_infos)
+        attrs = ["preference", "member-of", 'name']
+        names = []
+
+        for stitch_info in stitch_infos:
+            names.append(stitch_info.stitch_port.get("name"))
+
+            for attr in attrs:
+                stitch_info.stitch_port.pop(attr, None)
+
+            peer = stitch_info.stitch_port.get('peer', {})
+
+            for attr in attrs:
+                peer.pop(attr, None)
+
+        import yaml
+        from fabfed.util.constants import Constants
+
+        stitch_port_configs = []
+
+        for i, stitch_info in enumerate(stitch_infos):
+            producer = stitch_info.producer
+            consumer = stitch_info.consumer
+            stitch_port = stitch_info.stitch_port
+            c = {"config": [{Constants.NETWORK_STITCH_CONFIG: [{f"si_from_{names[i]}": {"producer": producer,
+                                                                                        "consumer": consumer,
+                                                                                        "stitch_port": stitch_port}}]}]}
+            stitch_port_configs.append(c)
+
+        rep = yaml.dump(stitch_port_configs, default_flow_style=False, sort_keys=False)
+        print(rep)
