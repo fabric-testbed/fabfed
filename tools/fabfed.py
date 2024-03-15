@@ -10,6 +10,13 @@ from fabfed.util.stats import FabfedStats, Duration
 from fabfed.util.constants import Constants
 
 
+def delete_session_if_empty(*, session):
+    provider_states = sutil.load_states(session)
+
+    if not provider_states:
+        sutil.destroy_session(session)
+
+
 def manage_workflow(args):
     logger = utils.init_logger()
     config_dir = utils.absolute_path(args.config_dir)
@@ -20,10 +27,6 @@ def manage_workflow(args):
         logger.error(f"attempt to use fabfed session {args.session} from the wrong config dir {config_dir} ...")
         logger.warning(f"ATTN: The CORRECT config dir for session {args.session} is {config_dir_from_meta}!!!!!!!")
         sys.exit(1)
-
-    # we skip -show and -destroy
-    if args.apply or args.init or args.plan or args.validate:
-        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
 
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
@@ -41,6 +44,7 @@ def manage_workflow(args):
             sys.exit(1)
 
     if args.apply:
+        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
         sutil.delete_stats(args.session)
         import time
 
@@ -145,6 +149,7 @@ def manage_workflow(args):
         states = sutil.load_states(args.session)
         controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
         sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
+        delete_session_if_empty(session=args.session)
         return
 
     if args.stitch_info:
@@ -198,6 +203,7 @@ def manage_workflow(args):
 
         stitch_info_summaries = dict(StitchInfoSummary=stitch_info_summaries)
         sutil.dump_objects(objects=stitch_info_summaries, to_json=args.json)
+        delete_session_if_empty(session=args.session)
         return
 
     if args.plan:
@@ -211,6 +217,7 @@ def manage_workflow(args):
         cr, dl = sutil.dump_plan(resources=controller.resources, to_json=args.json, summary=args.summary)
 
         logger.warning(f"Applying this plan would create {cr} resource(s) and destroy {dl} resource(s)")
+        delete_session_if_empty(session=args.session)
         return
 
     if args.show:
@@ -221,6 +228,7 @@ def manage_workflow(args):
     if args.stats:
         stats = sutil.load_stats(args.session)
         sutil.dump_stats(stats, args.json)
+        delete_session_if_empty(session=args.session)
         return
 
     if args.destroy:
