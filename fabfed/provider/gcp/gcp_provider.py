@@ -23,16 +23,16 @@ class GcpProvider(Provider):
     def setup_environment(self):
         normalized_config = {}
 
-        for attr in [gcp_constants.PROJECT, gcp_constants.SERVICE_KEY_PATH]:
-            if self.config.get(attr) is None:
-                raise ProviderException(f"{self.name}: Expecting a value for {attr}")
-
         for k, v in self.config.items():
             normalized_config[k.upper()] = v
 
         self.config = normalized_config
         assert self.config.get(gcp_constants.SERVICE_KEY_PATH)
         assert self.config.get(gcp_constants.PROJECT)
+
+        for attr in [gcp_constants.PROJECT, gcp_constants.SERVICE_KEY_PATH]:
+            if self.config.get(attr) is None:
+                raise ProviderException(f"{self.name}: Expecting a value for {attr}")
 
         skey = self.config[gcp_constants.SERVICE_KEY_PATH]
 
