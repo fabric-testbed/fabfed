@@ -1,9 +1,6 @@
 name: GCP-Ubuntu22.04 Test 
 
 on:
-  push:
-    branches:
-      - knit8 
   workflow_dispatch:
 
 env:
