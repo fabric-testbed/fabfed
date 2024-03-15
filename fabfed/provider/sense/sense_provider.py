@@ -149,12 +149,13 @@ class SenseProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
         assert rtype in self.supported_resources
         label = resource.get(Constants.LABEL)
+        self.logger.info(f"{self.name}: Creating resource {label} ....")
 
         if not self._handled_modify and self.modified:
             assert rtype == Constants.RES_TYPE_NETWORK, "sense expects network to be created first"
             self._handled_modify = True
 
-            self.logger.info(f"Deleting sense resources ....")
+            self.logger.warning(f"{self.name}:Modified state: Deleting sense resources ...")
 
             from .sense_network import SenseNetwork
 
