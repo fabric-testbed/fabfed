@@ -10,7 +10,6 @@ on:
   workflow_dispatch:
 
 env:
-  fabfed_image: fabfed:cicd
   FABRIC_TOKEN: ${{ secrets.FABRIC_TOKEN }}
   FABRIC_BASTION_KEY: ${{ secrets.FABRIC_BASTION_KEY }}
   FABRIC_SLIVER_KEY: ${{ secrets.FABRIC_SLIVER_KEY }}
@@ -22,6 +21,9 @@ env:
   SENSE_PASSWORD: ${{ secrets.SENSE_PASSWORD }}
   SENSE_SECRET: ${{ secrets.SENSE_SECRET }}
   SENSE_SLIVER_KEY: ${{ secrets.SENSE_SLIVER_KEY }}
+
+  CLAB_USER: ${{ secrets.CLAB_USER }}
+  
   RUN_FABRIC_AWS_SENSE: ${{ vars.RUN_FABRIC_AWS_SENSE }}
   RUN_CLAB: ${{ vars.RUN_CLAB }}
 
