@@ -1,3 +1,7 @@
+variable:
+  - site:
+      default: UTAH # CLEM
+
 provider:
   - cloudlab:
       - cloudlab_provider:
@@ -32,7 +36,7 @@ resource:
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: UTAH # CLEM  # UTAH
+          site: '{{ var.site }}'
           image: default_rocky_8
           nic_model: NIC_Basic
           count: 1
