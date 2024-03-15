@@ -1,4 +1,4 @@
-from fabfed.exceptions import ResourceTypeNotSupported
+from fabfed.exceptions import ResourceTypeNotSupported, ProviderException
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
@@ -21,21 +21,11 @@ class GcpProvider(Provider):
         return self.config.get(gcp_constants.SERVICE_KEY_PATH)
 
     def setup_environment(self):
-        from fabfed.util import utils
-
-        credential_file = self.config.get(Constants.CREDENTIAL_FILE)
-        profile = self.config.get(Constants.PROFILE)
-        config = utils.load_yaml_from_file(credential_file)
-
-        if profile not in config:
-            from fabfed.exceptions import ProviderException
-
-            raise ProviderException(
-                f"credential file {credential_file} does not have a section for keyword {profile}"
-            )
-
-        self.config = config[profile]
         normalized_config = {}
+
+        for attr in [gcp_constants.PROJECT, gcp_constants.SERVICE_KEY_PATH]:
+            if self.config.get(attr) is None:
+                raise ProviderException(f"{self.name}: Expecting a value for {attr}")
 
         for k, v in self.config.items():
             normalized_config[k.upper()] = v
@@ -43,6 +33,25 @@ class GcpProvider(Provider):
         self.config = normalized_config
         assert self.config.get(gcp_constants.SERVICE_KEY_PATH)
         assert self.config.get(gcp_constants.PROJECT)
+
+        skey = self.config[gcp_constants.SERVICE_KEY_PATH]
+
+        from fabfed.util.utils import can_read, absolute_path
+
+        skey = absolute_path(skey)
+
+        if not can_read(skey):
+            raise ProviderException(f"{self.name}: unable to read service key in {skey}")
+
+        try:
+            with open(skey, 'r') as fp:
+                import json
+
+                json.load(fp)
+        except Exception as e:
+            raise ProviderException(f"{self.name}:Unable to parse {skey} to json:{e}")
+
+        self.config[gcp_constants.SERVICE_KEY_PATH] = skey
 
     def do_add_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
