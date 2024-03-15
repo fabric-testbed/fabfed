@@ -54,16 +54,7 @@ jobs:
           pip list -v | grep neo4j
           pip install --no-cache-dir --ignore-requires-python -r requirements.txt
           python3 -m pip install --no-cache-dir .
-
-      - name: Print Env Vars 
-        run: |
-          echo "*******************"
-          echo ${{ env.RUN_FABRIC_AWS_SENSE }} 
-          echo "*******************"
-          echo ${{ env.RUN_FABRIC_AWS_SENSE == 'false' }} 
-          echo "*******************"
-          echo ${{ env.RUN_FABRIC_AWS_SENSE == false }} 
-          echo "*******************"
+          pip install --no-cache-dir git+https://gitlab.flux.utah.edu/stoller/portal-tools.git
 
       - name: Run Unit Tests
         run: |
@@ -72,6 +63,9 @@ jobs:
       - name: Test Stitch Policy
         run: |
           fabfed stitch-policy -providers "chi,fabric"
+          fabfed stitch-policy -providers "cloudlab,fabric"
+          fabfed stitch-policy -providers "aws,fabric"
+          fabfed stitch-policy -providers "gcp,fabric"
 
       - name: Show Sessions 
         run: |
@@ -88,6 +82,13 @@ jobs:
           echo ${{ env.SENSE_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/sense
           echo ${{ env.CLAB_SLIVER_KEY }} | base64 --decode > ${{ github.workspace }}/creds/cloudlab
           echo ${{ env.CLAB_PEM_FILE }} | base64 --decode > ${{ github.workspace }}/creds/cloudlab.pem
+
+      - name: Test Cloudlab
+        if: ${{ env.RUN_CLAB == 'true' }}
+        run: |
+          session=cicd-clab
+          echo "site: CLEM" > $session-varfile.yml
+          ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/cloudlab $session $session-varfile.yml
 
       - name: Test Fabric FacilityPort
         if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }} 
@@ -107,13 +108,6 @@ jobs:
           session=aes-aws-native
           echo "vlan: 4" > $session-varfile.yml
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_native_aws $session $session-varfile.yml
-
-      - name: Test Cloudlab
-        if: ${{ env.RUN_CLAB == 'true' }}
-        run: |
-          session=cicd-clab
-          echo "site: CLEM" > $session-varfile.yml
-          ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/cloudlab $session $session-varfile.yml
 
       - name: Test SENSE/AWS.
         if: ${{ env.RUN_FABRIC_AWS_SENSE == 'true' || env.RUN_FABRIC_AWS_SENSE == true  }} 
