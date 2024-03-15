@@ -475,6 +475,8 @@ class FabricSlice:
 
         if self.nodes:
             self._handle_node_networking()
+        else:
+            self._reload_networks()
 
         for node in self.nodes:
             self.resource_listener.on_created(source=self, provider=self.provider, resource=node)
