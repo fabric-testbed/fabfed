@@ -1,0 +1,58 @@
+variable:
+  - vpc:
+      default: vpc-69acc1d9-8c24-47cd-90b8-33be57167dbf
+  - vlan:
+     default: 5 # a value between 3 and 4095. The default is 4.
+
+provider:
+  - gcp:
+      - gcp_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
+          profile: gcp
+  - fabric:
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
+          profile: fabric
+config:
+  - layer3:
+      - fab_layer:
+          subnet: 192.168.10.0/24
+          gateway: 192.168.10.1
+          ip_start: 192.168.10.2
+          ip_end: 192.168.10.254
+      - gcp_layer:
+          subnet: 10.100.0.0/24 # subnet.cidr and vpc.cidr
+  - peering:
+      - my_peering:
+          # FOR GCP  
+          cloud_region: "us-east4"
+          cloud_vpc: '{{ var.vpc }}'
+          cloud_vlan: '{{ var.vlan }}' 
+
+          # FOR GCP AND FABRIC. 
+          remote_asn: 16550 # google_asn
+          # FOR FABRIC
+          local_address: "192.168.1.1/16" # customer_ip
+          remote_address: "192.168.1.2/16" # google_ip
+resource:
+  - network:
+      - gcp_net:
+          provider: '{{ gcp.gcp_provider }}'
+          name: gcp-net
+          layer3: "{{ layer3.gcp_layer }}"
+          peering: "{{ peering.my_peering }}"
+          stitch_with: '{{ network.fabric_network }}'
+          count: 1
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.fab_layer }}"
+          peering: "{{ peering.my_peering }}"
+          interface: '{{ node.fabric_node }}'
+          count: 1
+  - node:
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          site: MAX
+          image: default_rocky_8
+          count: 1
+          nic_model: NIC_Basic
