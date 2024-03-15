@@ -23,6 +23,7 @@ env:
   SENSE_SECRET: ${{ secrets.SENSE_SECRET }}
   SENSE_SLIVER_KEY: ${{ secrets.SENSE_SLIVER_KEY }}
   RUN_FABRIC_AWS_SENSE: ${{ vars.RUN_FABRIC_AWS_SENSE }}
+  RUN_CLAB: ${{ vars.RUN_CLAB }}
 
 jobs:
   UbuntuTest:
@@ -104,7 +105,7 @@ jobs:
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_native_aws $session $session-varfile.yml
 
       - name: Test Cloudlab
-        if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }}
+        if: ${{ env.RUN_CLAB == 'false' }}
         run: |
           session=cicd-clab
           echo "site: CLEM" > $session-varfile.yml
