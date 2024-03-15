@@ -105,7 +105,7 @@ jobs:
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_native_aws $session $session-varfile.yml
 
       - name: Test Cloudlab
-        if: ${{ env.RUN_CLAB == 'false' }}
+        if: ${{ env.RUN_CLAB == 'true' }}
         run: |
           session=cicd-clab
           echo "site: CLEM" > $session-varfile.yml
