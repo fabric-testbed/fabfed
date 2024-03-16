@@ -41,6 +41,14 @@ fabfed workflow -c $conf_dir $options -s $session -show -summary > $session-appl
 fabfed workflow -c $conf_dir $options -s $session -show -summary
 fabfed sessions -show
 
+DO_NOT_DESTROY="${DO_NOT_DESTROY:=0}"
+
+if [ $DO_NOT_DESTROY -ne 0 ]; then
+   echo "NOT_DESTROYING:APPLY RESULTS:"
+   cat $session-apply-state.yaml
+   exit $ret1
+fi
+
 echo "***************** DESTOYING ****************"
 echo fabfed workflow -c $conf_dir $options -s $session -destroy
 fabfed workflow -c $conf_dir $options -s $session -destroy

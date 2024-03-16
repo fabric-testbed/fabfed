@@ -115,7 +115,7 @@ class Parser:
             raise ParseConfigException(f'detected duplicate variables')
 
         for variable in variables:
-            if not variable.value:
+            if variable.value is None:
                 raise ParseConfigException(f'variable {variable .name} is not bound')
 
     @staticmethod
