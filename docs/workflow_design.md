@@ -375,6 +375,7 @@ config:
         consumer: fabric
         producer: cloudlab
         stitch_port:
+          name: my_policy
           profile: fabfed-stitch-v2
           provider: cloudlab
           peer:
