@@ -37,6 +37,7 @@ The `provider` class supports the following types.
 The `config` class support the following types:
 - [ ] layer3
 - [ ] peering
+- [ ] policy
       
 The `resource` class support three types:
 - [ ] node
@@ -324,9 +325,9 @@ Also note the `stitch_option` right below the `stitch_with`. If `stitch_option` 
  ```
 fabfed stitch-policy -providers "fabric,aws" 
  ```
- To view the stitch port that would be selected use the -init option before you -apply. 
+ To view the stitch port that would be selected use the -stitch-info option before you -apply.
  ```
-fabfed workflow -s my-aws-test -init -summary
+fabfed workflow -s my-aws-test -stitch-info -summary
  ```
  ```
   - network:
@@ -343,12 +344,11 @@ fabfed workflow -s my-aws-test -init -summary
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
           peering: "{{ peering.my_peering }}"
-          interface: '{{ node.fabric_node }}'
           count: 1 
  ```
   # <a name="stitching_override"></a>Overriding Stitching Policy
  
- Fabfed uses system defined stitching. Here we discuss the several ways one can override the stich coonfiguration. As of this writting there are 3 approaches. The first two approaches require some changes in the fabfed workflow definition. These are the simpler approaches. There is also a third approach which allows one can use to provide a complete stitching policy. 
+ Fabfed uses system defined stitching. Here we discuss the several ways one can override the stitch configuration. As of this writting there are 3 approaches. The first two approaches require some changes in the fabfed workflow definition. These are the simpler approaches. There is also a third approach which allows one can use to provide a complete stitching policy.
 
  ### <a name="simple"></a>Using The Network Resource
 The `stitch_option` can be used to tell fabfed to select a stitch point from sense to fabric that uses the agg4.ashb.net.internet2.edu. This stitch point returns a default profile needed by the sense provider. 
@@ -360,14 +360,14 @@ Instead of changing the policy files, one can simply use an attribute in the net
           profile: my-new-sense-profile
           stitch_with: '{{ network.fabric_network }}'
           stitch_option: 
-              device_name: agg4.ashb.net.internet2.edu
+              device_name: agg3.ashb
 
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
  ```
  ### <a name="stich_policy"></a>Using Policy Config 
-Using the `policy` config class, one can, for example, use a stich point with a new device that is not yet available in the fabfed stiching policy. Note how the cloudlab network points to the `policy` config using the attribute `policy` under the `stich_option`.     
+Using the `policy` config class, one can, for example, use a stitch point with a new device that is not yet available in the fabfed stitching policy. Note how the cloudlab network points to the `policy` config using the attribute `policy` under the `stitch_option`. 
  ```
 config:
   - policy:
@@ -375,6 +375,7 @@ config:
         consumer: fabric
         producer: cloudlab
         stitch_port:
+          name: my_policy
           profile: fabfed-stitch-v2
           provider: cloudlab
           peer:
@@ -399,7 +400,7 @@ This approach can be useful when designing a new policy with several new stitch 
 fabfed stitch-policy -providers "fabric,chi" -p my-policy.yaml
 
 # Test your workflow and verify the selected stitch point 
-fabfed workflow -s my-session  -init -p my-policy.yaml -summary
+fabfed workflow -s my-session -stitch-info -p my-policy.yaml -summary
 
 # Apply your workflow
 fabfed workflow -s my-session -apply -p my-policy.yaml

@@ -1,6 +1,9 @@
 variable:
   - vlan:
       default: 3101
+  - node_count:
+      default: 0 
+
 provider:
   - fabric:
       - fabric_provider:
@@ -20,12 +23,12 @@ resource:
           site: UTAH # CLEM  # UTAH
           image: default_rocky_8
           nic_model: NIC_Basic
-          count: 0
+          network: '{{ network.fabric_network }}'
+          count: '{{ var.node_count }}' 
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.my_layer }}"
-          # interface: '{{ node.fabric_node }}'
           device_name: Utah-Cloudlab-Powder
           site: UTAH
           interface:
