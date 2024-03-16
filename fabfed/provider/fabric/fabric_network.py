@@ -92,7 +92,6 @@ class NetworkBuilder:
         self.layer3 = resource.get(Constants.RES_LAYER3)
         self.peering = resource.get(Constants.RES_PEERING)
         self.peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
-        self.device = None
         self.stitching_net = None
         self.label = label
         self.net = None
