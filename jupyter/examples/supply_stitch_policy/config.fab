@@ -1,0 +1,63 @@
+variable:
+  - node_count:
+      default: 1
+  - vlan:
+      default: 3110
+
+provider:
+  - cloudlab:
+      - cloudlab_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: cloudlab
+  - fabric:
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: fabric
+
+config:
+  - policy:
+    - my_stitch_policy:
+        producer: cloudlab
+        consumer: fabric
+        stitch_port:
+          name: clab-mass
+          profile: OCT-MGHPCC
+          provider: fabric
+          device_name: OCT-MGHPCC
+          site: MASS
+          peer:
+            profile: fabfed-stitch-v2
+            provider: cloudlab
+            option:
+              cluster: urn:publicid:IDN+cloudlab.umass.edu+authority+cm
+              interface:
+              - vlan: '{{ var.vlan }}' 
+
+  - layer3:
+      - my_layer:
+          subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
+          ip_start: 192.168.1.2
+          ip_end: 192.168.1.254
+resource:
+  - network:
+      - cnet:
+          provider: '{{cloudlab.cloudlab_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+  - node:
+      - cloudlab_node:
+          provider: '{{ cloudlab.cloudlab_provider }}'
+          network: "{{ network.cnet }}"
+          count: '{{ var.node_count }}'
+  - node:
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          network: "{{ network.fabric_network }}"
+          count: '{{ var.node_count }}'
+  - network:
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+          stitch_with: '{{ network.cnet }}'
+          stitch_option:
+             policy: '{{ policy.my_stitch_policy }}'
