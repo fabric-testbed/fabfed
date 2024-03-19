@@ -1,3 +1,7 @@
+variable:
+  - node_count:
+      default: 1
+
 provider:
   - fabric:
       - fabric_provider:
@@ -37,13 +41,13 @@ resource:
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          count: 1
+          count: '{{ var.node_count }}'
           image: default_rocky_8
       - chi_node:
           provider: '{{ chi.chi_provider }}'
           image: CC-Ubuntu20.04
           network: '{{ network.chi_network }}'
-          count: 1
+          count: '{{ var.node_count }}'
           flavor: m1.medium
   - service:
       - dtn_service:
