@@ -15,7 +15,7 @@ env:
   FABRIC_USER: ${{ secrets.FABRIC_USER }}
 
 jobs:
-  UbuntuTest:
+  UbuntuModifyTest:
     runs-on: ubuntu-latest
     steps:
 
