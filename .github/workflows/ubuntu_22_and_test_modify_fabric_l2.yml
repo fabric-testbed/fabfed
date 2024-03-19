@@ -1,8 +1,8 @@
-name: Ubuntu22.04 Test 
+name: Ubuntu22.04 Modify Test 
 
 on:
   push:
-    branches:
+     branches:
       - knit8 
   workflow_dispatch:
 
@@ -15,7 +15,7 @@ env:
   FABRIC_USER: ${{ secrets.FABRIC_USER }}
 
 jobs:
-  UbuntuTest:
+  UbuntuModifyTest:
     runs-on: ubuntu-latest
     steps:
 
