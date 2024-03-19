@@ -1,9 +1,9 @@
 name: Ubuntu22.04 Modify Test 
 
 on:
-  # push:
-  #   branches:
-  #    - knit8 
+  push:
+     branches:
+      - knit8 
   workflow_dispatch:
 
 env:
