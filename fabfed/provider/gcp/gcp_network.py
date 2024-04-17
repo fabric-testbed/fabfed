@@ -66,6 +66,12 @@ class GcpNetwork(Network):
                                                                 region=region,
                                                                 attachment_name=attachment_name)
 
+        # set the MD5 authentication
+        gcp_utils.patch_router(service_key_path=service_key_path,
+                               project=project,
+                               region=region,
+                               router_name=router_name)
+
         logger.info(f"attachment_details={attachment}")
         self.interface.append(dict(id=attachment.pairing_key, provider=self._provider.type))
 
