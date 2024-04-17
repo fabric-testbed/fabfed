@@ -1,7 +1,6 @@
 variable:
   - node_count:
-      default: 1
-
+      default: 0
 provider:
   - fabric:
       - fabric_provider:
@@ -11,11 +10,6 @@ provider:
       - chi_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: chi
-  - janus:
-      - janus_provider:
-          credential_file: ~/.fabfed/fabfed_credentials.yml
-          profile: janus 
-
 config:
   - layer3:
       - my_layer:
@@ -29,12 +23,9 @@ resource:
           provider: '{{ chi.chi_provider }}'
           name: stitch_net
           layer3: "{{ layer3.my_layer }}"
-          count: 1
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          interface: '{{ node.fabric_node }}'
           layer3: "{{ layer3.my_layer }}"
-          count: 1
           stitch_with: '{{ network.chi_network }}'
           stitch_option:
              site: STAR
@@ -42,18 +33,10 @@ resource:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
           count: '{{ var.node_count }}'
-          image: default_rocky_8
+          network: '{{ network.fabric_network }}'
+
       - chi_node:
           provider: '{{ chi.chi_provider }}'
-          image: CC-Ubuntu20.04
           network: '{{ network.chi_network }}'
           count: '{{ var.node_count }}'
           flavor: m1.medium
-  - service:
-      - dtn_service:
-          provider: '{{ janus.janus_provider }}'
-          node: [ '{{ node.chi_node }}', '{{ node.fabric_node }}' ]
-          controller: '{{ node.fabric_node }}'
-          image: dtnaas/tools
-          profile: fabfed
-          count: 0
