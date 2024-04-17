@@ -221,12 +221,17 @@ class NetworkBuilder:
             logger.info(f"Creating Facility Port:Labels: {labels}")
             logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
 
+            if cloud == "GCP":
+                mtu_size = 1460
+            else:
+                mtu_size = 9001
+                
             facility_port = self.slice_object.add_facility_port(
                 name='Cloud-Facility-' + cloud,
                 site=cloud,
                 labels=labels,
                 peer_labels=peer_labels,
-                capacities=Capacities(bw=50, mtu=9001))
+                capacities=Capacities(bw=50, mtu=mtu_size))
 
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
