@@ -155,4 +155,4 @@ venv
 *.*~
 
 # jupyter artifacts
-*/.ipynb_checkpoints
+.ipynb_checkpoints
