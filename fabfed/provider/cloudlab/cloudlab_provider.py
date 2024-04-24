@@ -127,11 +127,11 @@ class CloudlabProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
         label = resource.get(Constants.LABEL)
 
-        if rtype == Constants.RES_TYPE_NETWORK:
+        if rtype == Constants.RES_TYPE_NETWORK and \
+                self.retrieve_attribute_from_saved_state(resource, self.resource_name(resource), attribute='interface'):
             net_name = self.resource_name(resource)
             interface = self.retrieve_attribute_from_saved_state(resource, net_name, attribute='interface')
 
-            assert interface, "expecting a vlan interface in saved state for {label}"
             vlan = interface['vlan']
 
             if isinstance(vlan, str):
@@ -155,7 +155,7 @@ class CloudlabProvider(Provider):
 
             for idx in range(0, node_count):
                 node_name = self.resource_name(resource, idx)
-                node = CloudlabNode(label=label, name=f'{node_name}-{idx}', provider=self, network=net)
+                node = CloudlabNode(label=label, name=f'{node_name}', provider=self, network=net)
                 self._nodes.append(node)
                 self.resource_listener.on_added(source=self, provider=self, resource=node)
             return

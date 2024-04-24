@@ -501,7 +501,7 @@ def handle_stitch_info(config, policy, resources):
 
         from fabfed.util.resource_dependency_helper import ResourceDependencyEvaluator, order_resources
 
-        dependency_evaluator = ResourceDependencyEvaluator(resources, config.get_provider_config())
+        dependency_evaluator = ResourceDependencyEvaluator(resources, config.get_provider_configs())
         dependency_map = dependency_evaluator.evaluate()
         resources = order_resources(dependency_map)
 
@@ -563,6 +563,12 @@ def get_stitch_port_for_provider(*, resource: dict, provider: str):
 
     if not stitch_info:
         return None
+
+    if isinstance(stitch_info, dict):  # This is for testing purposes.
+        producer = stitch_info['producer']
+        consumer = stitch_info['consumer']
+        stitch_info = StitchInfo(stitch_port=stitch_info['stitch_port'], producer=producer, consumer=consumer)
+        resource[Constants.RES_STITCH_INFO] = stitch_info
 
     stitch_ports = [stitch_info.stitch_port]
 

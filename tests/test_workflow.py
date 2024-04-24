@@ -22,7 +22,7 @@ def get_stats(*, states: List[ProviderState]):
 
 
 def run_plan_workflow(*, session, config_str):
-    config = WorkflowConfig(content=config_str)
+    config = WorkflowConfig.parse(content=config_str)
 
     # logger = utils.init_logger()
     logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def run_plan_workflow(*, session, config_str):
 
 
 def run_apply_workflow(*, session, config_str) -> List[ProviderState]:
-    config = WorkflowConfig(content=config_str)
+    config = WorkflowConfig.parse(content=config_str)
 
     # logger = utils.init_logger()
     logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ def run_apply_workflow(*, session, config_str) -> List[ProviderState]:
 
 
 def run_destroy_workflow(*, session, config_str) -> List[ProviderState]:
-    config = WorkflowConfig(content=config_str)
+    config = WorkflowConfig.parse(content=config_str)
     logger = logging.getLogger(__name__)
     controller = Controller(config=config, logger=logger)
     states = sutil.load_states(session)

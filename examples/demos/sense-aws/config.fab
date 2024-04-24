@@ -29,7 +29,7 @@ config:
           cloud_facility:
           local_device:
           local_port:
-          cloud_region:
+          cloud_region: "us-east-1"
 
           # FOR SENSE and FABRIC
           local_asn: "55038" # customer_asn (hard coded for now)
@@ -52,13 +52,13 @@ resource:
   - network:
       - sense_net:
           provider: '{{ sense.sense_provider }}'
-          name: aws-net
           layer3: "{{ layer3.sense_layer }}"
           peering: "{{ peering.my_peering }}"
           count: 1
           stitch_with: '{{ network.fabric_network }}'
           stitch_option: 
-              port_name: agg3.ashb 
+              device_name: agg3.ashb
+
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"

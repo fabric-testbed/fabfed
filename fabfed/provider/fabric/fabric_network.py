@@ -92,7 +92,6 @@ class NetworkBuilder:
         self.layer3 = resource.get(Constants.RES_LAYER3)
         self.peering = resource.get(Constants.RES_PEERING)
         self.peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
-        self.device = None
         self.stitching_net = None
         self.label = label
         self.net = None
@@ -222,12 +221,17 @@ class NetworkBuilder:
             logger.info(f"Creating Facility Port:Labels: {labels}")
             logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
 
+            if cloud == "GCP":
+                mtu_size = 1460
+            else:
+                mtu_size = 9001
+                
             facility_port = self.slice_object.add_facility_port(
                 name='Cloud-Facility-' + cloud,
                 site=cloud,
                 labels=labels,
                 peer_labels=peer_labels,
-                capacities=Capacities(bw=50, mtu=9001))
+                capacities=Capacities(bw=50, mtu=mtu_size))
 
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
@@ -283,6 +287,9 @@ class NetworkBuilder:
                 logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
 
         # TODO DO WE NEED REALLY THIS?
+        if not interfaces:
+            return
+
         for iface in interfaces:
             fim_iface1 = iface.get_fim_interface()
 

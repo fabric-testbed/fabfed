@@ -30,8 +30,8 @@ config:
           # FOR GCP AND FABRIC. 
           remote_asn: 16550 # google_asn
           # FOR FABRIC
-          local_address: "192.168.1.1/30" # customer_ip
-          remote_address: "192.168.1.2/30" # google_ip
+          local_address: "192.168.1.1/16" # customer_ip
+          remote_address: "192.168.1.2/16" # google_ip
 resource:
   - network:
       - gcp_net:
