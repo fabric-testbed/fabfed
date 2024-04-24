@@ -282,6 +282,9 @@ class NetworkBuilder:
                 logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
 
         # TODO DO WE NEED REALLY THIS?
+        if not interfaces:
+            return
+
         for iface in interfaces:
             fim_iface1 = iface.get_fim_interface()
 
