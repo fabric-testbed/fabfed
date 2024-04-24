@@ -1,9 +1,9 @@
 from fabfed.policy.policy_helper import get_stitch_port_for_provider
-from fabfed.exceptions import ResourceTypeNotSupported
+from fabfed.exceptions import ResourceTypeNotSupported, ProviderException
 from fabfed.provider.api.provider import Provider
-from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
 from .sense_exceptions import SenseException
+from .sense_constants import *
 
 logger = get_logger()
 
@@ -16,20 +16,20 @@ class SenseProvider(Provider):
         self._handled_modify = False
 
     def setup_environment(self):
-        from fabfed.util import utils
+        for attr in SENSE_CONF_ATTRS:
+            if self.config.get(attr.lower()) is None and self.config.get(attr.upper()) is None:
+                raise ProviderException(f"{self.name}: Expecting a value for {attr}")
 
-        credential_file = self.config.get(Constants.CREDENTIAL_FILE)
-        profile = self.config.get(Constants.PROFILE)
-        config = utils.load_yaml_from_file(credential_file)
+        pkey = self.config[SENSE_SLICE_PRIVATE_KEY_LOCATION]
 
-        if profile not in config:
-            from fabfed.exceptions import ProviderException
+        from fabfed.util.utils import can_read, is_private_key, absolute_path
 
-            raise ProviderException(
-                f"credential file {credential_file} does not have a section for keyword {profile}"
-            )
+        pkey = absolute_path(pkey)
 
-        self.config = config[profile]
+        if not can_read(pkey) or not is_private_key(pkey):
+            raise ProviderException(f"{self.name}: unable to read/parse ssh key in {pkey}")
+
+        self.config[SENSE_SLICE_PRIVATE_KEY_LOCATION] = pkey
 
     @property
     def private_key_file_location(self):
@@ -62,9 +62,11 @@ class SenseProvider(Provider):
 
     def _init_client(self):
         if not self.initialized:
+            self.logger.info(f"{self.name}: Initializing sense client")
             from .sense_client import init_client
 
             init_client(self.config)
+            self.logger.info(f"{self.name}: Initialized sense client")
             self.initialized = True
 
     def do_add_resource(self, *, resource: dict):
@@ -147,12 +149,13 @@ class SenseProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
         assert rtype in self.supported_resources
         label = resource.get(Constants.LABEL)
+        self.logger.info(f"{self.name}: Creating resource {label} ....")
 
         if not self._handled_modify and self.modified:
             assert rtype == Constants.RES_TYPE_NETWORK, "sense expects network to be created first"
             self._handled_modify = True
 
-            self.logger.info(f"Deleting sense resources ....")
+            self.logger.warning(f"{self.name}:Modified state: Deleting sense resources ...")
 
             from .sense_network import SenseNetwork
 
@@ -190,6 +193,7 @@ class SenseProvider(Provider):
             self.logger.debug(f"Created network: {vars(net)}")
 
     def do_delete_resource(self, *, resource: dict):
+        self._init_client()
         rtype = resource.get(Constants.RES_TYPE)
         assert rtype in self.supported_resources
         label = resource.get(Constants.LABEL)

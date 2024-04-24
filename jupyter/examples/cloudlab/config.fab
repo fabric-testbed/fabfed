@@ -1,3 +1,7 @@
+variable:
+  - site:
+      default: UTAH # CLEM
+
 provider:
   - cloudlab:
       - cloudlab_provider:
@@ -27,19 +31,20 @@ resource:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.my_layer }}"
-          interface: '{{ node.fabric_node }}'
+          #interface: '{{ node.fabric_node }}'
           stitch_with: '{{ network.cnet }}'
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: UTAH # CLEM  # UTAH
+          site: '{{ var.site }}'
           image: default_rocky_8
           nic_model: NIC_Basic
-          count: 1
+          network: "{{ network.fabric_network }}"
+          count: 0
       - cnode:
           provider: '{{ cloudlab.cloudlab_provider }}'
           network: "{{ network.cnet }}"
-          count: 1
+          count: 0
   - service:
       - dtn_service:
           provider: '{{ janus.janus_provider }}'

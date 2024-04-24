@@ -27,9 +27,9 @@ config:
 
           # FOR SENSE and FABRIC
           local_asn: "55038" # customer_asn (hard coded for now)
-          local_address: "192.168.1.1/30" # customer_ip
+          local_address: "192.168.1.1/16" # customer_ip
           remote_asn: "64512" # amazon_asn
-          remote_address: "192.168.1.2/30" # amazon_ip
+          remote_address: "192.168.1.2/16" # amazon_ip
 resource:
   - node:
       - sense_node:

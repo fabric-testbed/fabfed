@@ -4,7 +4,11 @@ from google.cloud import compute_v1
 from google.cloud.compute_v1.types import (
     Router,
     RouterBgp,
+    RouterBgpPeer,
+    # RouterBgpPeerBfd,
+    RouterMd5AuthenticationKey,
     InsertRouterRequest,
+    PatchRouterRequest,
     InterconnectAttachment,
 )
 from google.oauth2 import service_account
@@ -80,6 +84,35 @@ def create_router(*, service_key_path, project, region, router_name, vpc, bgp_as
     check_operation_result(credentials=credentials, project=project, region=region, operation_name=response.name)
     logger.info(f'Router {router_name} created successfully.')
 
+def patch_router(*, service_key_path, project, region, router_name):
+    credentials = service_account.Credentials.from_service_account_file(service_key_path)
+    compute_client = compute_v1.RoutersClient(credentials=credentials)
+    
+    # Get the router resource
+    router = compute_client.get(project=project, region=region, router=router_name)
+    
+    # Access the BGP peers associated with the router
+    bgp_peers = router.bgp_peers
+    
+    # Add md5 authentication
+    peer = bgp_peers[0]
+    peer.md5_authentication_key_name = 'md5-key-name-1'
+    
+    router_resource = Router(
+        name=router_name,
+        md5_authentication_keys = [RouterMd5AuthenticationKey(key='0xzsEwC7xk6c1fK_h.xHyAdx', name='md5-key-name-1')],
+        bgp_peers=[peer]
+    )
+    request = PatchRouterRequest(
+        project=project,
+        region=region,
+        router=router_name,
+        router_resource=router_resource)
+    response = compute_client.patch(request=request)
+    logger.info(f'Response={response}')
+    check_operation_result(credentials=credentials, project=project, region=region, operation_name=response.name)
+    logger.info(f'Router {router_name} patched successfully.')
+
 
 def delete_router(*, service_key_path, project, region, router_name):
     credentials = service_account.Credentials.from_service_account_file(service_key_path)
@@ -122,7 +155,8 @@ def create_interconnect_attachment(*, service_key_path, project, region, router_
         admin_enabled=True,
         encryption=None,
         router=f'projects/{project}/regions/{region}/routers/{router_name}',
-        type_='PARTNER'
+        type_='PARTNER',
+        mtu=1460
     )
     
     request = compute_v1.InsertInterconnectAttachmentRequest(

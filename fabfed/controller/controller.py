@@ -10,14 +10,17 @@ from .provider_factory import ProviderFactory
 from ..util.constants import Constants
 from ..util.config_models import ResourceConfig
 from ..util.stats import ProviderStats, Duration, Stages
+from fabfed.util.utils import get_logger
 
 
 class Controller:
-    def __init__(self, *, config: WorkflowConfig, logger: logging.Logger,
+    def __init__(self, *, config: WorkflowConfig, logger: Union[logging.Logger, None] = None,
                  policy: Union[Dict[str, ProviderPolicy], None] = None,
                  use_local_policy=True):
-        self.config = config
-        self.logger = logger
+        import copy
+
+        self.config = copy.deepcopy(config)
+        self.logger = logger or get_logger()
         self.provider_factory: Union[ProviderFactory, None] = None
         self.resources: List[ResourceConfig] = []
         self.policy = policy
@@ -27,7 +30,7 @@ class Controller:
     def init(self, *, session: str, provider_factory: ProviderFactory, provider_states: List[ProviderState]):
         init_provider_map: Dict[str, bool] = dict()
 
-        for provider_config in self.config.get_provider_config():
+        for provider_config in self.config.get_provider_configs():
             init_provider_map[provider_config.label] = False
 
         for resource in self.config.get_resource_configs():
@@ -38,7 +41,7 @@ class Controller:
             init_provider_map[provider_state.label] = init_provider_map[provider_state.label] \
                                                       or len(provider_state.states()) > 0
 
-        for provider_config in self.config.get_provider_config():
+        for provider_config in self.config.get_provider_configs():
             if not init_provider_map[provider_config.label]:
                 self.logger.warning(f"Skipping initialization of {provider_config.label}: no resources")
                 continue
@@ -127,6 +130,9 @@ class Controller:
         peering_to_network_mapping = {}
 
         for network in networks:
+            if Constants.RES_PEER_LAYER3 in network.attributes: # This is for testing
+                continue
+
             network.attributes[Constants.RES_PEER_LAYER3] = []
             peering = network.attributes.get(Constants.RES_PEERING)
 
@@ -142,15 +148,10 @@ class Controller:
                     if Constants.RES_LAYER3 in other.attributes:
                         network.attributes[Constants.RES_PEER_LAYER3].append(other.attributes[Constants.RES_LAYER3])
 
-        for network in [net for net in networks if net.attributes.get(Constants.NETWORK_STITCH_WITH)]:
-            temp_label = network.attributes[Constants.LABEL]
-            stitch_with = network.attributes[Constants.NETWORK_STITCH_WITH]
+        for network in [net for net in networks if net.attributes.get(Constants.RES_STITCH_INFO)]:
             stitch_info = network.attributes.get(Constants.RES_STITCH_INFO)
 
-            assert stitch_info is not None, f"network {temp_label} does not have {stitch_info}"
-            self.logger.info(f"{network}:stitch_with={stitch_with}: stitch_info={stitch_info}")
-
-        self.resources = [r for r in self.resources if r.attributes[Constants.RES_COUNT] > 0]
+            self.logger.info(f"{network}: stitch_info={stitch_info}")
 
     def plan(self, provider_states: List[ProviderState]):
         resources = self.resources
@@ -392,20 +393,6 @@ class Controller:
                 skip_resources.update([external_state.label for external_state in external_states])
                 continue
 
-            fabric_work_around = False
-            # TODO: THIS FABRIC SPECIFIC AS WE DON"T SUPPORT SLICE MODIFY API JUST YET
-            for remaining_resource in remaining_resources:
-                if provider_label == remaining_resource.provider.label \
-                        and "@fabric" in remaining_resource.provider.label:
-                    fabric_work_around = True
-                    break
-
-            if fabric_work_around:
-                self.logger.warning(f"Skipping deleting fabric resource: {resource} with {provider_label}")
-                remaining_resources.append(resource)
-                skip_resources.update([external_state.label for external_state in external_states])
-                continue
-
             try:
                 provider.delete_resource(resource=resource.attributes)
             except Exception as e:
@@ -431,10 +418,11 @@ class Controller:
                 provider_state.failed = provider.failed
 
                 for remaining_resource in [r for r in remaining_resources if r.provider.label == provider_state.label]:
-                    resource_states = resource_state_map[remaining_resource.label]
-                    provider_state.add_all(resource_states)
+                    if remaining_resource.label in resource_state_map:
+                        resource_states = resource_state_map[remaining_resource.label]
+                        provider_state.add_all(resource_states)
 
-                if provider_state.states():
+                if provider_state.states() or provider_state.failed:
                     provider_states.append(provider_state)
 
         if exceptions:

@@ -10,6 +10,13 @@ from fabfed.util.stats import FabfedStats, Duration
 from fabfed.util.constants import Constants
 
 
+def delete_session_if_empty(*, session):
+    provider_states = sutil.load_states(session)
+
+    if not provider_states:
+        sutil.destroy_session(session)
+
+
 def manage_workflow(args):
     logger = utils.init_logger()
     config_dir = utils.absolute_path(args.config_dir)
@@ -21,10 +28,6 @@ def manage_workflow(args):
         logger.warning(f"ATTN: The CORRECT config dir for session {args.session} is {config_dir_from_meta}!!!!!!!")
         sys.exit(1)
 
-    # we skip -show and -destroy
-    if args.apply or args.init or args.plan or args.validate:
-        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
-
     var_dict = utils.load_vars(args.var_file) if args.var_file else {}
 
     from fabfed.policy.policy_helper import load_policy
@@ -33,7 +36,7 @@ def manage_workflow(args):
 
     if args.validate:
         try:
-            WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+            WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
             logger.info("config looks ok")
         except Exception as e:
             logger.error(f"Validation failed .... {type(e)} {e}")
@@ -41,16 +44,17 @@ def manage_workflow(args):
             sys.exit(1)
 
     if args.apply:
+        sutil.save_meta_data(dict(config_dir=config_dir), args.session)
         sutil.delete_stats(args.session)
         import time
 
         start = time.time()
-        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
+        parse_and_validate_config_duration = time.time() - start
         controller_duration_start = time.time()
 
         try:
             controller = Controller(config=config,
-                                    logger=logger,
                                     policy=policy,
                                     use_local_policy=not args.use_remote_policy)
         except Exception as e:
@@ -94,6 +98,9 @@ def manage_workflow(args):
         except ControllerException as ce:
             logger.error(f"Exceptions while creating resources ... {ce}")
             workflow_failed = True
+        except Exception as e:
+            logger.error(f"Unknown error while creating resources ... {e}")
+            workflow_failed = True
 
         controller_duration = time.time() - controller_duration_start
         providers_duration = 0
@@ -105,9 +112,7 @@ def manage_workflow(args):
 
         states = controller.get_states()
         nodes, networks, services, pending, failed = utils.get_counters(states=states)
-
-        if pending or failed:
-            workflow_failed = True
+        workflow_failed = workflow_failed or pending or failed
 
         if Constants.RECONCILE_STATES:
             states = sutil.reconcile_states(states, args.session)
@@ -121,7 +126,7 @@ def manage_workflow(args):
                                        comment="time spent in controller. It does not include time spent in providers")
         providers_duration = Duration(duration=providers_duration,
                                       comment="time spent in all providers")
-        validate_config_duration = Duration(duration=config.parse_and_validate_config_duration,
+        validate_config_duration = Duration(duration=parse_and_validate_config_duration,
                                             comment="time spent in parsing and validating config")
 
         fabfed_stats = FabfedStats(action="apply",
@@ -134,23 +139,76 @@ def manage_workflow(args):
         logger.info(f"STATS:duration_in_seconds={workflow_duration}")
         logger.info(f"nodes={nodes}, networks={networks}, services={services}, pending={pending}, failed={failed}")
         sutil.save_stats(dict(comment="all durations are in seconds", stats=fabfed_stats), args.session)
-        return
+        sys.exit(1 if workflow_failed else 0)
 
     if args.init:
-        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config,
-                                logger=logger,
                                 policy=policy,
                                 use_local_policy=not args.use_remote_policy)
         states = sutil.load_states(args.session)
         controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
         sutil.dump_resources(resources=controller.resources, to_json=args.json, summary=args.summary)
+        delete_session_if_empty(session=args.session)
+        return
+
+    if args.stitch_info:
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
+        controller = Controller(config=config,
+                                policy=policy,
+                                use_local_policy=not args.use_remote_policy)
+        states = sutil.load_states(args.session)
+        controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
+        resources = controller.resources
+
+        from collections import namedtuple
+
+        if not args.summary:
+            stitch_info_details = []
+
+            StitchInfoDetails = namedtuple("StitchInfoDetails", "label provider_label stitch_info")
+
+            for network in filter(lambda n: n.is_network, resources):
+                details = StitchInfoDetails(label=network.label,
+                                            provider_label=network.provider.label,
+                                            stitch_info=network.attributes.get(Constants.RES_STITCH_INFO))
+                stitch_info_details.append(details)
+
+            stitch_info_details = dict(StitchNetworkDetails=stitch_info_details)
+            sutil.dump_objects(objects=stitch_info_details, to_json=args.json)
+
+        NetworkInfo = namedtuple("NetworkInfo", "label provider_label")
+        StitchInfoSummary = namedtuple("StitchInfoSummary", "network_infos stitch_info")
+
+        stitch_info_summaries = []
+        stitch_info_map = {}
+        stitch_info_network_info_map = {}
+
+        for network in filter(lambda n: n.is_network and n.attributes.get(Constants.RES_STITCH_INFO), resources):
+            stitch_info = network.attributes.get(Constants.RES_STITCH_INFO)
+
+            if stitch_info:
+                network_info = NetworkInfo(label=network.label, provider_label=network.provider.label)
+                stitch_port_name = stitch_info.stitch_port['name']
+                stitch_info_map[stitch_port_name] = stitch_info
+
+                if stitch_port_name not in stitch_info_network_info_map:
+                    stitch_info_network_info_map[stitch_port_name] = []
+
+                stitch_info_network_info_map[stitch_port_name].append(network_info)
+
+        for k, v in stitch_info_network_info_map.items():
+            stitch_info_summary = StitchInfoSummary(network_infos=v, stitch_info=stitch_info_map[k])
+            stitch_info_summaries.append(stitch_info_summary)
+
+        stitch_info_summaries = dict(StitchInfoSummary=stitch_info_summaries)
+        sutil.dump_objects(objects=stitch_info_summaries, to_json=args.json)
+        delete_session_if_empty(session=args.session)
         return
 
     if args.plan:
-        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
         controller = Controller(config=config,
-                                logger=logger,
                                 policy=policy,
                                 use_local_policy=not args.use_remote_policy)
         states = sutil.load_states(args.session)
@@ -159,6 +217,7 @@ def manage_workflow(args):
         cr, dl = sutil.dump_plan(resources=controller.resources, to_json=args.json, summary=args.summary)
 
         logger.warning(f"Applying this plan would create {cr} resource(s) and destroy {dl} resource(s)")
+        delete_session_if_empty(session=args.session)
         return
 
     if args.show:
@@ -169,6 +228,7 @@ def manage_workflow(args):
     if args.stats:
         stats = sutil.load_stats(args.session)
         sutil.dump_stats(stats, args.json)
+        delete_session_if_empty(session=args.session)
         return
 
     if args.destroy:
@@ -186,12 +246,12 @@ def manage_workflow(args):
         import time
 
         start = time.time()
-        config = WorkflowConfig(dir_path=config_dir, var_dict=var_dict)
+        config = WorkflowConfig.parse(dir_path=config_dir, var_dict=var_dict)
+        parse_and_validate_config_duration = time.time() - start
         controller_duration_start = time.time()
 
         try:
             controller = Controller(config=config,
-                                    logger=logger,
                                     policy=policy,
                                     use_local_policy=not args.use_remote_policy)
             controller.init(session=args.session, provider_factory=default_provider_factory, provider_states=states)
@@ -199,10 +259,13 @@ def manage_workflow(args):
             logger.error(f"Exceptions while initializing controller .... {e}")
             sys.exit(1)
 
+        destroy_failed = False
+
         try:
             controller.destroy(provider_states=states)
         except ControllerException as e:
             logger.error(f"Exceptions while deleting resources ...{e}")
+            destroy_failed = True
         except KeyboardInterrupt as kie:
             logger.error(f"Keyboard Interrupt while deleting resources ... {kie}")
             sys.exit(1)
@@ -228,7 +291,7 @@ def manage_workflow(args):
         controller_duration = Duration(duration=controller_duration,
                                        comment="time spent in controller. It does not include time spent in providers")
         providers_duration = Duration(duration=providers_duration, comment="time spent in all providers")
-        validate_config_duration = Duration(duration=config.parse_and_validate_config_duration,
+        validate_config_duration = Duration(duration=parse_and_validate_config_duration,
                                             comment="time spent in parsing and validating config")
 
         provider_stats = controller.get_stats()
@@ -241,7 +304,7 @@ def manage_workflow(args):
                                    provider_stats=provider_stats)
         logger.info(f"STATS:duration_in_seconds={workflow_duration}")
         sutil.save_stats(dict(comment="all durations are in seconds", stats=fabfed_stats), args.session)
-        return
+        sys.exit(1 if destroy_failed else 0)
 
 
 def manage_sessions(args):
