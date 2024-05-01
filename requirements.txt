@@ -1,7 +1,7 @@
 fabrictestbed-extensions==1.6.4
 python-chi
 sense-o-api==1.26
-ansible==7.1.0
+ansible==8.5.0
 xmltodict
 boto3
 google-cloud-compute
