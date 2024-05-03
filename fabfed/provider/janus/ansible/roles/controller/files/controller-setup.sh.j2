@@ -15,6 +15,7 @@ rm -f $PORTAINER_TMP
 cat <<EOF | sudo tee /etc/janus/janus.conf
 [JANUS]
 PORTAINER_URI: http://portainer-ce:9000/api
+PORTAINER_WS: ws://portainer-ce:9000/api/websocket
 PORTAINER_USER: admin
 PORTAINER_PASSWORD: $PORTAINER_PASSWORD
 PORTAINER_VERIFY_SSL: False

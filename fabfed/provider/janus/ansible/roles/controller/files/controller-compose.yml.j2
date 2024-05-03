@@ -15,7 +15,7 @@ services:
       - dtnaas
 
   controller:
-    image: {{ ipv6_registry }}dtnaas/controller
+    image: {{ ipv6_registry }}dtnaas/controller:0.3rc1
     container_name: janus-controller
     restart: unless-stopped
     environment:
@@ -30,12 +30,11 @@ services:
       - dtnaas
 
   janus-web:
-    image: {{ ipv6_registry }}dtnaas/janus-web
+    image: {{ ipv6_registry }}dtnaas/janus-web:0.3rc1
     container_name: janus-web
     restart: unless-stopped
     environment:
       - JANUS_WEB_CTRL_HOST=controller
-      - PORTAINER_WS=ws://portainer-ce:9000
     expose:
       - 8000
     ports:
