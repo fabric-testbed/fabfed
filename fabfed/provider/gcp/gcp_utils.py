@@ -41,7 +41,6 @@ def check_operation_result(*, credentials, project, region, operation_name):
         region=region,
     )
 
-    retries = GCP_REQUEST_RETRY_MAX
     for attemp in range(GCP_REQUEST_RETRY_MAX):
         response = client.get(request=request)
 
