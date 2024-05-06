@@ -18,6 +18,8 @@ from fabfed.util.utils import get_logger
 logger = get_logger()
 
 
+GCP_REQUEST_RETRY_MAX = 3
+
 def find_vpc(*, service_key_path, project, vpc):
     credentials = service_account.Credentials.from_service_account_file(service_key_path)
     network_client = compute_v1.NetworksClient(credentials=credentials)
@@ -39,14 +41,17 @@ def check_operation_result(*, credentials, project, region, operation_name):
         region=region,
     )
 
-    while True:
+    retries = GCP_REQUEST_RETRY_MAX
+    for attemp in range(GCP_REQUEST_RETRY_MAX):
         response = client.get(request=request)
 
         if str(response.status) == 'Status.DONE':
-            break
-
-        logger.info(f"Status={str(response.status)}")
-        time.sleep(5)
+            return
+        else:
+            logger.info(f"Operation {operation_name} not done: Status={str(response.status)}. Retrying in 5 seconds...")
+            time.sleep(5)           
+    
+    raise Exception(f"Operaton {operation_name} failed after maximum retries {GCP_REQUEST_RETRY_MAX}.")
 
 
 def find_router(*, service_key_path, project, region, router_name):
