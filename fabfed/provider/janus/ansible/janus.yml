@@ -3,7 +3,7 @@
   strategy: free
   become: yes
   roles:
-    - { role: roles/docker, tags: 'docker' }
+    - { role: roles/haxorof.docker_ce, tags: 'docker' }
     - { role: roles/janus, tags: 'janus' }
     - { role: roles/controller, tags: 'controller' }
     - { role: roles/janus-add-node, tags: 'janus-add' }

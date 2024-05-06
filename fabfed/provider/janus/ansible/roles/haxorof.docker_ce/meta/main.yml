@@ -1,0 +1,41 @@
+galaxy_info:
+  role_name: docker_ce
+  namespace: haxorof
+  author: Bjorn Oscarsson
+  company: none
+  description: "Installs and configures Docker Community Edition (CE) on AlmaLinux/Rocky/CentOS/Fedora/RHEL/Ubuntu/Debian/Mint/Raspbian"
+  min_ansible_version: "2.12"
+  license: MIT
+  platforms:
+  - name: Fedora
+    versions:
+      - "36"
+      - "37"
+      - "38"
+
+  - name: EL
+    versions:
+      - "7"
+      - "8"
+      - "9"
+
+  - name: Debian
+    versions:
+      - buster
+      - bullseye
+
+  - name: Ubuntu
+    versions:
+      - bionic
+      - focal
+      - jammy
+
+  galaxy_tags:
+    - docker
+    - containers
+    - virtualization
+    - compose
+    - orchestration
+    - system
+
+dependencies: []
