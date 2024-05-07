@@ -10,6 +10,7 @@ from google.cloud.compute_v1.types import (
     InsertRouterRequest,
     PatchRouterRequest,
     InterconnectAttachment,
+    Operation
 )
 from google.oauth2 import service_account
 
@@ -41,17 +42,16 @@ def check_operation_result(*, credentials, project, region, operation_name):
         region=region,
     )
 
-    retries = GCP_REQUEST_RETRY_MAX
     for attemp in range(GCP_REQUEST_RETRY_MAX):
         response = client.get(request=request)
 
-        if str(response.status) == 'Status.DONE':
+        if response.status == Operation.Status.DONE:
             return
         else:
-            logger.info(f"Operation {operation_name} not done: Status={str(response.status)}. Retrying in 5 seconds...")
+            logger.info(f"Operation {operation_name} not done: Status={response.status}. Retrying in 5 seconds...")
             time.sleep(5)           
     
-    raise Exception(f"Operaton {operation_name} failed after maximum retries {GCP_REQUEST_RETRY_MAX}.")
+    raise Exception(f"Operation {operation_name} failed after maximum retries {GCP_REQUEST_RETRY_MAX}.")
 
 
 def find_router(*, service_key_path, project, region, router_name):
