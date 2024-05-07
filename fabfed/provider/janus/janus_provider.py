@@ -115,7 +115,10 @@ class JanusProvider(Provider):
                 controller = controller[0]
             if isinstance(controller, tuple):
                 controller = controller[0]
-            controller_url = f"https://{controller.get_dataplane_address()}:{JANUS_CTRL_PORT}"
+            dplane_addr = controller.get_dataplane_address()
+            if not dplane_addr:
+                dplane_addr = "localhost"
+            controller_url = f"https://{dplane_addr}:{JANUS_CTRL_PORT}"
             controller_host = controller.mgmt_ip
             controller_web = "http://localhost:8000"
             ssh_tunnel_cmd = f"{controller.sshcmd_str} -L 8000:localhost:8000"
