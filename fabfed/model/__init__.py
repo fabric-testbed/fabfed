@@ -59,7 +59,7 @@ ansible_connection=ssh
 ansible_ssh_common_args={self.proxyjump_str if self.proxyjump_str else ""}
 ansible_ssh_private_key_file={self.keyfile}
 ansible_user={self.user}
-node={dplane_address}
+node={dplane_addr}
 name={friendly_name}-{self.name}
 """
         with open(file_path, "w") as stream:
