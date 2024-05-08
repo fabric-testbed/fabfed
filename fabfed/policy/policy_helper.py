@@ -558,6 +558,44 @@ def fix_network_site(resource):
         resource.attributes[Constants.RES_SITE] = site
 
 
+def get_vlan_from_range(*, resource: dict):
+    vlan_range = get_vlan_range(resource=resource)
+
+    if not vlan_range:
+        return -1
+
+    vlan_range = vlan_range[0]
+    x = vlan_range.split("-")
+
+    import random
+
+    vlan = random.randrange(int(x[0]), int(x[1]) + 1)
+    return vlan
+
+
+def get_vlan_range(*, resource: dict):
+    stitch_info = resource.get(Constants.RES_STITCH_INFO)
+
+    if not stitch_info:
+        return None
+
+    if isinstance(stitch_info, dict):  # This is for testing purposes.
+        producer = stitch_info['producer']
+        consumer = stitch_info['consumer']
+        stitch_info = StitchInfo(stitch_port=stitch_info['stitch_port'], producer=producer, consumer=consumer)
+        resource[Constants.RES_STITCH_INFO] = stitch_info
+
+    stitch_ports = [stitch_info.stitch_port]
+
+    if PEER in stitch_info.stitch_port:
+        stitch_ports.append(stitch_info.stitch_port[PEER])
+
+    for stitch_port in stitch_ports:
+        if Constants.STITCH_VLAN_RANGE in stitch_port:
+            return stitch_port[Constants.STITCH_VLAN_RANGE]
+
+    return None
+
 def get_stitch_port_for_provider(*, resource: dict, provider: str):
     stitch_info = resource.get(Constants.RES_STITCH_INFO)
 

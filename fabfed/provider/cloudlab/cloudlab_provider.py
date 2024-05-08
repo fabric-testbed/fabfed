@@ -4,7 +4,7 @@ from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
 from .cloudlab_constants import *
 from .cloudlab_exceptions import CloudlabException
-from fabfed.policy.policy_helper import get_stitch_port_for_provider
+from fabfed.policy.policy_helper import get_stitch_port_for_provider, get_vlan_from_range
 
 logger = get_logger()
 
@@ -37,6 +37,10 @@ class CloudlabProvider(Provider):
 
         if not can_read(cert):
             raise ProviderException(f"{self.name}: unable to read/parse ssh key in {cert}")
+
+        if len(self.name) > CLOUDLAB_MAX_EXPERIMENT_NAME_SIZE:
+            raise ProviderException(
+                f"cloudlab can only handle session names <= {CLOUDLAB_MAX_EXPERIMENT_NAME_SIZE} characters")
 
     @property
     def project(self):
@@ -111,16 +115,6 @@ class CloudlabProvider(Provider):
         if not stitch_info:
             raise ProviderException(f"{self.label} expecting stitch info in {rtype} resource {label}")
 
-    def _get_interfaces(self, resource):
-        interfaces = resource.get(Constants.RES_INTERFACES, list())
-
-        if not interfaces:
-            cloudlab_stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
-
-            if 'option' in cloudlab_stitch_port and Constants.RES_INTERFACES in cloudlab_stitch_port['option']:
-                interfaces = cloudlab_stitch_port['option'][Constants.RES_INTERFACES]
-
-        return interfaces
 
     def resource_name(self, resource: dict, idx: int = 0):
         rtype = resource.get(Constants.RES_TYPE)
@@ -150,11 +144,11 @@ class CloudlabProvider(Provider):
             if isinstance(vlan, str):
                 vlan = int(vlan)
 
-            interfaces = self._get_interfaces(resource)
+            interfaces = resource.get(Constants.RES_INTERFACES, list())
 
             if interfaces and interfaces[0]['vlan'] != vlan:
                 self.logger.warning(
-                    f"{self.label} ignoring: {label}'s interface does not match provisioned vlan {vlan}")
+                    f"{self.label} ignoring: {label}'s interface {interfaces} does not match provisioned vlan {vlan}")
 
             resource[Constants.RES_INTERFACES] = [{'vlan': vlan}]
 
@@ -197,8 +191,8 @@ class CloudlabProvider(Provider):
         interfaces = resource.get(Constants.RES_INTERFACES, list())
 
         if not interfaces:
-            if 'option' in cloudlab_stitch_port and Constants.RES_INTERFACES in cloudlab_stitch_port['option']:
-                interfaces = cloudlab_stitch_port['option'][Constants.RES_INTERFACES]
+            vlan = get_vlan_from_range(resource=resource)
+            interfaces = [{'vlan': vlan}] if vlan > 0 else []
 
         layer3 = resource.get(Constants.RES_LAYER3)
         net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,

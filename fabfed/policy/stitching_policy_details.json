@@ -2,15 +2,18 @@
    "fabric": {
       "Utah-Cloudlab-Powder": {
          "device_name": "Utah-Cloudlab-Powder",
-         "site": "UTAH"
+         "site": "UTAH",
+         "vlan_range": ["2100-3499"]
       },
       "CloudLab-Clemson": {
          "device_name": "CloudLab-Clemson",
-         "site": "CLEM"
+         "site": "CLEM",
+         "vlan_range": ["3000-3999"] 
       },
        "OCT-MGHPCC": {
          "device_name": "OCT-MGHPCC",
-         "site": "MASS"
+         "site": "MASS",
+         "vlan_range": ["3110-3119"] 
       },
       "Cloud-Facility-AWS": [
          {
@@ -77,12 +80,7 @@
          {
             "name": "MASS-OCT-MGHPCC",
             "option": {
-               "cluster": "urn:publicid:IDN+cloudlab.umass.edu+authority+cm",
-               "interface": [
-                  {
-                     "vlan": 3110
-                  }
-               ]
+               "cluster": "urn:publicid:IDN+cloudlab.umass.edu+authority+cm"
             }
          }
       ]

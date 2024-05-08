@@ -67,6 +67,7 @@ class Constants:
     STITCH_PORT_LOCAL_NAME = 'local_name'
     STITCH_PORT_REGION = 'region'
     STITCH_PORT_SITE = 'site'
+    STITCH_VLAN_RANGE = 'vlan_range'
 
     RES_STITCH_INFO = "stitch_info"
     RES_STITCH_INTERFACE = "stitch_interface"
