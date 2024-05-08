@@ -81,6 +81,10 @@ class CloudlabProvider(Provider):
         if rtype not in self.supported_resources:
             raise ResourceTypeNotSupported(f"{rtype} for {label}")
 
+        if rtype == Constants.RES_TYPE_NETWORK \
+                and len(self.resource_name(resource)) > CLOUDLAB_MAX_EXPERIMENT_NAME_SIZE:
+            raise ProviderException(f"cloudlab can only handle session names <= {CLOUDLAB_MAX_EXPERIMENT_NAME_SIZE}")
+
         if rtype == Constants.RES_TYPE_NODE:
             creation_details = resource[Constants.RES_CREATION_DETAILS]
 
@@ -117,6 +121,15 @@ class CloudlabProvider(Provider):
                 interfaces = cloudlab_stitch_port['option'][Constants.RES_INTERFACES]
 
         return interfaces
+
+    def resource_name(self, resource: dict, idx: int = 0):
+        rtype = resource.get(Constants.RES_TYPE)
+
+        if rtype == Constants.RES_TYPE_NODE:
+            return f"{self.name}-{resource[Constants.RES_NAME_PREFIX]}-{idx}"
+
+        assert rtype == Constants.RES_TYPE_NETWORK
+        return f"{self.name}"
 
     def do_add_resource(self, *, resource: dict):
         creation_details = resource[Constants.RES_CREATION_DETAILS]
