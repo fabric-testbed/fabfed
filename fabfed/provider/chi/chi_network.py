@@ -19,7 +19,8 @@ logger: logging.Logger = get_logger()
 
 
 class ChiNetwork(Network):
-    def __init__(self, *, label, name: str, site: str, project_name: str, layer3: Config, stitch_provider: str):
+    def __init__(self, *, label, name: str, site: str, project_name: str, layer3: Config,
+                 stitch_provider: str, vlan: int):
         super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
         self.layer3 = layer3
@@ -32,14 +33,23 @@ class ChiNetwork(Network):
         self.lease_name = f'{name}-lease'
         self.subnet_name = f'{name}-subnet'
         self.router_name = f'{name}-router'
+
+        if vlan > 0:
+            resource_properties = json.dumps(
+                ["and", ["==", "$stitch_provider", self.stitch_provider], ["==", "$segment_id", str(vlan)]]
+            )
+        else:
+            resource_properties = json.dumps(
+                ["==", "$stitch_provider", self.stitch_provider]
+            )
+
         self.reservations = [{
             "resource_type": "network",
             "network_name": self.name,
             "network_properties": "",
-            "resource_properties": json.dumps(
-                ["==", "$stitch_provider", self.stitch_provider]  # "fabric"
-            ),
+            "resource_properties": resource_properties
         }]
+
         self.vlans = list()
         self.interface = list()
         self.logger = logger

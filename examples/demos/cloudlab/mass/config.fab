@@ -1,8 +1,8 @@
+# Example showing how to provide your own policy in fabfed configuration file
+
 variable:
   - node_count:
       default: 1
-  - vlan:
-      default: 3110
 
 provider:
   - cloudlab:
@@ -25,13 +25,12 @@ config:
           provider: fabric
           device_name: OCT-MGHPCC
           site: MASS
+          vlan_range: ["3110-3119"]
           peer:
             profile: fabfed-stitch-v2
             provider: cloudlab
             option:
               cluster: urn:publicid:IDN+cloudlab.umass.edu+authority+cm
-              interface:
-              - vlan: '{{ var.vlan }}' 
 
   - layer3:
       - my_layer:

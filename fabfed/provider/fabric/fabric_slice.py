@@ -43,6 +43,9 @@ class FabricSlice:
                 if "_aux" in net_name or FABRIC_IPV4_NET_NAME in net_name or FABRIC_IPV6_NET_NAME in net_name:
                     continue
 
+                if FABNET_IPV4_PREFIX in net_name or FABNET_IPV6_PREFIX in net_name:
+                    continue
+
                 self.existing_networks.append(net_name)
 
     @property
@@ -469,6 +472,9 @@ class FabricSlice:
             net_name = net.get_name()
 
             if "_aux" in net_name or FABRIC_IPV4_NET_NAME in net_name or FABRIC_IPV6_NET_NAME in net_name:
+                continue
+
+            if FABNET_IPV4_PREFIX in net_name or FABNET_IPV6_PREFIX in net_name:
                 continue
 
             self.existing_networks.append(net_name)

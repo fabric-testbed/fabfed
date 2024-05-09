@@ -49,6 +49,9 @@ class SSHNode():
             except:
                 pass
             return
+        dplane_addr = self.get_dataplane_address()
+        if not dplane_addr:
+            dplane_addr = self.host
         hosts =f"""[{self.name}]
 {self.host}
 [{self.name}:vars]
@@ -56,7 +59,7 @@ ansible_connection=ssh
 ansible_ssh_common_args={self.proxyjump_str if self.proxyjump_str else ""}
 ansible_ssh_private_key_file={self.keyfile}
 ansible_user={self.user}
-node={self.get_dataplane_address()}
+node={dplane_addr}
 name={friendly_name}-{self.name}
 """
         with open(file_path, "w") as stream:

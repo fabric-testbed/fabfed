@@ -56,6 +56,20 @@ class FabricNode(Node):
             logger.warning(f" Node {self.name} checking for stitch network/device: {e}")
 
         try:
+            if INCLUDE_FABNET_V4:
+                for itf in slice_object.get_interfaces():
+                    if self.v4net_name in itf.get_name():
+                        v4_dev = itf.get_device_name()
+                        logger.info(f" Node {self.name} has v4 device={v4_dev}")
+                        break
+
+            if INCLUDE_FABNET_V6:
+                for itf in slice_object.get_interfaces():
+                    if self.v6net_name in itf.get_name():
+                        v6_dev = itf.get_device_name()
+                        logger.info(f" Node {self.name} has v6 device={v6_dev}")
+                        break
+
             if INCLUDE_FABNETS:
                 v4_net = slice_object.get_network(name=self.v4net_name)
                 v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net and v4_net.get_interfaces() else None
@@ -95,10 +109,16 @@ class FabricNode(Node):
 
     @property
     def v4net_name(self):
+        if INCLUDE_FABNET_V4:
+            return f"FABNET_IPv4_{self.site}"
+
         return f"{self.name}-{FABRIC_IPV4_NET_NAME}"
 
     @property
     def v6net_name(self):
+        if INCLUDE_FABNET_V6:
+            return f"FABNET_IPv6_{self.site}"
+
         return f"{self.name}-{FABRIC_IPV6_NET_NAME}"
 
     def set_network_label(self, network_label):
@@ -172,7 +192,14 @@ class NodeBuilder:
         self.nic_model = resource.get(Constants.RES_NIC_MODEL, 'NIC_Basic')
         self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
 
-        # Fabfed will always include two basic NICs for FabNetv4/v6
+        # Use fully automated ip v4
+        if INCLUDE_FABNET_V4:
+            self.node.add_fabnet()
+
+        if INCLUDE_FABNET_V6:
+            self.node.add_fabnet(net_type="IPv6")
+
+        # Include two basic NICs for FabNetv4/v6
         if INCLUDE_FABNETS:
             net_iface_v4 = self.node.add_component(model='NIC_Basic',
                                                    name=FABRIC_IPV4_NET_IFACE_NAME).get_interfaces()[0]

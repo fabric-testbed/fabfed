@@ -142,12 +142,23 @@ class ChiProvider(Provider):
                 stitch_provider = stitch_info.consumer
 
             assert stitch_provider, f"resource {label} missing stitch provider"
+
+            interfaces = resource.get(Constants.RES_INTERFACES, list())
+
+            if interfaces and 'vlan' not in interfaces[0]:
+                raise ProviderException(f"{self.label} expecting {label}'s interface to have a vlan")
+
+            vlan = -1
+
+            if interfaces:
+                vlan = interfaces[0]['vlan']
+
             net_name = self.resource_name(resource)
             from fabfed.provider.chi.chi_network import ChiNetwork
 
             net = ChiNetwork(label=label, name=net_name, site=site,
                              layer3=layer3, stitch_provider=stitch_provider,
-                             project_name=project_name)
+                             project_name=project_name, vlan=vlan)
             self._networks.append(net)
 
             if self.resource_listener:
@@ -195,7 +206,7 @@ class ChiProvider(Provider):
                     project_name = self.config[CHI_PROJECT_NAME]
 
                     net = ChiNetwork(label=label, name=net_name, site=site,
-                                     layer3=layer3, stitch_provider='', project_name=project_name)
+                                     layer3=layer3, stitch_provider='', project_name=project_name, vlan=-1)
                     net.delete()
 
                     self.logger.info(f"Deleted network: {net_name} at site {site}")
@@ -263,7 +274,7 @@ class ChiProvider(Provider):
             layer3 = Config("", "", {})
 
             net = ChiNetwork(label=label, name=net_name, site=site,
-                             layer3=layer3, stitch_provider=None, project_name=project_name)
+                             layer3=layer3, stitch_provider=None, project_name=project_name, vlan=-1)
             net.delete()
             self.logger.info(f"Deleted network: {net_name} at site {site}")
 

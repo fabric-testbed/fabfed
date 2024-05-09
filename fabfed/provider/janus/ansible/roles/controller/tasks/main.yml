@@ -32,7 +32,7 @@
         }
       }
   ansible.builtin.uri:
-    url: "{{ url }}/api/janus/controller/profiles/fabfed"
+    url: "{{ url }}/api/janus/controller/profiles/host/fabfed"
     user: "{{ username }}"
     password: "{{ password }}"
     method: POST
