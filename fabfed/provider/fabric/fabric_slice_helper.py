@@ -71,7 +71,7 @@ def add_ip_address_to_network(slice_delegate, node, net_name, node_addr, subnet,
     delegate = slice_delegate.get_node(node.name)
 
     if has_ip_address(slice_delegate, node, node_addr):
-        logger.info(f'already exists when adding ip addr: {node_addr}')
+        logger.info(f'node {node.name} already has: {node_addr}')
         return
 
     for attempt in range(retry):

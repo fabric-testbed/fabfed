@@ -196,7 +196,7 @@ class Provider(ABC):
 
         return False
 
-    def retrieve_attribute_from_saved_state(self, resource, resource_name, attribute):
+    def retrieve_attribute_from_saved_state(self, resource, resource_name, attribute, defaultValue=None):
         if self.saved_state:
             for state in resource[Constants.SAVED_STATES]:
                 if state.attributes['name'] == resource_name:
@@ -206,7 +206,7 @@ class Provider(ABC):
                         return ret[0]
 
                     return ret
-        return None
+        return defaultValue
 
     def validate_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
