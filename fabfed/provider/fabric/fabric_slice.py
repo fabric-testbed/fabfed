@@ -126,7 +126,8 @@ class FabricSlice:
                 assert delegate is not None, "expected to find node {name} in slice {self.name}"
                 network_label = self.provider.retrieve_attribute_from_saved_state(resource, name, 'network_label')
                 dataplane_ipv4 = self.provider.retrieve_attribute_from_saved_state(resource, name, 'dataplane_ipv4')
-                node = FabricNode(label=label, delegate=delegate, network_label=network_label)
+                nic_model = self.provider.retrieve_attribute_from_saved_state(resource, name, 'nic_model', "NIC_Basic")
+                node = FabricNode(label=label, delegate=delegate, nic_model=nic_model, network_label=network_label)
 
                 if not network_label:
                     if util.has_resolved_internal_dependencies(resource=resource, attribute='network'):
@@ -138,12 +139,25 @@ class FabricSlice:
 
                             from fabrictestbed_extensions.fablib.network_service import NetworkService
 
-                            itf = node.delegate.add_component(model="NIC_Basic",
-                                                              name=FABRIC_STITCH_NET_IFACE_NAME).get_interfaces()[0]
-                            self.logger.info(f"Added interface {itf.get_name()} to node {node.get_name()}")
-                            delegate: NetworkService = network.delegate
-                            self.logger.info(f"adding interface {itf.get_name()} to {delegate.get_name()}")
-                            delegate.add_interface(itf)
+                            itf = None
+
+                            try:
+                                comp = node.delegate.get_component(name=FABRIC_STITCH_NET_IFACE_NAME)
+                                itf = comp.get_interfaces()[0]
+                                self.logger.info(f"Found interface {itf.get_name()} to node {node.get_name()}")
+                            except Exception as e:
+                                self.logger.warning(
+                                    f"Exception while looking for {itf.get_name()} in node {node.get_name()}: {e}")
+
+                            if itf is None:
+                                itf = node.delegate.add_component(model=nic_model,
+                                                                  name=FABRIC_STITCH_NET_IFACE_NAME).get_interfaces()[0]
+                                self.logger.info(f"Added interface {itf.get_name()} to node {node.get_name()}")
+
+                                delegate: NetworkService = network.delegate
+                                delegate.add_interface(itf)
+                                self.logger.info(f"Added interface {itf.get_name()} to network {delegate.get_name()}")
+
                             node.set_network_label(network.label)
 
                 if dataplane_ipv4:
@@ -162,12 +176,13 @@ class FabricSlice:
                 if network:
                     from fabrictestbed_extensions.fablib.network_service import NetworkService
 
-                    itf = node.delegate.add_component(model="NIC_Basic",
+                    itf = node.delegate.add_component(model=node.nic_model,
                                                       name=FABRIC_STITCH_NET_IFACE_NAME).get_interfaces()[0]
-                    self.logger.info(f"Added interface {itf.get_name()} to node {node.get_name()}")
+                    self.logger.info(
+                        f"Added interface {itf.get_name()} to node {node.get_name()} with nic_model={node.nic_model}")
                     delegate: NetworkService = network.delegate
-                    self.logger.info(f"adding interface {itf.get_name()} to {delegate.get_name()}")
                     delegate.add_interface(itf)
+                    self.logger.info(f"Added interface {itf.get_name()} to network {delegate.get_name()}")
                     node.set_network_label(network.label)
 
             self.nodes.append(node)
@@ -235,7 +250,8 @@ class FabricSlice:
 
         for node in self.nodes:
             delegate = self.slice_object.get_node(node.name)
-            n = FabricNode(label=node.label, delegate=delegate, network_label=node.network_label)
+            n = FabricNode(label=node.label, delegate=delegate,
+                           nic_model=node.nic_model, network_label=node.network_label)
             n.set_network_label(node.network_label)
             n.set_used_dataplane_ipv4(node.used_dataplane_ipv4())
             temp.append(n)

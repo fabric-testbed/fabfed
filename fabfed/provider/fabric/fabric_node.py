@@ -10,7 +10,7 @@ logger = get_logger()
 
 
 class FabricNode(Node):
-    def __init__(self, *, label, delegate: Delegate, nic_model=None, network_label):
+    def __init__(self, *, label, delegate: Delegate, nic_model: str, network_label: str):
         flavor = {'cores': delegate.get_cores(), 'ram': delegate.get_ram(), 'disk': delegate.get_disk()}
         super().__init__(label=label, name=delegate.get_name(), image=delegate.get_image(), site=delegate.get_site(),
                          flavor=str(flavor))
@@ -46,6 +46,7 @@ class FabricNode(Node):
             return
 
         v6_dev = v4_dev = stitch_dev = None
+
         try:
             # XXX Finding interfaces on stitched networks is currently not working on fablib==1.4.0
             # Search for interface directly...
@@ -56,21 +57,27 @@ class FabricNode(Node):
             logger.warning(f" Node {self.name} checking for stitch network/device: {e}")
 
         try:
-            if INCLUDE_FABNET_V4:
+            if stitch_dev is None and INCLUDE_FABNET_V4:
                 for itf in slice_object.get_interfaces():
                     if self.v4net_name in itf.get_name():
                         v4_dev = itf.get_device_name()
                         logger.info(f" Node {self.name} has v4 device={v4_dev}")
                         break
+        except Exception as e:
+            logger.warning(f"Node {self.name} checking for ipv4/ipv6: {e}")
 
-            if INCLUDE_FABNET_V6:
+        try:
+            if stitch_dev is None and INCLUDE_FABNET_V6:
                 for itf in slice_object.get_interfaces():
                     if self.v6net_name in itf.get_name():
                         v6_dev = itf.get_device_name()
                         logger.info(f" Node {self.name} has v6 device={v6_dev}")
                         break
+        except Exception as e:
+            logger.warning(f"Node {self.name} checking for ipv4/ipv6: {e}")
 
-            if INCLUDE_FABNETS:
+        try:
+            if stitch_dev and INCLUDE_FABNETS:
                 v4_net = slice_object.get_network(name=self.v4net_name)
                 v4_dev = v4_net.get_interfaces()[0].get_device_name() if v4_net and v4_net.get_interfaces() else None
                 logger.info(f" Node {self.name} has v4 device={v4_dev}")
@@ -193,14 +200,15 @@ class NodeBuilder:
         self.node: Delegate = slice_object.add_node(name=name, image=image, site=site, cores=cores, ram=ram, disk=disk)
 
         # Use fully automated ip v4
-        if INCLUDE_FABNET_V4:
-            self.node.add_fabnet()
+        if INCLUDE_FABNET_V4 and resource.get(Constants.RES_TYPE_NETWORK) is None:
+            self.node.add_fabnet(net_type="IPv4", nic_type=self.nic_model)
 
-        if INCLUDE_FABNET_V6:
-            self.node.add_fabnet(net_type="IPv6")
+        # Use fully automated ip v6
+        if INCLUDE_FABNET_V6 and resource.get(Constants.RES_TYPE_NETWORK) is None:
+            self.node.add_fabnet(net_type="IPv6", nic_type=self.nic_model)
 
-        # Include two basic NICs for FabNetv4/v6
-        if INCLUDE_FABNETS:
+        # This has been deprecated Include two basic NICs for FabNetv4/v6
+        if INCLUDE_FABNETS and resource.get(Constants.RES_TYPE_NETWORK) is None:
             net_iface_v4 = self.node.add_component(model='NIC_Basic',
                                                    name=FABRIC_IPV4_NET_IFACE_NAME).get_interfaces()[0]
             # TODO: KOMAL:
