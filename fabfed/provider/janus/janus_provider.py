@@ -7,7 +7,7 @@ from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
 from fabfed.util.utils import get_inventory_dir
 from fabfed.util import state
-from fabfed.provider.janus.util.ansible_helper import AnsibleHelper
+from fabfed.provider.janus.util.ansible_helper import AnsibleRunnerHelper
 
 
 JANUS_CTRL_PORT=5000
@@ -34,7 +34,7 @@ class JanusService(Service):
     def _do_ansible(self, delete=False):
         def _helper(host_file, tags, extra_vars = dict(), limit = ""):
             script_dir = os.path.dirname(__file__)
-            helper = AnsibleHelper(host_file, self.logger)
+            helper = AnsibleRunnerHelper(host_file, self.logger)
             helper.set_extra_vars(extra_vars)
             helper.run_playbook(os.path.join(script_dir, "ansible/janus.yml"), tags=tags, limit=limit)
 
