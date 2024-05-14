@@ -267,7 +267,6 @@ class AnsibleRunnerHelper:
             inventory = self.inventory_path,
             extravars = self.variable_manager.get_vars()
         )
-        print (self.variable_manager.get_vars())
         rc.prepare()
         r = Runner(config=rc)
         r.run()
