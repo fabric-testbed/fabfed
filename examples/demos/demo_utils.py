@@ -52,25 +52,34 @@ def run_host_cmd(host, path, cmd, ofname=None, stop=None, interactive=False, out
         cnt = 0
         lines = ""
         while ok:
-            for key, val in sel.select():
+            ret = sel.select(timeout=5)
+            # flush lines if no new input for a while
+            if not ret and cnt:
+                if out:
+                    out.append_stdout(lines)
+                else:
+                    print (lines)
+                lines = ""
+                cnt = 0
+            for key, val in ret:
                 line = key.fileobj.readline()
                 if not line and key.fileobj is proc.stdout:
                     ok = False
-                    if len(lines):
+                    if cnt:
                         out.append_stdout(lines)
                     break
                 cnt += 1
                 lines += line.decode('utf-8')
-            if out:
+            if out and cnt:
                 if cnt > 25:
                     out.append_stdout(lines)
                     cnt = 0
                     lines = ""
-            else:
+            elif cnt:
                 print (lines)
             time.sleep(.01)
             if stop and stop():
-                if out and len(lines):
+                if out and cnt:
                     out.append_stdout(lines)
                 proc.kill()
                 return
