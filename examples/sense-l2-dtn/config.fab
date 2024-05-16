@@ -12,12 +12,12 @@ resource:
           site: RENC
           image: default_rocky_8
           nic_model: NIC_Basic
+          network: '{{ network.fabric_network }}'
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           # site: UKY
           layer3: "{{ layer3.my_layer }}"
-          interface: '{{ node.fabric_node }}'
           stitch_with: '{{ network.net1 }}' # 852 to 855
           stitch_option:
               # profile: 'FABRIC-L2-DTN'

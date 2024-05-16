@@ -27,7 +27,6 @@ resource:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.my_layer }}"
-          interface: '{{ node.fabric_node }}'
           stitch_with: '{{ network.cnet }}'
   - node:
       - fabric_node:
@@ -35,6 +34,7 @@ resource:
           site: UTAH # CLEM  # UTAH
           image: default_rocky_8
           nic_model: NIC_Basic
+          network: "{{ network.fabric_network }}"
           count: 1
       - cnode:
           provider: '{{ cloudlab.cloudlab_provider }}'

@@ -18,13 +18,14 @@ resource:
             image: default_rocky_8
             nic_model: NIC_Basic
             site: MAX 
+            network: '{{ network.fabric_network }}'
             flavor: {'cores': 2, 'ram': 8, 'disk': 10}
       - bnode:
             provider:  '{{ fabric.fabric_provider }}'
             site: WASH
+            network: '{{ network.fabric_network }}'
             image: default_rocky_8
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.my_layer }}"
-          interface: [ '{{ node.anode }}', '{{ node.bnode }}' ]

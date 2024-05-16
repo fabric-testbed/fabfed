@@ -5,10 +5,19 @@ resource:
           count: 1 
           image: default_rocky_8
           nic_model: NIC_Basic
+          network: '{{ network.fabric_network }}'
 
       - chi_node:
           provider: '{{ chi.chi_provider }}'
           image: CC-Ubuntu20.04
           network: '{{ network.chi_network }}'
-          count: 2
+          count: 1
           flavor: m1.medium
+  - service:
+      - dtn_service:
+          provider: '{{ janus.janus_provider }}'
+          node: [ '{{ node.chi_node }}', '{{ node.fabric_node }}' ]
+          controller: '{{ node.fabric_node }}'
+          image: dtnaas/tools
+          profile: fabfed
+          count: 0
