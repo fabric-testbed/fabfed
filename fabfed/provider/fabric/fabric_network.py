@@ -173,6 +173,7 @@ class NetworkBuilder:
             device = self.peering.attributes.get(Constants.RES_LOCAL_DEVICE)
             port = self.peering.attributes.get(Constants.RES_LOCAL_PORT)
             vlan = self.peering.attributes.get('cloud_vlan')
+            bw = self.peering.attributes.get('cloud_bw', 50)
 
             if not device:
                 device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
@@ -231,7 +232,7 @@ class NetworkBuilder:
                 site=cloud,
                 labels=labels,
                 peer_labels=peer_labels,
-                capacities=Capacities(bw=50, mtu=mtu_size))
+                capacities=Capacities(bw=int(bw), mtu=mtu_size))
 
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
