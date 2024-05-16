@@ -17,6 +17,8 @@ logging.basicConfig(stream=sys.stdout,
                     level=logging.INFO)
 log = logging.getLogger("FABFED")
 
+running_map = dict()
+
 class Session:
     def __init__(self, cmd, path=os.getcwd()):
         self.stop = False
@@ -42,7 +44,8 @@ def run_host_cmd(host, path, cmd, ofname=None, stop=None, interactive=False, out
         #term = subprocess.Popen(['xterm'])
     except Exception as e:
         log.info(f"Error running {rcmd}: {e}")
-        return
+        running_map[path] = False
+        return    
     if interactive:
         # Read both stdout and stderr simultaneously
         sel = selectors.DefaultSelector()
@@ -79,11 +82,8 @@ def run_host_cmd(host, path, cmd, ofname=None, stop=None, interactive=False, out
                 print (lines)
             time.sleep(.01)
             if stop and stop():
-                if out and cnt:
-                    out.append_stdout(lines)
-                proc.kill()
-                return
-    
+                break
+
     outs = None
     errs = None
     if stop:
@@ -98,6 +98,7 @@ def run_host_cmd(host, path, cmd, ofname=None, stop=None, interactive=False, out
         outs, errs = proc.communicate()
         proc.terminate()
 
+    running_map[path] = False
     if not ofname:
         return
     try:
@@ -115,8 +116,13 @@ def run_job(sess):
     style = {'overflow': 'scroll hidden' ,'white-space': 'nowrap'}
     out = widgets.Output(layout=style)
     display(out)
+    if running_map.get(sess.path):
+        out.append_stderr(f"Job already running in {sess.path}, check fabfed.log")
+        return
+    else:
+        running_map[sess.path] = sess
     out.append_stdout(f"Executing command {sess.cmd}\n")
-    sess.thr = threading.Thread(target=run_host_cmd, args=(None, sess.path, sess.cmd, None, lambda: sess.stop, True, out))
+    sess.thr = threading.Thread(target=run_host_cmd, args=(None, sess.path, sess.cmd, None, None, True, out))
     sess.thr.start()
     return sess.thr
 
