@@ -147,7 +147,7 @@ class FabricSlice:
                                 self.logger.info(f"Found interface {itf.get_name()} to node {node.get_name()}")
                             except Exception as e:
                                 self.logger.warning(
-                                    f"Exception while looking for {itf.get_name()} in node {node.get_name()}: {e}")
+                                    f"Exception while looking for {FABRIC_STITCH_NET_IFACE_NAME} in node {node.get_name()}: {e}")
 
                             if itf is None:
                                 itf = node.delegate.add_component(model=nic_model,
@@ -155,8 +155,39 @@ class FabricSlice:
                                 self.logger.info(f"Added interface {itf.get_name()} to node {node.get_name()}")
 
                                 delegate: NetworkService = network.delegate
-                                delegate.add_interface(itf)
+
+                                if network.peering:
+                                   from fim.slivers.capacities_labels import Labels, Capacities
+
+                                   aux_name = delegate.get_name() + "_aux"
+                                   aux_net = self.slice_object.get_network(delegate.get_name() + "_aux")
+
+                                   if aux_net is None:
+                                      aux_net = self.slice_object.add_l3network(name=aux_name, interfaces=[], type='L3VPN')
+                                      delegate.fim_network_service.peer(aux_net.fim_network_service,
+                                         labels=Labels(bgp_key='secret', ipv4_subnet='192.168.50.1/24'),
+                                         capacities=Capacities(mtu=9000), peer_labels=Labels(local_name="FABRIC"))
+
+                                   fim_iface1 = itf.get_fim_interface()
+                                   ipv4_gateway = network.layer3.attributes.get(Constants.RES_NET_GATEWAY)
+
+                                   if ipv4_gateway:
+                                      ipv4_subnet = network.layer3.attributes.get(Constants.RES_SUBNET)
+
+                                      if ipv4_subnet and '/' in ipv4_subnet:
+                                         ipv4_netmask = ipv4_subnet.split('/')[1]
+                                         ipv4_subnet = f'{ipv4_gateway}/{ipv4_netmask}'
+                                   else:
+                                      ipv4_subnet = network.layer3.attributes.get(Constants.RES_SUBNET)
+
+                                   fim_iface1.labels = Labels.update(fim_iface1.labels, ipv4_subnet=f'{ipv4_subnet}')
+                                   aux_net.add_interface(itf)
+                                   self.logger.info(f"Added interface {itf.get_name()} to network {aux_name}")
+                                else:
+                                   delegate.add_interface(itf)
                                 self.logger.info(f"Added interface {itf.get_name()} to network {delegate.get_name()}")
+                                self.slice_modified = True
+                                dataplane_ipv4 = None
 
                             node.set_network_label(network.label)
 
@@ -176,13 +207,46 @@ class FabricSlice:
                 if network:
                     from fabrictestbed_extensions.fablib.network_service import NetworkService
 
+
                     itf = node.delegate.add_component(model=node.nic_model,
                                                       name=FABRIC_STITCH_NET_IFACE_NAME).get_interfaces()[0]
                     self.logger.info(
                         f"Added interface {itf.get_name()} to node {node.get_name()} with nic_model={node.nic_model}")
+
                     delegate: NetworkService = network.delegate
-                    delegate.add_interface(itf)
-                    self.logger.info(f"Added interface {itf.get_name()} to network {delegate.get_name()}")
+
+                    if network.peering:
+                       from fim.slivers.capacities_labels import Labels, Capacities
+
+                       aux_name = delegate.get_name() + "_aux"
+                       aux_net = self.slice_object.get_network(delegate.get_name() + "_aux")
+
+                       if aux_net is None:
+                          aux_net = self.slice_object.add_l3network(name=aux_name, interfaces=[], type='L3VPN')
+                          delegate.fim_network_service.peer(aux_net.fim_network_service,
+                                  labels=Labels(bgp_key='secret', ipv4_subnet='192.168.50.1/24'),
+                                  capacities=Capacities(mtu=9000), peer_labels=Labels(local_name="FABRIC"))
+
+                       fim_iface1 = itf.get_fim_interface()
+
+                       ipv4_gateway = network.layer3.attributes.get(Constants.RES_NET_GATEWAY)
+
+                       if ipv4_gateway:
+                             ipv4_subnet = network.layer3.attributes.get(Constants.RES_SUBNET)
+
+                             if ipv4_subnet and '/' in ipv4_subnet:
+                                ipv4_netmask = ipv4_subnet.split('/')[1]
+                                ipv4_subnet = f'{ipv4_gateway}/{ipv4_netmask}'
+                       else:
+                          ipv4_subnet = network.layer3.attributes.get(Constants.RES_SUBNET)
+
+                       fim_iface1.labels = Labels.update(fim_iface1.labels, ipv4_subnet=f'{ipv4_subnet}')
+                       aux_net.add_interface(itf)
+                       self.logger.info(f"Added interface {itf.get_name()} to network {aux_name}")
+                    else:
+                       delegate.add_interface(itf)
+                       self.logger.info(f"Added interface {itf.get_name()} to network {delegate.get_name()}")
+
                     node.set_network_label(network.label)
 
             self.nodes.append(node)
