@@ -106,7 +106,7 @@ jobs:
       - name: Test Fabric AWS (Fabric Only With No Nodes)
         run: |
           session=aes-aws-native-no-nodes
-          echo "vlan: 6" > $session-varfile.yml
+          echo "vlan: 7" > $session-varfile.yml
           echo "node_count: 0" >> $session-varfile.yml
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_native_aws $session $session-varfile.yml
 
@@ -114,7 +114,7 @@ jobs:
         if: ${{ env.RUN_FABRIC_AWS_WITH_NODES == 'true' || env.RUN_FABRIC_AWS_WITH_NODES == true }} 
         run: |
           session=aes-aws-native-with-nodes
-          echo "vlan: 4" > $session-varfile.yml
+          echo "vlan: 7" > $session-varfile.yml
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_native_aws $session $session-varfile.yml
 
       - name: Test SENSE/AWS.
