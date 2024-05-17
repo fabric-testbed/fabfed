@@ -30,6 +30,8 @@ config:
           local_device:
           local_port:
           cloud_region: "us-east-1"
+          cloud_vlan: 6
+          cloud_bw: 1000
 
           # FOR SENSE and FABRIC
           local_asn: "55038" # customer_asn (hard coded for now)
@@ -48,6 +50,7 @@ resource:
           site: MAX # Use RENC when deploying to fabric beta environment
           image: default_rocky_8
           count: 1
+          #network: "{{ network.fabric_network }}"
           nic_model: NIC_Basic
   - network:
       - sense_net:
@@ -73,4 +76,4 @@ resource:
           controller: '{{ node.fabric_node }}'
           image: dtnaas/tools
           profile: fabfed
-          count: 0   # SET THIS TO 1 if you want use janus service
+          count: 1   # SET THIS TO 1 if you want use janus service

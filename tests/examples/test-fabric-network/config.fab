@@ -21,7 +21,6 @@ resource:
            provider: '{{ fabric.fabric_provider }}'
            site: '{{ var.fabric_site }}'
            layer3: "{{ layer3.my_layer }}"
-           interface: '{{ node.fabric_node }}'
            #stitch_interface: 3307
            stitch_interface:
               id:
@@ -34,4 +33,5 @@ resource:
             site: '{{ var.fabric_site }}'
             count: 1 
             image: default_rocky_8
+            network: '{{ network.fabric_network }}'
             nic_model: NIC_ConnectX_5

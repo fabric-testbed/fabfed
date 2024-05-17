@@ -1,5 +1,8 @@
 {
   "ami-053b0d53c279acc90": {
-         "user": "ubuntu"
+    "user": "ubuntu"
+  },
+  "ami-04b70fa74e45c3917": {
+    "user": "ubuntu"
   }
 }

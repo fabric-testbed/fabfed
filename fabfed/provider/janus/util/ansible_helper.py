@@ -35,6 +35,7 @@ from ansible.module_utils.common.collections import ImmutableDict
 from ansible.parsing.dataloader import DataLoader
 from ansible.plugins.callback import CallbackBase
 from ansible.vars.manager import VariableManager
+from ansible_runner import Runner, RunnerConfig
 
 
 class PlaybookException(Exception):
@@ -218,6 +219,58 @@ class AnsibleHelper:
             self.results_callback.dump_all_unreachable(logger=self.logger)
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
+
+    def get_result_callback(self):
+        """
+        Fetch the Result Callback which contains all the results
+        @return result callback
+        """
+        return self.results_callback
+
+    def set_extra_vars(self, extra_vars: dict):
+        """
+        Set Extra Variables
+        :param extra_vars: Extra variable dict
+        :return:
+        """
+        self.variable_manager._extra_vars = extra_vars
+
+
+class AnsibleRunnerHelper:
+    """
+    Helper class to invoke the Ansible Playbook
+    """
+    def __init__(self, inventory_path: str, logger):
+        self.loader = DataLoader()
+        self.inventory_path = inventory_path
+        self.inventory = InventoryManager(loader=self.loader, sources=[inventory_path])
+        self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
+        self.logger = logger
+
+    def add_vars(self, host: str, var_name: str, value: str):
+        """
+        Set environment variables needed by the playbook
+        @param host host
+        @param var_name variable name
+        @param value value
+        """
+        self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
+
+    def run_playbook(self, playbook_path: str, tags: list = [], limit: str = None):
+        rc = RunnerConfig(
+            forks = 100,
+            private_data_dir = '../',
+            project_dir = 'ansible',
+            playbook=playbook_path,
+            tags = ','.join(tags),
+            limit = limit,
+            inventory = self.inventory_path,
+            extravars = self.variable_manager.get_vars()
+        )
+        rc.prepare()
+        r = Runner(config=rc)
+        r.run()
+        self.logger.debug(f"Playbook result: {r.stats}")
 
     def get_result_callback(self):
         """

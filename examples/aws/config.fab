@@ -46,7 +46,6 @@ resource:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
           peering: "{{ peering.my_peering }}"
-          interface: '{{ node.fabric_node }}'
           count: 1
   - node:
       - fabric_node:
@@ -54,4 +53,5 @@ resource:
           site: MAX # Use RENC when deploying to fabric beta environment
           image: default_rocky_8
           count: 1
+          network: '{{ network.fabric_network }}'
           nic_model: NIC_Basic

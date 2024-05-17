@@ -48,6 +48,7 @@ resource:
           site: MAX
           image: default_rocky_8
           count: 1
+          network: "{{ network.fabric_network }}"
           nic_model: NIC_Basic
   - network:
       - sense_net:
@@ -66,7 +67,6 @@ resource:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
           peering: "{{ peering.my_peering }}"
-          interface: '{{ node.fabric_node }}'
           count: 1
   - service:
       - dtn_service:
