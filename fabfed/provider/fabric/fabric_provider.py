@@ -15,13 +15,14 @@ class FabricProvider(Provider):
         self.slice = None
         self.retry = 5
         self.slice_init = False
-
         # TODO Should not be needed for fablib 1.6.4
         from fabrictestbed_extensions.fablib.constants import Constants as FC
         from fabfed.util.utils import get_base_dir
 
         FC.DEFAULT_FABRIC_CONFIG_DIR = get_base_dir(self.name)
         FC.DEFAULT_FABRIC_RC = f"{FC.DEFAULT_FABRIC_CONFIG_DIR}/fabric_rc"
+
+
 
     def _to_abs_for(self, env_var: str, config: dict):
         path = config.get(env_var)
@@ -83,7 +84,6 @@ class FabricProvider(Provider):
 
         fabric_slice_helper.patch_for_token()
 
-
     def _init_slice(self, destroy_phase=False):
         if not self.slice_init:
             self.logger.info(f"Initializing slice {self.name}")
@@ -128,14 +128,22 @@ class FabricProvider(Provider):
     def supports_modify(self):
         return True
 
-    def do_add_resource(self, *, resource: dict):
+    def do_validate_resource(self, *, resource: dict):
         self._init_slice()
+        assert self.slice.slice_object is not None
+        self.slice.validate_resource(resource=resource)
+
+    def do_add_resource(self, *, resource: dict):
         assert self.slice.slice_object is not None
         self.slice.add_resource(resource=resource)
 
     def do_create_resource(self, *, resource: dict):
         assert self.slice.slice_object is not None
         self.slice.create_resource(resource=resource)
+
+    def do_wait_for_create_resource(self, *, resource: dict):
+        assert self.slice.slice_object is not None
+        self.slice.wait_for_create_resource(resource=resource)
 
     def do_delete_resource(self, *, resource: dict):
         self._init_slice(True)

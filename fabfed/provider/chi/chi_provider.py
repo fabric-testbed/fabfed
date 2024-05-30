@@ -247,6 +247,19 @@ class ChiProvider(Provider):
             for node in temp:
                 node.create()
 
+    def do_wait_for_create_resource(self, *, resource: dict):
+        site = resource.get(Constants.RES_SITE)
+        self._setup_environment(site=site)
+        label = resource.get(Constants.LABEL)
+        rtype = resource.get(Constants.RES_TYPE)
+
+        if rtype == Constants.RES_TYPE_NETWORK:
+            pass
+        else:
+            from fabfed.provider.chi.chi_node import ChiNode
+
+            temp: List[ChiNode] = [node for node in self._nodes if node.label == label]
+
             for node in temp:
                 node.wait_for_active()
 

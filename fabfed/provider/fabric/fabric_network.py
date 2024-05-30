@@ -99,6 +99,7 @@ class NetworkBuilder:
         self.discovered_stitch_info = {}
         self.device = resource.get(Constants.STITCH_PORT_DEVICE_NAME)
         self.site = resource.get(Constants.STITCH_PORT_SITE)
+        self.sites = set()
 
         interface = resource.get(Constants.RES_INTERFACES)
 
@@ -152,8 +153,10 @@ class NetworkBuilder:
                 self.vlan = interface.get('vlan')
                 self.discovered_stitch_info = interface
 
-    def handle_facility_port(self):
+    def handle_facility_port(self, *, sites):
         from fim.slivers.capacities_labels import Labels, Capacities
+
+        self.sites.update(sites)
 
         if not self.vlan and not self.peering:
             logger.warning(f"Network {self.net_name} has no vlan and no peering so no facility port will be added ")
@@ -236,7 +239,8 @@ class NetworkBuilder:
 
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
-            logger.info(f"Creating Facility Port: name={self.device}:site={self.site}:vlan={self.vlan}")
+            logger.info(
+                f"Creating Facility Port: name={self.device}:site={self.site}:vlan={self.vlan}")
 
             facility_port = self.slice_object.add_facility_port(name=self.device,
                                                                 site=self.site,
@@ -263,8 +267,16 @@ class NetworkBuilder:
                     logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
 
             # Use type='L2STS'?
-            logger.info(f"Creating Layer2 Network:{self.net_name}:interfaces={[i.get_name() for i in interfaces]}")
-            self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name, interfaces=interfaces)
+
+            if len(self.sites) == 2:
+                net_type = 'L2STS'
+            else:
+                net_type = 'L2Bridge'
+            logger.info(
+                f"Creating L2 Network:{self.net_name}:ifaces={[i.get_name() for i in interfaces]}:sites={self.sites}")
+            self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
+                                                                       type=net_type,
+                                                                       interfaces=interfaces)
             return
 
         tech = 'AL2S'

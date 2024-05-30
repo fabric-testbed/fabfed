@@ -316,11 +316,31 @@ class Provider(ABC):
                             self.logger.warning(
                                 f"Adding no longer pending internally {internal_dependency_label} failed using {e2}")
 
-        self.logger.info(f"Creating {label} using {self.label}: {self._added}")
-
         if label in self._added:
+            self.logger.info(f"Create: {label} using {self.label}: {self._added}")
+
             try:
                 self.do_create_resource(resource=resource)
+            except (Exception, KeyboardInterrupt) as e:
+                self.failed[label] = 'CREATE'
+                failed_count = resource[Constants.RES_COUNT] - len(self.creation_details[label]['resources'])
+                self.creation_details[label]['failed_count'] = failed_count
+                raise e
+            finally:
+                self.creation_details[label]['created_count'] = len(self.creation_details[label]['resources'])
+                end = time.time()
+                self.create_duration += (end - start)
+
+    def wait_for_create_resource(self, *, resource: dict):
+        import time
+        start = time.time()
+        label = resource.get(Constants.LABEL)
+
+        if label in self._added:
+            self.logger.info(f"Waiting on Create: {label} using {self.label}: {self._added}")
+
+            try:
+                self.do_wait_for_create_resource(resource=resource)
             except (Exception, KeyboardInterrupt) as e:
                 self.failed[label] = 'CREATE'
                 failed_count = resource[Constants.RES_COUNT] - len(self.creation_details[label]['resources'])
@@ -410,6 +430,9 @@ class Provider(ABC):
 
     @abstractmethod
     def do_create_resource(self, *, resource: dict):
+        pass
+
+    def do_wait_for_create_resource(self, *, resource: dict):
         pass
 
     @abstractmethod

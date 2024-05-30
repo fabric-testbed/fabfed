@@ -18,6 +18,8 @@ class FabricSlice:
         self.notified_create = False
         self.slice_created = False
         self.slice_modified = False
+        self.submitted = False
+        self.network_to_sites_mapping = dict()
 
         from fabrictestbed_extensions.fablib.slice import Slice
 
@@ -72,6 +74,33 @@ class FabricSlice:
     def pending(self):
         return self.provider.pending
 
+    def validate_resource(self, *, resource: dict):
+        rtype = resource.get(Constants.RES_TYPE)
+
+        if rtype == Constants.RES_TYPE_NETWORK.lower():
+            label = resource[Constants.LABEL]
+            if label not in self.network_to_sites_mapping:
+                self.network_to_sites_mapping[label] = set()
+
+            self.network_to_sites_mapping[label].add(resource[Constants.RES_SITE])
+            dependencies = resource[Constants.INTERNAL_DEPENDENCIES]
+
+            for dependency in dependencies:
+                self.network_to_sites_mapping[label].add(dependency.resource.attributes[Constants.RES_SITE])
+
+        elif rtype == Constants.RES_TYPE_NODE.lower():
+            dependencies = resource[Constants.INTERNAL_DEPENDENCIES]
+
+            for dependency in dependencies:
+                label = dependency.resource.label
+
+                if label not in self.network_to_sites_mapping:
+                    self.network_to_sites_mapping[label] = set()
+
+                self.network_to_sites_mapping[label].add(resource[Constants.RES_SITE])
+        else:
+            raise Exception("Unknown resource ....")
+
     def _add_network(self, resource: dict):
         label = resource[Constants.LABEL]
         net_name = self.provider.resource_name(resource)
@@ -96,7 +125,7 @@ class FabricSlice:
             return
 
         network_builder = NetworkBuilder(label, self.provider, self.slice_object, net_name, resource)
-        network_builder.handle_facility_port()
+        network_builder.handle_facility_port(sites=self.network_to_sites_mapping[label])
         temp = []
         if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
             temp = util.get_values_for_dependency(resource=resource, attribute='interface')
@@ -270,42 +299,6 @@ class FabricSlice:
         else:
             raise Exception("Unknown resource ....")
 
-    def _submit_and_wait(self) -> str or None:
-        self.logger.info(f"Submitting request for slice {self.name}")
-        slice_id = self.slice_object.submit(wait=False)
-        self.logger.info(f"Waiting for slice {self.name} to be stable")
-
-        # TODO Timeout exceeded(360 sec).Slice: aes - chi - tacc - seq - 3(Configuring)
-
-        try:
-            self.slice_object.wait(timeout=24 * 60, progress=True)
-        except Exception as e:
-            state = self.slice_object.get_state()
-            self.logger.warning(f"Exception occurred while waiting state={state}:{e}")
-            raise e
-
-        try:
-            self.slice_object.wait_ssh()
-        except Exception as e:
-            self.logger.warning(f"Exception occurred while waiting on ssh: {e}")
-
-        try:
-            self.slice_object.post_boot_config()
-        except Exception as e:
-            self.logger.warning(f"Exception occurred while update/post_boot_config: {e}")
-
-        self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
-
-        # days = DEFAULT_RENEWAL_IN_DAYS
-        # try:
-        #     import datetime
-        #     end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
-        #     self.slice_object.renew(end_date)
-        # except Exception as e:
-        #     self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
-
-        return slice_id
-
     def _reload_nodes(self):
         from fabrictestbed_extensions.fablib.fablib import fablib
 
@@ -455,6 +448,9 @@ class FabricSlice:
             self.logger.warning(f"still have pending {len(self.pending)} resources")
             return
 
+        if self.submitted:
+            return
+
         if self.slice_created:
             aset = set(self.existing_nodes)
             bset = {n.name for n in self.nodes}
@@ -522,30 +518,61 @@ class FabricSlice:
                     self.slice_modified = True
 
         if self.slice_created and not self.slice_modified:
-            state = self.slice_object.get_state()
-
-            if not self.notified_create:
-                self.logger.info(f"already provisioned. {self.name}: state={state}")
-            else:
-                self.logger.debug(f"already provisioned. {self.name}: state={state}")
-
-            if not self.notified_create:
-                self._handle_node_networking()
-
-                for node in self.nodes:
-                    self.resource_listener.on_created(source=self, provider=self.provider, resource=node)
-
-                for net in self.networks:
-                    self.resource_listener.on_created(source=self, provider=self.provider, resource=net)
-
-                self.notified_create = True
             return
 
-        self._submit_and_wait()
+        self.logger.info(f"Submitting request for slice {self.name}")
+        slice_id = self.slice_object.submit(wait=False)
+        self.logger.info(f"Done Submitting request for slice {self.name}:{slice_id}")
+        self.submitted = True
+
+    def wait_for_create_resource(self, *, resource: dict):
+        if self.slice_created and not self.slice_modified and not self.notified_create:
+            self._handle_node_networking()
+
+            for node in self.nodes:
+                self.resource_listener.on_created(source=self, provider=self.provider, resource=node)
+
+            for net in self.networks:
+                self.resource_listener.on_created(source=self, provider=self.provider, resource=net)
+
+            self.notified_create = True
+            return
+
+        if not self.submitted:
+            return
+
+        self.logger.info(f"Waiting for slice {self.name} to be stable")
+
+        try:
+            self.slice_object.wait(timeout=24 * 60, progress=True)
+        except Exception as e:
+            state = self.slice_object.get_state()
+            self.logger.warning(f"Exception occurred while waiting state={state}:{e}")
+            raise e
+
+        try:
+            self.slice_object.wait_ssh()
+        except Exception as e:
+            self.logger.warning(f"Exception occurred while waiting on ssh: {e}")
+
+        try:
+            self.slice_object.post_boot_config()
+        except Exception as e:
+            self.logger.warning(f"Exception occurred while update/post_boot_config: {e}")
+
+        self.logger.info(f"Slice provisioning successful {self.slice_object.get_state()}")
+
+        # days = DEFAULT_RENEWAL_IN_DAYS
+        # try:
+        #     import datetime
+        #     end_date = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S %z")
+        #     self.slice_object.renew(end_date)
+        # except Exception as e:
+        #     self.logger.warning(f"Exception occurred while renewing for {days}: {e}")
+
         self.slice_created = True
         self.slice_modified = False
         self.existing_nodes = [n.name for n in self.nodes]
-        # self.existing_networks = [n.get_name() for n in self.networks]
         self.existing_networks = []
 
         for net in self.slice_object.get_networks():
