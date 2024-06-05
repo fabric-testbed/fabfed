@@ -95,7 +95,7 @@ class NetworkBuilder:
         self.stitching_net = None
         self.label = label
         self.net = None
-        self.type = resource.get('net_type')     # TODO: type
+        self.type = resource.get(Constants.RES_FLAVOR)
         self.discovered_stitch_info = {}
         self.device = resource.get(Constants.STITCH_PORT_DEVICE_NAME)
         self.site = resource.get(Constants.STITCH_PORT_SITE)
@@ -266,17 +266,21 @@ class NetworkBuilder:
                 else:
                     logger.warning(f"Node {node.name} has no available interface to stitch to network {self.net_name} ")
 
-            # Use type='L2STS'?
-
-            if len(self.sites) == 2:
+            if self.type is not None:
+                net_type = self.type
+            elif len(self.sites) == 2:
                 net_type = 'L2STS'
             else:
                 net_type = 'L2Bridge'
             logger.info(
-                f"Creating L2 Network:{self.net_name}:ifaces={[i.get_name() for i in interfaces]}:sites={self.sites}")
-            self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
-                                                                       type=net_type,
-                                                                       interfaces=interfaces)
+                f"Creating Network:{self.net_name}:ifaces={[i.get_name() for i in interfaces]}:type={net_type}")
+
+            if net_type == "L3VPN":
+                self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name,
+                                                                           interfaces=interfaces)
+            else:
+                self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
+                                                                           interfaces=interfaces)
             return
 
         tech = 'AL2S'
