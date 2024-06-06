@@ -1,14 +1,14 @@
 import logging
 import os
-from fabfed.exceptions import ResourceTypeNotSupported, ProviderException
 from typing import List
 
+import fabfed.provider.api.dependency_util as util
+from fabfed.exceptions import ResourceTypeNotSupported, ProviderException
+from fabfed.model import Resource
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
-from .chi_constants import *
-import fabfed.provider.api.dependency_util as util
-
 from fabfed.util.utils import get_logger
+from .chi_constants import *
 
 logger: logging.Logger = get_logger()
 
@@ -268,6 +268,9 @@ class ChiProvider(Provider):
 
                 if self.resource_listener:
                     self.resource_listener.on_created(source=self, provider=self, resource=node)
+
+    def do_handle_externally_depends_on(self, *, resource: Resource, dependee: Resource):
+        self.logger.info(f"NEED TO DO SOME POST PROCESSING  {resource}: {dependee}")
 
     # noinspection PyTypeChecker
     def do_delete_resource(self, *, resource: dict):

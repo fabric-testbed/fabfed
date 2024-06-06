@@ -16,7 +16,13 @@ class ControllerResourceListener(ResourceListener):
 
     def on_created(self, *, source, provider: Provider, resource: object):
         for temp_provider in self.providers:
-            temp_provider.on_created(source=self, provider=provider, resource=resource)
+            if temp_provider == provider:
+                temp_provider.on_created(source=self, provider=provider, resource=resource)
+                break
+
+        for temp_provider in self.providers:
+            if temp_provider != provider:
+                temp_provider.on_created(source=self, provider=provider, resource=resource)
 
     def on_deleted(self, *, source, provider: Provider, resource: object):
         for temp_provider in self.providers:

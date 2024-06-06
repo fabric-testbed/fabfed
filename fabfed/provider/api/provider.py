@@ -21,6 +21,8 @@ class Provider(ABC):
         self._services = list()
 
         self._pending = []
+        self._externally_depends_on_map: Dict[str, List[str]] = {}
+
         self._no_longer_pending = []
         self._failed = {}
         self.creation_details = {}
@@ -41,7 +43,7 @@ class Provider(ABC):
         return self._added_map
 
     @property
-    def resources(self) -> List:
+    def resources(self) -> List[Resource]:
         resources = [n for n in self._nodes]
         resources.extend([n for n in self._networks])
         resources.extend([n for n in self._services])
@@ -102,26 +104,32 @@ class Provider(ABC):
         assert self != source
         assert provider
 
+
         if self == provider:
             self.creation_details[resource.label]["resources"].append(resource.name)
+            resource.set_externally_depends_on(self._externally_depends_on_map[resource.label])
 
-        try:
-            resource.write_ansible(provider.name)
-        except Exception as e:
-            self.logger.warning(
-                f"exception occurred while writing ansible for resource={resource.name}/{provider.name}:{e}")
+            try:
+                resource.write_ansible(provider.name)
+            except Exception as e:
+                self.logger.warning(
+                    f"exception occurred while writing ansible for resource={resource.name}/{provider.name}:{e}")
+        else:
+            for pending_resource in self.pending.copy():
+                resolver = self.get_dependency_resolver()
+                label = pending_resource[Constants.LABEL]
+                resolver.resolve_dependency(resource=pending_resource, from_resource=resource)
+                ok = resolver.check_if_external_dependencies_are_resolved(resource=pending_resource)
 
-        for pending_resource in self.pending.copy():
-            resolver = self.get_dependency_resolver()
-            label = pending_resource[Constants.LABEL]
-            resolver.resolve_dependency(resource=pending_resource, from_resource=resource)
-            ok = resolver.check_if_external_dependencies_are_resolved(resource=pending_resource)
+                if ok:
+                    resolver.extract_values(resource=pending_resource)
+                    self.pending.remove(pending_resource)
+                    self.no_longer_pending.append(pending_resource)
+                    self.logger.info(f"Removing {label} from pending using {self.label}")
 
-            if ok:
-                resolver.extract_values(resource=pending_resource)
-                self.pending.remove(pending_resource)
-                self.no_longer_pending.append(pending_resource)
-                self.logger.info(f"Removing {label} from pending using {self.label}")
+            for r in self.resources:
+                if r.label in resource.get_externally_depends_on():
+                    self.do_handle_externally_depends_on(resource=r, dependee=resource)
 
     def init(self):
         import time
@@ -241,6 +249,12 @@ class Provider(ABC):
         label = resource.get(Constants.LABEL)
         assert count > 0
         assert label not in self._added, f"{label} already in {self._added}"
+
+        if label not in self._externally_depends_on_map:
+            depends_on = self._externally_depends_on_map[label] = list()
+
+            for dependency in resource[Constants.EXTERNAL_DEPENDENCIES]:
+                depends_on.append(dependency.resource.label)
 
         if len(resource[Constants.EXTERNAL_DEPENDENCIES]) > len(resource[Constants.RESOLVED_EXTERNAL_DEPENDENCIES]):
             self.logger.info(f"Adding {label} to pending using {self.label}")
@@ -433,6 +447,9 @@ class Provider(ABC):
         pass
 
     def do_wait_for_create_resource(self, *, resource: dict):
+        pass
+
+    def do_handle_externally_depends_on(self, *, resource: Resource, dependee: Resource):
         pass
 
     @abstractmethod

@@ -51,6 +51,11 @@ class FabricNetwork(Network):
 
     @property
     def gateway(self):
+        fabric_gateway_ip = self.delegate.get_gateway()
+
+        if fabric_gateway_ip is not None:
+            return fabric_gateway_ip
+
         return self.layer3.attributes.get(Constants.RES_NET_GATEWAY) if self.layer3 else None
 
     @property

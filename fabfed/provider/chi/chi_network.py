@@ -132,6 +132,21 @@ class ChiNetwork(Network):
             self.logger.info(f'Attached subnet {self.subnet_name} to router  {self.router_name}')
             self.logger.debug(f'Router: {chameleon_router}')
 
+    def update_route(self, *, subnet: str, gateway_ip: str):
+        chameleon_subnet = chi.network.get_subnet(self.subnet_name)
+        body = {
+            "subnet": {
+                "host_routes": [
+                    {
+                        "destination": f"{subnet}",
+                        "nexthop": f"{gateway_ip}"
+                    }
+                ]
+            }
+        }
+
+        chi.neutron().update_subnet(subnet=chameleon_subnet['id'], body=body)
+
     def _delete(self):
         chi.set('project_name', self.project_name)
         chi.set('project_domain_name', 'default')
