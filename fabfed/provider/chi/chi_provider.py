@@ -131,17 +131,12 @@ class ChiProvider(Provider):
 
         if rtype == Constants.RES_TYPE_NETWORK:
             layer3 = resource.get(Constants.RES_LAYER3)
-            from typing import Union
             from fabfed.policy.policy_helper import StitchInfo
-            stitch_info: Union[str, StitchInfo] = resource.get(Constants.RES_STITCH_INFO)
-            assert stitch_info, f"resource {label} missing stitch info"
-
-            if isinstance(stitch_info, str):
-                stitch_provider = stitch_info
-            else:
-                stitch_provider = stitch_info.consumer
-
-            assert stitch_provider, f"resource {label} missing stitch provider"
+            stitch_infos: List[StitchInfo] = resource.get(Constants.RES_STITCH_INFO)
+            assert stitch_infos, f"resource {label} missing stitch info"
+            assert isinstance(stitch_infos, list), f"resource {label} expecting a list for stitch info"
+            assert len(stitch_infos) == 1, f"resource {label} expect a list of size for stitch info "
+            assert stitch_infos[0].stitch_port['peer'] != self.type, f"resource {label} stitch provider has wrong type"
 
             interfaces = resource.get(Constants.RES_INTERFACES, list())
 
@@ -157,7 +152,7 @@ class ChiProvider(Provider):
             from fabfed.provider.chi.chi_network import ChiNetwork
 
             net = ChiNetwork(label=label, name=net_name, site=site,
-                             layer3=layer3, stitch_provider=stitch_provider,
+                             layer3=layer3, stitch_info=stitch_infos[0],
                              project_name=project_name, vlan=vlan)
             self._networks.append(net)
 
@@ -206,7 +201,7 @@ class ChiProvider(Provider):
                     project_name = self.config[CHI_PROJECT_NAME]
 
                     net = ChiNetwork(label=label, name=net_name, site=site,
-                                     layer3=layer3, stitch_provider='', project_name=project_name, vlan=-1)
+                                     layer3=layer3, stitch_info=None, project_name=project_name, vlan=-1)
                     net.delete()
 
                     self.logger.info(f"Deleted network: {net_name} at site {site}")
@@ -271,6 +266,7 @@ class ChiProvider(Provider):
 
     def do_handle_externally_depends_on(self, *, resource: Resource, dependee: Resource):
         self.logger.info(f"NEED TO DO SOME POST PROCESSING  {resource}: {dependee}")
+        # I have the code to add the route.
 
     # noinspection PyTypeChecker
     def do_delete_resource(self, *, resource: dict):
@@ -290,7 +286,7 @@ class ChiProvider(Provider):
             layer3 = Config("", "", {})
 
             net = ChiNetwork(label=label, name=net_name, site=site,
-                             layer3=layer3, stitch_provider=None, project_name=project_name, vlan=-1)
+                             layer3=layer3, stitch_info=None, project_name=project_name, vlan=-1)
             net.delete()
             self.logger.info(f"Deleted network: {net_name} at site {site}")
 

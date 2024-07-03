@@ -312,7 +312,8 @@ class Provider(ABC):
                     self.add_resource(resource=no_longer_pending_resource)
                     added = True
                 except Exception as e:
-                    self.logger.warning(f"Adding no longer pending externally {external_dependency_label} failed: {e}")
+                    self.logger.warning(f"Adding no longer pending externally {external_dependency_label} failed: {e}",
+                                        exc_info=True)
                     added = False
                     self.no_longer_pending.append(no_longer_pending_resource)
 

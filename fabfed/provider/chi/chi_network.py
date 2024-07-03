@@ -20,7 +20,7 @@ logger: logging.Logger = get_logger()
 
 class ChiNetwork(Network):
     def __init__(self, *, label, name: str, site: str, project_name: str, layer3: Config,
-                 stitch_provider: str, vlan: int):
+                 stitch_info, vlan: int):
         super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
         self.layer3 = layer3
@@ -28,7 +28,12 @@ class ChiNetwork(Network):
         self.ip_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
         self.ip_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
         self.gateway = layer3.attributes.get(Constants.RES_NET_GATEWAY, None)
-        self.stitch_provider = stitch_provider
+        self.stitch_info = stitch_info
+        self.stitch_provider = None
+
+        if stitch_info is not None:
+            self.stitch_provider = stitch_info.stitch_port['peer']['provider']
+
         self._retry = 10
         self.lease_name = f'{name}-lease'
         self.subnet_name = f'{name}-subnet'
@@ -93,7 +98,10 @@ class ChiNetwork(Network):
         self.vlans.append(network_vlan)
 
         for vlan in self.vlans:
-            self.interface.append(dict(id='', provider="chi", vlan=vlan))
+            temp = dict(id=self.label, vlan=vlan)
+            temp.update(self.stitch_info.stitch_port['peer'])
+            temp['provider'] = self.stitch_info.stitch_port['provider']
+            self.interface.append(temp)
 
         try:
             chameleon_subnet = chi.network.get_subnet(self.subnet_name)

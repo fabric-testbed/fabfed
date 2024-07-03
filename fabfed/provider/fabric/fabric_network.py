@@ -88,47 +88,79 @@ class FabricNetwork(Network):
 class NetworkBuilder:
     def __init__(self, label, provider: FabricProvider, slice_object: Slice, name, resource: dict):
         self.slice_object = slice_object
-        self.stitch_info = resource.get(Constants.RES_STITCH_INFO)
-        self.stitch_port = get_stitch_port_for_provider(resource=resource, provider=provider.type)
+        self.stitch_infos = resource.get(Constants.RES_STITCH_INFO)
         self.vlan = None
         self.site = resource.get(Constants.RES_SITE)
-        self.interfaces = []
+        self.facility_port_interfaces = []
         self.net_name = name
         self.layer3 = resource.get(Constants.RES_LAYER3)
         self.peering = resource.get(Constants.RES_PEERING)
         self.peer_layer3 = resource.get(Constants.RES_PEER_LAYER3)
-        self.stitching_net = None
+        self.stitching_nets = []
         self.label = label
         self.net = None
         self.type = resource.get(Constants.RES_FLAVOR)
-        self.discovered_stitch_info = {}
-        self.device = resource.get(Constants.STITCH_PORT_DEVICE_NAME)
-        self.site = resource.get(Constants.STITCH_PORT_SITE)
+        self.discovered_stitch_infos = []
+        # self.device = resource.get(Constants.STITCH_PORT_DEVICE_NAME)
+        # self.site = resource.get(Constants.STITCH_PORT_SITE)
         self.sites = set()
 
         interface = resource.get(Constants.RES_INTERFACES)
 
+        logger.info(f"Hello interfaces: {interface}")
+
         if isinstance(interface, list):
-            interface = interface[0]
+            for itf in interface:
+                logger.info(f"Hello ITF: {itf}")
 
-        if isinstance(interface, dict) and 'vlan' in interface:
-            logger.info(f'Network {self.net_name} found interface {interface}')
-            self.vlan = interface.get('vlan')
-
-        if self.stitch_port:
-            self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
-            self.site = self.stitch_port.get(Constants.STITCH_PORT_SITE)
+        # if isinstance(interface, list):
+        #     interface = interface[0]
+        #
+        # if isinstance(interface, dict) and 'vlan' in interface:
+        #     logger.info(f'Network {self.net_name} found interface {interface}')
+        #     self.vlan = interface.get('vlan')
+        #
+        # if self.stitch_port:
+        #     self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
+        #     self.site = self.stitch_port.get(Constants.STITCH_PORT_SITE)
 
         import fabfed.provider.api.dependency_util as util
 
         if util.has_resolved_external_dependencies(resource=resource, attribute=Constants.RES_STITCH_INTERFACE):
-            self.stitching_net = util.get_single_value_for_dependency(resource=resource,
-                                                                      attribute=Constants.RES_STITCH_INTERFACE)
+            self.stitching_nets = util.get_values_for_dependency(resource=resource,
+                                                                 attribute=Constants.RES_STITCH_INTERFACE)
 
-            if not isinstance(self.stitching_net, Network):
-                raise FabfedException(f"Expecting Network. Got {type(self.stitching_net)}")
+            for stitching_net in self.stitching_nets:
+                interface = stitching_net.interface
 
-            self.check_stitch_net()
+                if isinstance(interface, list):
+                    temp = [i for i in interface if isinstance(i, dict) and 'provider' in i]
+
+                    if temp:
+                        interface = temp[0]
+
+                if isinstance(interface, dict) and 'provider' in interface:
+                    logger.info(
+                        f'Hello:Network {self.net_name} found stitching interface {interface} from {stitching_net.label}')
+
+                discovered_stitch_info = dict()
+
+                discovered_stitch_info.update(interface)
+                self.discovered_stitch_infos.append(discovered_stitch_info)
+
+        for discovered_stitch_info in  self.discovered_stitch_infos:
+            logger.info(
+                f'{self.net_name} will use stitch info: {discovered_stitch_info}')
+
+        # if util.has_resolved_external_dependencies(resource=resource, attribute=Constants.RES_STITCH_INTERFACE):
+        #     self.stitching_nets = util.get_values_for_dependency(resource=resource,
+        #                                                          attribute=Constants.RES_STITCH_INTERFACE)
+        #
+        #     for stitching_net in self.stitching_nets:
+        #         if not isinstance(stitching_net, Network):
+        #             raise FabfedException(f"Expecting Network. Got {type(stitching_net)}")
+        #
+        #         self.check_stitch_net(stitching_net)
 
         if self.peering:
             from .plugins import Plugins
@@ -138,34 +170,32 @@ class NetworkBuilder:
             except Exception:
                 traceback.print_exc()
 
-        logger.info(
-            f'{self.net_name}:vlan={self.vlan},stitch_port={self.stitch_port},device={self.device},site={self.site}')
+        # logger.info(
+        #     f'{self.net_name}:vlan={self.vlan},stitch_port={self.stitch_port},device={self.device},site={self.site}')
 
-    def check_stitch_net(self):
-        assert self.stitching_net
-
-        if hasattr(self.stitching_net, 'interface'):
-            interface = self.stitching_net.interface
-
-            if isinstance(interface, list):
-                temp = [i for i in interface if isinstance(i, dict) and 'provider' in i]
-
-                if temp:
-                    interface = temp[0]
-
-            if isinstance(interface, dict) and 'provider' in interface:
-                logger.info(f'Network {self.net_name} found stitching interface {interface}')
-                self.vlan = interface.get('vlan')
-                self.discovered_stitch_info = interface
+    # def check_stitch_net(self, stitching_net):
+    #     if hasattr(stitching_net, 'interface'):
+    #         interface = stitching_net.interface
+    #
+    #         if isinstance(interface, list):
+    #             temp = [i for i in interface if isinstance(i, dict) and 'provider' in i]
+    #
+    #             if temp:
+    #                 interface = temp[0]
+    #
+    #         if isinstance(interface, dict) and 'provider' in interface:
+    #             logger.info(f'Network {self.net_name} found stitching interface {interface}')
+    #             self.vlan = interface.get('vlan')
+    #             self.discovered_stitch_info = interface
 
     def handle_facility_port(self, *, sites):
         from fim.slivers.capacities_labels import Labels, Capacities
 
         self.sites.update(sites)
 
-        if not self.vlan and not self.peering:
-            logger.warning(f"Network {self.net_name} has no vlan and no peering so no facility port will be added ")
-            return
+        # if not self.vlan and not self.peering:
+        #     logger.warning(f"Network {self.net_name} has no vlan and no peering so no facility port will be added ")
+        #     return
 
         if self.peering:
             cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
@@ -197,7 +227,7 @@ class NetworkBuilder:
                 self.peering.attributes[Constants.RES_CLOUD_FACILITY] = cloud # TODO WORKAROUND FOR NOW
 
             if not vlan:
-                vlan = self.stitch_port.get('vlan')   # TODO WORKAROUND GCP NEEDS THIS
+                vlan = self.stitch_port.get('vlan')
 
             labels = Labels(ipv4_subnet=subnet)
 
@@ -242,25 +272,34 @@ class NetworkBuilder:
                 peer_labels=peer_labels,
                 capacities=Capacities(bw=int(bw), mtu=mtu_size))
 
+            facility_port_interface = facility_port.get_interfaces()[0]
+            self.facility_port_interfaces.append(facility_port_interface)
             logger.info("CreatedFacilityPort:" + facility_port.toJson())
         else:
-            logger.info(
-                f"Creating Facility Port: name={self.device}:site={self.site}:vlan={self.vlan}")
+            for discovered_stitch_info in self.discovered_stitch_infos:
+                logger.info(
+                    f'{self.net_name} will use stitch info: {discovered_stitch_info}')
 
-            facility_port = self.slice_object.add_facility_port(name=self.device,
-                                                                site=self.site,
-                                                                vlan=str(self.vlan))
-            logger.info(f"Created Facility Port: name={self.device}:site={self.site}:vlan={self.vlan}")
+                device = discovered_stitch_info[Constants.STITCH_PORT_DEVICE_NAME]
+                site = discovered_stitch_info[Constants.STITCH_PORT_SITE]
+                vlan = discovered_stitch_info[Constants.STITCH_PORT_VLAN]
+                self.sites.add(site)
 
-        facility_port_interface = facility_port.get_interfaces()[0]
-        self.interfaces.append(facility_port_interface)
+                logger.info(f"Adding Facility Port to slice: name={device}:site={site}:vlan={vlan}")
+
+                facility_port = self.slice_object.add_facility_port(name=device,
+                                                                    site=site,
+                                                                    vlan=str(vlan))
+                logger.info(f"Added Facility Port to slice: name={device}:site={site}:vlan={vlan}")
+                facility_port_interface = facility_port.get_interfaces()[0]
+                self.facility_port_interfaces.append(facility_port_interface)
 
     def handle_network(self, nodes):
         from fim.slivers.capacities_labels import Labels, Capacities
 
         if not self.peering:
             interfaces = []
-            interfaces.extend(self.interfaces)
+            interfaces.extend(self.facility_port_interfaces)
 
             for node in nodes:
                 node_interfaces = [i for i in node.get_interfaces() if not i.get_network()]
@@ -278,7 +317,7 @@ class NetworkBuilder:
             else:
                 net_type = 'L2Bridge'
             logger.info(
-                f"Creating Network:{self.net_name}:ifaces={[i.get_name() for i in interfaces]}:type={net_type}")
+                f"Adding Network:{self.net_name} to slice:ifaces={[i.get_name() for i in interfaces]}:type={net_type}")
 
             if net_type == "L3VPN":
                 self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name,

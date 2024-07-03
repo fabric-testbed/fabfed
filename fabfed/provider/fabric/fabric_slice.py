@@ -82,11 +82,14 @@ class FabricSlice:
             if label not in self.network_to_sites_mapping:
                 self.network_to_sites_mapping[label] = set()
 
-            self.network_to_sites_mapping[label].add(resource[Constants.RES_SITE])
+            if Constants.RES_SITE in resource:
+                self.network_to_sites_mapping[label].add(resource[Constants.RES_SITE])
+
             dependencies = resource[Constants.INTERNAL_DEPENDENCIES]
 
             for dependency in dependencies:
-                self.network_to_sites_mapping[label].add(dependency.resource.attributes[Constants.RES_SITE])
+                if Constants.RES_SITE in dependency.resource.attributes:
+                    self.network_to_sites_mapping[label].add(dependency.resource.attributes[Constants.RES_SITE])
 
         elif rtype == Constants.RES_TYPE_NODE.lower():
             dependencies = resource[Constants.INTERNAL_DEPENDENCIES]
