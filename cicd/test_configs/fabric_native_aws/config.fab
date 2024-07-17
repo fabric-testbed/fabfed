@@ -1,6 +1,8 @@
 variable:
   - vlan:
       default: 4 
+  - node_count:
+      default: 1
 
 provider:
   - fabric:
@@ -37,6 +39,8 @@ resource:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
           site: MAX
+          network: '{{ network.fabric_network }}'
+          count: '{{ var.node_count }}'
 
   - network:
       - fabric_network:
@@ -44,7 +48,6 @@ resource:
           layer3: "{{ layer3.fab_layer }}"
           peer_layer3: [ "{{ layer3.aws_layer }}" ]
           peering: "{{ peering.my_peering }}"
-          interface: '{{ node.fabric_node }}'
           stitch_info:
             stitch_port:
               name: AWS_PORTS

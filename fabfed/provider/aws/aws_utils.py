@@ -352,10 +352,12 @@ def create_vpn_gateway(*, ec2_client, name: str, amazon_asn: int):
 
     for i in range(RETRY):
         vpn_gateway = _find_vpn_gateway_by_id(ec2_client=ec2_client, vpn_id=vpn_id)
-        state = vpn_gateway['State']
 
-        if state == 'available':
-            return vpn_id
+        if vpn_gateway:
+            state = vpn_gateway['State']
+
+            if state == 'available':
+                return vpn_id
 
         logger.info(f"Waiting on VPN {name}:state={state}")
         time.sleep(20)

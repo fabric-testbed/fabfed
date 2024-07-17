@@ -437,36 +437,48 @@ def handle_stitch_info(config, policy, resources):
     has_stitch_with = False
 
     for network in [resource for resource in resources if resource.is_network]:
-        network.attributes[Constants.RES_STITCH_INFO] = []
-        network.attributes[Constants.RES_STITCH_INTERFACE] = []
+        if Constants.RES_STITCH_INFO not in network.attributes:
+            network.attributes[Constants.RES_STITCH_INFO] = []
+
+        if Constants.RES_STITCH_INTERFACE not in network.attributes:
+            network.attributes[Constants.RES_STITCH_INTERFACE] = []
 
     for network in [resource for resource in resources if resource.is_network]:
         if Constants.NETWORK_STITCH_WITH in network.attributes:
+            from fabfed.util.config_models import DependencyInfo
+
             has_stitch_with = True
-            dependency_infos = network.attributes[Constants.NETWORK_STITCH_WITH]
+            dependency_info_dicts = network.attributes[Constants.NETWORK_STITCH_WITH]
 
-            if not isinstance(dependency_infos, list):
-                dependency_infos = [dependency_infos]
+            if not isinstance(dependency_info_dicts, list):
+                option = network.attributes.get(Constants.NETWORK_STITCH_OPTION)
+                dependency_info_dicts = [dict(network=dependency_info_dicts, stitch_option=option)]
 
-            dependencies = network.dependencies
-            temp_set = network._resource_dependencies = set()
+            from fabfed.util.config_models import DependencyInfo
 
-            for dep in dependencies:
+            for dependency_info_dict in dependency_info_dicts:
+                assert("network" in dependency_info_dict)
+                assert(isinstance(dependency_info_dict["network"], DependencyInfo))
+
+            temp = set()
+
+            for dep in network.dependencies:
                 if dep.key == 'stitch_with.network':
                     # Dependency(key='stitch_with.network', resource=cnet@network, attribute='', is_external=True
                     from fabfed.util.config_models import Dependency
                     new_dep = Dependency(key=Constants.NETWORK_STITCH_WITH,
                                          resource=dep.resource, attribute=dep.attribute, is_external=True)
-                    temp_set.add(new_dep)
+                    temp.add(new_dep)
                 else:
-                    temp_set.add(dep)
+                    temp.add(dep)
 
-            for temp_yyy in dependency_infos:
-                dependency_info = temp_yyy['network']
-                dependencies = network.dependencies
+            network._resource_dependencies = temp
+
+            for dependency_info_dict in dependency_info_dicts:
+                dependency_info: DependencyInfo = dependency_info_dict['network']
                 network_dependency = None
 
-                for ed in dependencies:
+                for ed in network.dependencies:
                     if ed.key == Constants.NETWORK_STITCH_WITH and ed.resource.label == dependency_info.resource.label:
                         network_dependency = ed
                         break
@@ -477,7 +489,7 @@ def handle_stitch_info(config, policy, resources):
                 assert other_network.is_network, "only network stitching is supported"
 
                 stitch_config = None
-                option = temp_yyy.get(Constants.NETWORK_STITCH_OPTION)
+                option = dependency_info_dict.get(Constants.NETWORK_STITCH_OPTION)
 
                 if option:
                     stitch_config = option.get(Constants.NETWORK_STITCH_CONFIG)
@@ -485,13 +497,11 @@ def handle_stitch_info(config, policy, resources):
                 if not stitch_config:
                     site = find_site(network, resources)
                     profile = find_profile(network, resources)
-                    # TODO I CHANGED THIS SP THAT SITE TACC GETS USED. MUST REVISIT.
-                    options = network.attributes.get(Constants.NETWORK_STITCH_OPTION, option)
                     stitch_info = find_stitch_port(policy=policy,
                                                    providers=[network.provider.type, other_network.provider.type],
                                                    site=site,
                                                    profile=profile,
-                                                   options=options)
+                                                   options=option)
 
                     clean_up_port(stitch_info.stitch_port)
                     stitch_info = StitchInfo(consumer=stitch_info.consumer,
@@ -643,21 +653,21 @@ def get_vlan_from_range(*, resource: dict):
 
 
 def get_vlan_range(*, resource: dict):
-    stitch_info = resource.get(Constants.RES_STITCH_INFO)
+    stitch_infos = resource.get(Constants.RES_STITCH_INFO)
 
-    if not stitch_info:
+    if not stitch_infos:
         return None
 
-    if isinstance(stitch_info, dict):  # This is for testing purposes.
-        producer = stitch_info['producer']
-        consumer = stitch_info['consumer']
-        stitch_info = StitchInfo(stitch_port=stitch_info['stitch_port'], producer=producer, consumer=consumer)
-        resource[Constants.RES_STITCH_INFO] = stitch_info
+    if isinstance(stitch_infos, dict):  # This is for testing purposes.
+        producer = stitch_infos['producer']
+        consumer = stitch_infos['consumer']
+        stitch_info = StitchInfo(stitch_port=stitch_infos['stitch_port'], producer=producer, consumer=consumer)
+        stitch_infos = resource[Constants.RES_STITCH_INFO] = [stitch_info]
 
-    stitch_ports = [stitch_info.stitch_port]
+    stitch_ports = [stitch_infos[0].stitch_port]
 
-    if PEER in stitch_info.stitch_port:
-        stitch_ports.append(stitch_info.stitch_port[PEER])
+    if PEER in stitch_infos[0].stitch_port:
+        stitch_ports.append(stitch_infos[0].stitch_port[PEER])
 
     for stitch_port in stitch_ports:
         if Constants.STITCH_VLAN_RANGE in stitch_port:
@@ -676,7 +686,7 @@ def get_stitch_port_for_provider(*, resource: dict, provider: str):
         producer = stitch_infos['producer']
         consumer = stitch_infos['consumer']
         stitch_info = StitchInfo(stitch_port=stitch_infos['stitch_port'], producer=producer, consumer=consumer)
-        resource[Constants.RES_STITCH_INFO] = stitch_info
+        stitch_infos = resource[Constants.RES_STITCH_INFO] = [stitch_info]
 
     stitch_ports = []
 
