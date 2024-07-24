@@ -66,14 +66,15 @@ def partition_layer3_config(*, networks: list):
         dhcp_start = dhcp_end + 1
 
 
-def find_peer_network(*, network):
+def find_peer_networks(*, network):
     dependencies = network.dependencies
+    peer_networks = []
 
     for ed in dependencies:
         if ed.key == Constants.RES_STITCH_INTERFACE:
-            return ed.resource
+            peer_networks.append(ed.resource)
 
-    return None
+    return peer_networks
 
 
 def find_nodes_related_to_network(*, network, resources):
@@ -99,29 +100,33 @@ def find_node_clusters(*, resources):
 
     for net in networks:
         if net.label not in visited_networks:
-            peer = find_peer_network(network=net)
+            peers = find_peer_networks(network=net)
 
-            if peer:
+            if peers:
+                cluster = []
                 visited_networks.append(net.label)
                 nodes = find_nodes_related_to_network(network=net, resources=resources)
-                visited_networks.append(peer.label)
-                nodes.extend(find_nodes_related_to_network(network=peer, resources=resources))
                 visited_nodes.extend([n.label for n in nodes])
+                cluster.extend(nodes)
 
-                if nodes:
-                    clusters.append(nodes)
+                for peer in peers:
+                    visited_networks.append(peer.label)
+                    nodes = find_nodes_related_to_network(network=peer, resources=resources)
+                    visited_nodes.extend([n.label for n in nodes])
+
+                    if nodes:
+                        cluster.extend(nodes)
+
+                if cluster:
+                    clusters.append(cluster)
 
     for net in networks:
         if net.label not in visited_networks:
-            peer = find_peer_network(network=net)
+            nodes = find_nodes_related_to_network(network=net, resources=resources)
 
-            if not peer:
-                visited_networks.append(net.label)
-                nodes = find_nodes_related_to_network(network=net, resources=resources)
+            if nodes:
                 visited_nodes.extend([n.label for n in nodes])
-
-                if nodes:
-                    clusters.append(nodes)
+                clusters.append(nodes)
 
     nodes = [r for r in resources if r.is_node]
 

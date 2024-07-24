@@ -113,7 +113,7 @@ class NetworkBuilder:
             logger.info(f'Network {self.net_name} found interface {interface}')
             self.vlan = interface.get('vlan')
 
-        if self.stitch_port:
+        if isinstance(self.stitch_port, dict):
             self.device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
             self.site = self.stitch_port.get(Constants.STITCH_PORT_SITE)
 
