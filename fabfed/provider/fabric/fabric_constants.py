@@ -50,3 +50,5 @@ INCLUDE_FABNET_V6 = False
 FABRIC_SLEEP_AFTER_SUBMIT_OK = 120  # In seconds
 
 PATCH_FOR_TOKENS = True
+
+SITES = "sites"

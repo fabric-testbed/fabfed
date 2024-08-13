@@ -11,10 +11,12 @@ logger = get_logger()
 
 
 class CloudNetwork(Network):
-    def __init__(self, *, label, name: str, provider: CloudlabProvider, profile: str, interfaces, layer3, cluster):
+    def __init__(self, *, label, name: str, provider: CloudlabProvider,
+                 stitch_info=None, profile: str, interfaces, layer3, cluster):
         super().__init__(label=label, name=name, site="")
         self.profile = profile
         self._provider = provider
+        self.stitch_info = stitch_info
         self.interface = interfaces or []
         self.layer3 = layer3 or {}
         self.cluster = cluster
@@ -141,7 +143,12 @@ class CloudNetwork(Network):
         data_dict = xmltodict.parse(next(iter(status.values())))
         logger.info(f"RSPEC: {json.dumps(data_dict['rspec'], indent=2)}")
         link = data_dict['rspec']['link']
+
+        temp = dict(id=self.label, vlan=link['@vlantag'])
+        temp.update(self.stitch_info.stitch_port['peer'])
+        temp['provider'] = self.stitch_info.stitch_port['provider']
         self.interface = [dict(id='', provider=self.provider.type, vlan=link['@vlantag'])]
+        self.interface = [temp]
 
         if not [n for n in self.provider.nodes if n.net == self]:
             return

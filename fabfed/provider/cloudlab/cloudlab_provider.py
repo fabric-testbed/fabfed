@@ -1,3 +1,5 @@
+from typing import List
+
 from fabfed.exceptions import ResourceTypeNotSupported, ProviderException
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
@@ -15,6 +17,7 @@ class CloudlabProvider(Provider):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         self.supported_resources = [Constants.RES_TYPE_NETWORK, Constants.RES_TYPE_NODE]
         self._handled_modify = False
+        self._stitch_info_map = dict()
 
     def setup_environment(self):
         for attr in CLOUDLAB_CONF_ATTRS:
@@ -115,7 +118,6 @@ class CloudlabProvider(Provider):
         if not stitch_info:
             raise ProviderException(f"{self.label} expecting stitch info in {rtype} resource {label}")
 
-
     def resource_name(self, resource: dict, idx: int = 0):
         rtype = resource.get(Constants.RES_TYPE)
 
@@ -171,9 +173,15 @@ class CloudlabProvider(Provider):
 
         net_name = self.resource_name(resource)
         profile = resource.get(Constants.RES_PROFILE)
-        cloudlab_stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
+        from fabfed.policy.policy_helper import StitchInfo
+        stitch_infos: List[StitchInfo] = resource.get(Constants.RES_STITCH_INFO)
+        assert stitch_infos, f"resource {label} missing stitch info"
+        assert isinstance(stitch_infos, list), f"resource {label} expecting a list for stitch info"
+        assert len(stitch_infos) == 1, f"resource {label} expect a list of size for stitch info "
+        assert stitch_infos[0].stitch_port['peer'] != self.type, f"resource {label} stitch provider has wrong type"
+        cloudlab_stitch_port = stitch_infos[0].stitch_port
 
-        if not profile and cloudlab_stitch_port:
+        if not profile:
             profile = cloudlab_stitch_port.get(Constants.RES_PROFILE)
 
         if not profile:
@@ -181,7 +189,7 @@ class CloudlabProvider(Provider):
 
         cluster = resource.get(Constants.RES_CLUSTER)
 
-        if not cluster and cloudlab_stitch_port:
+        if not cluster:
             if 'option' in cloudlab_stitch_port and Constants.RES_CLUSTER in cloudlab_stitch_port['option']:
                 cluster = cloudlab_stitch_port['option'][Constants.RES_CLUSTER]
 
@@ -195,7 +203,8 @@ class CloudlabProvider(Provider):
             interfaces = [{'vlan': vlan}] if vlan > 0 else []
 
         layer3 = resource.get(Constants.RES_LAYER3)
-        net = CloudNetwork(label=label, name=net_name, provider=self, profile=profile, interfaces=interfaces,
+        net = CloudNetwork(label=label, name=net_name, provider=self, stitch_info=stitch_infos[0],
+                           profile=profile, interfaces=interfaces,
                            layer3=layer3, cluster=cluster)
         self._networks.append(net)
         self.resource_listener.on_added(source=self, provider=self, resource=net)

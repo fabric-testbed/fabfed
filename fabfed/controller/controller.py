@@ -265,26 +265,57 @@ class Controller:
         resource_state_map = Controller._build_state_map(provider_states)
         exceptions = []
 
-        to_be_deleted_resources = []
-
-        for resource in resources:
-            resource_dict = resource.attributes
-            creation_details = resource_dict[Constants.RES_CREATION_DETAILS]
-            if not creation_details['in_config_file']:
-                to_be_deleted_resources.append(resource)
+        create_and_wait_resource_labels = set()
 
         for resource in filter(lambda r: not r.is_service, resources):
-            label = resource.provider.label
-            provider = self.provider_factory.get_provider(label=label)
+            resource_dict = resource.attributes
+
+            for dependency in resource_dict[Constants.EXTERNAL_DEPENDENCIES]:
+                create_and_wait_resource_labels.add(dependency.resource.label)
 
             if resource.label in resource_state_map:
                 resource.attributes[Constants.SAVED_STATES] = resource_state_map[resource.label]
 
-            try:
-                provider.create_resource(resource=resource.attributes)
-            except Exception as e:
-                exceptions.append(e)
-                self.logger.error(e, exc_info=True)
+        for resource in filter(lambda r: not r.is_service, resources):
+            if resource.label in create_and_wait_resource_labels:
+                provider = self.provider_factory.get_provider(label=resource.provider.label)
+
+                try:
+                    provider.create_resource(resource=resource.attributes)
+                    provider.wait_for_create_resource(resource=resource.attributes)
+                except Exception as e:
+                    exceptions.append(e)
+                    self.logger.error(e, exc_info=True)
+
+        if exceptions:
+            raise ControllerException(exceptions)
+
+        exceptions = []
+
+        for resource in filter(lambda r: not r.is_service, resources):
+            if resource.label not in create_and_wait_resource_labels:
+                provider = self.provider_factory.get_provider(label=resource.provider.label)
+
+                try:
+                    provider.create_resource(resource=resource.attributes)
+                except Exception as e:
+                    exceptions.append(e)
+                    self.logger.error(e, exc_info=True)
+
+        if exceptions:
+            raise ControllerException(exceptions)
+
+        exceptions = []
+
+        for resource in filter(lambda r: not r.is_service, resources):
+            if resource.label not in create_and_wait_resource_labels:
+                provider = self.provider_factory.get_provider(label=resource.provider.label)
+
+                try:
+                    provider.wait_for_create_resource(resource=resource.attributes)
+                except Exception as e:
+                    exceptions.append(e)
+                    self.logger.error(e, exc_info=True)
 
         if exceptions:
             raise ControllerException(exceptions)

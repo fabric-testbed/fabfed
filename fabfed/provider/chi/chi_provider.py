@@ -1,14 +1,14 @@
 import logging
 import os
-from fabfed.exceptions import ResourceTypeNotSupported, ProviderException
 from typing import List
 
+import fabfed.provider.api.dependency_util as util
+from fabfed.exceptions import ResourceTypeNotSupported, ProviderException
+from fabfed.model import Resource
 from fabfed.provider.api.provider import Provider
 from fabfed.util.constants import Constants
-from .chi_constants import *
-import fabfed.provider.api.dependency_util as util
-
 from fabfed.util.utils import get_logger
+from .chi_constants import *
 
 logger: logging.Logger = get_logger()
 
@@ -131,17 +131,12 @@ class ChiProvider(Provider):
 
         if rtype == Constants.RES_TYPE_NETWORK:
             layer3 = resource.get(Constants.RES_LAYER3)
-            from typing import Union
             from fabfed.policy.policy_helper import StitchInfo
-            stitch_info: Union[str, StitchInfo] = resource.get(Constants.RES_STITCH_INFO)
-            assert stitch_info, f"resource {label} missing stitch info"
-
-            if isinstance(stitch_info, str):
-                stitch_provider = stitch_info
-            else:
-                stitch_provider = stitch_info.consumer
-
-            assert stitch_provider, f"resource {label} missing stitch provider"
+            stitch_infos: List[StitchInfo] = resource.get(Constants.RES_STITCH_INFO)
+            assert stitch_infos, f"resource {label} missing stitch info"
+            assert isinstance(stitch_infos, list), f"resource {label} expecting a list for stitch info"
+            assert len(stitch_infos) == 1, f"resource {label} expect a list of size for stitch info "
+            assert stitch_infos[0].stitch_port['peer'] != self.type, f"resource {label} stitch provider has wrong type"
 
             interfaces = resource.get(Constants.RES_INTERFACES, list())
 
@@ -157,7 +152,7 @@ class ChiProvider(Provider):
             from fabfed.provider.chi.chi_network import ChiNetwork
 
             net = ChiNetwork(label=label, name=net_name, site=site,
-                             layer3=layer3, stitch_provider=stitch_provider,
+                             layer3=layer3, stitch_info=stitch_infos[0],
                              project_name=project_name, vlan=vlan)
             self._networks.append(net)
 
@@ -206,7 +201,7 @@ class ChiProvider(Provider):
                     project_name = self.config[CHI_PROJECT_NAME]
 
                     net = ChiNetwork(label=label, name=net_name, site=site,
-                                     layer3=layer3, stitch_provider='', project_name=project_name, vlan=-1)
+                                     layer3=layer3, stitch_info=None, project_name=project_name, vlan=-1)
                     net.delete()
 
                     self.logger.info(f"Deleted network: {net_name} at site {site}")
@@ -247,6 +242,19 @@ class ChiProvider(Provider):
             for node in temp:
                 node.create()
 
+    def do_wait_for_create_resource(self, *, resource: dict):
+        site = resource.get(Constants.RES_SITE)
+        self._setup_environment(site=site)
+        label = resource.get(Constants.LABEL)
+        rtype = resource.get(Constants.RES_TYPE)
+
+        if rtype == Constants.RES_TYPE_NETWORK:
+            pass
+        else:
+            from fabfed.provider.chi.chi_node import ChiNode
+
+            temp: List[ChiNode] = [node for node in self._nodes if node.label == label]
+
             for node in temp:
                 node.wait_for_active()
 
@@ -255,6 +263,10 @@ class ChiProvider(Provider):
 
                 if self.resource_listener:
                     self.resource_listener.on_created(source=self, provider=self, resource=node)
+
+    def do_handle_externally_depends_on(self, *, resource: Resource, dependee: Resource):
+        self.logger.info(f"NEED TO DO SOME POST PROCESSING  {resource}: {dependee}")
+        # I have the code to add the route.
 
     # noinspection PyTypeChecker
     def do_delete_resource(self, *, resource: dict):
@@ -274,7 +286,7 @@ class ChiProvider(Provider):
             layer3 = Config("", "", {})
 
             net = ChiNetwork(label=label, name=net_name, site=site,
-                             layer3=layer3, stitch_provider=None, project_name=project_name, vlan=-1)
+                             layer3=layer3, stitch_info=None, project_name=project_name, vlan=-1)
             net.delete()
             self.logger.info(f"Deleted network: {net_name} at site {site}")
 

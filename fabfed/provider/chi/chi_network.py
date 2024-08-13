@@ -20,7 +20,7 @@ logger: logging.Logger = get_logger()
 
 class ChiNetwork(Network):
     def __init__(self, *, label, name: str, site: str, project_name: str, layer3: Config,
-                 stitch_provider: str, vlan: int):
+                 stitch_info, vlan: int):
         super().__init__(label=label, name=name, site=site)
         self.project_name = project_name
         self.layer3 = layer3
@@ -28,7 +28,12 @@ class ChiNetwork(Network):
         self.ip_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
         self.ip_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
         self.gateway = layer3.attributes.get(Constants.RES_NET_GATEWAY, None)
-        self.stitch_provider = stitch_provider
+        self.stitch_info = stitch_info
+        self.stitch_provider = None
+
+        if stitch_info is not None:
+            self.stitch_provider = stitch_info.stitch_port['peer']['provider']
+
         self._retry = 10
         self.lease_name = f'{name}-lease'
         self.subnet_name = f'{name}-subnet'
@@ -93,7 +98,10 @@ class ChiNetwork(Network):
         self.vlans.append(network_vlan)
 
         for vlan in self.vlans:
-            self.interface.append(dict(id='', provider="chi", vlan=vlan))
+            temp = dict(id=self.label, vlan=vlan)
+            temp.update(self.stitch_info.stitch_port['peer'])
+            temp['provider'] = self.stitch_info.stitch_port['provider']
+            self.interface.append(temp)
 
         try:
             chameleon_subnet = chi.network.get_subnet(self.subnet_name)
@@ -131,6 +139,21 @@ class ChiNetwork(Network):
             chi.network.add_subnet_to_router_by_name(self.router_name, self.subnet_name)
             self.logger.info(f'Attached subnet {self.subnet_name} to router  {self.router_name}')
             self.logger.debug(f'Router: {chameleon_router}')
+
+    def update_route(self, *, subnet: str, gateway_ip: str):
+        chameleon_subnet = chi.network.get_subnet(self.subnet_name)
+        body = {
+            "subnet": {
+                "host_routes": [
+                    {
+                        "destination": f"{subnet}",
+                        "nexthop": f"{gateway_ip}"
+                    }
+                ]
+            }
+        }
+
+        chi.neutron().update_subnet(subnet=chameleon_subnet['id'], body=body)
 
     def _delete(self):
         chi.set('project_name', self.project_name)

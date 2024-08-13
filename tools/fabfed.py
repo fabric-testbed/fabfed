@@ -185,11 +185,15 @@ def manage_workflow(args):
         stitch_info_network_info_map = {}
 
         for network in filter(lambda n: n.is_network and n.attributes.get(Constants.RES_STITCH_INFO), resources):
-            stitch_info = network.attributes.get(Constants.RES_STITCH_INFO)
+            stitch_infos = network.attributes.get(Constants.RES_STITCH_INFO)
 
-            if stitch_info:
+            for stitch_info in stitch_infos:
                 network_info = NetworkInfo(label=network.label, provider_label=network.provider.label)
-                stitch_port_name = stitch_info.stitch_port['name']
+                if 'name' in stitch_info.stitch_port:
+                   stitch_port_name = stitch_info.stitch_port['name']
+                else:
+                   stitch_port_name = stitch_info.stitch_port['peer']['name']
+
                 stitch_info_map[stitch_port_name] = stitch_info
 
                 if stitch_port_name not in stitch_info_network_info_map:
