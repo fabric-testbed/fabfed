@@ -162,7 +162,33 @@ def get_facility_ports():
     return ports
 
 
-def find_stitch_port_for_providers(policy: Dict[str, ProviderPolicy], providers: List[str]) -> List[DetailedStitchInfo]:
+def _populate_stitch_port(*, facility_ports, stitch_port):
+    for fp in facility_ports.topology.facilities.values():
+        if fp.name != stitch_port['profile'] or fp.site != stitch_port['site']:
+            continue
+
+        interface_list = [iface for iface in fp.interface_list if iface.labels]
+        for iface in interface_list:
+            labels = iface.labels
+
+            if labels.device_name != stitch_port['device_name'] \
+                    or labels.local_name != stitch_port['local_name']:
+                continue
+
+            if 'region' not in stitch_port:
+                stitch_port['region'] = labels.region
+
+            if 'vlan_range' not in stitch_port:
+                stitch_port['vlan_range'] = labels.vlan_range
+
+            label_allocations = iface.get_property("label_allocations")
+            stitch_port['allocated_vlans'] = label_allocations.vlan if label_allocations else []
+            stitch_port['allocated_vlans'] = [int(vlan) for vlan in stitch_port['allocated_vlans']]
+
+
+def find_stitch_port_for_providers(policy: Dict[str, ProviderPolicy],
+                                   providers: List[str],
+                                   populate: bool = False) -> List[DetailedStitchInfo]:
     provider1 = providers[0]
     provider2 = providers[1]
     stitch_infos = []
@@ -231,6 +257,17 @@ def find_stitch_port_for_providers(policy: Dict[str, ProviderPolicy], providers:
         if not found:
             removed_duplicates_stitch_infos.append(si)
 
+    if populate:
+        from fabrictestbed_extensions.fablib.fablib import fablib
+
+        facility_ports = fablib.get_facility_ports()
+
+        for si in removed_duplicates_stitch_infos:
+            stitch_port = si.stitch_port
+
+            if stitch_port['provider'] == "fabric":
+                _populate_stitch_port(facility_ports=facility_ports, stitch_port=stitch_port)
+
     return removed_duplicates_stitch_infos
 
 
@@ -294,11 +331,11 @@ def peer_stitch_ports(stitch_infos: List[DetailedStitchInfo]):
 
 
 def find_stitch_port(*, policy: Dict[str, ProviderPolicy], providers: List[str], site=None,
-                     profile=None, options=None) -> DetailedStitchInfo or None:
+                     profile=None, options=None, populate=False) -> DetailedStitchInfo or None:
     from fabfed.util.utils import get_logger
 
     logger = get_logger()
-    stitch_infos = find_stitch_port_for_providers(policy, providers)
+    stitch_infos = find_stitch_port_for_providers(policy, providers, populate)
     stitch_infos = peer_stitch_ports(stitch_infos)
 
     logger.info(f"Found {len(stitch_infos)} stitch ports")
@@ -501,7 +538,8 @@ def handle_stitch_info(config, policy, resources):
                                                    providers=[network.provider.type, other_network.provider.type],
                                                    site=site,
                                                    profile=profile,
-                                                   options=option)
+                                                   options=option,
+                                                   populate=True)
 
                     clean_up_port(stitch_info.stitch_port)
                     stitch_info = StitchInfo(consumer=stitch_info.consumer,
@@ -708,4 +746,3 @@ def get_stitch_port_for_provider(*, resource: dict, provider: str):
         return stitch_ports[0]
 
     return stitch_ports
-

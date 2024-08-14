@@ -1,6 +1,30 @@
 from fabfed.policy.policy_helper import *
 
 
+def test_available_tags():
+    from fabfed.policy.tag_handler import TagSet, get_available_vlan
+
+    tags = TagSet(arange="   2-10,    13-15")
+    tags.remove_tag(10)
+    tags.remove_tag(14)
+    tags.remove_tag(20)
+    assert tags.to_string() == "2-9,13-13,15-15"
+
+    tags = TagSet(arange="2-2")
+    tags.remove_tag(2)
+    assert tags.to_string() == ""
+
+    tags = TagSet(arange="")
+    tags.remove_tag(4094)
+    assert tags.to_string() == ""
+
+    stitch_port = dict(vlan_range=["2-2"], allocated_vlans=[])
+    assert get_available_vlan(stitch_port=stitch_port) == 2
+
+    stitch_port = dict(vlan_range=["2-2"], allocated_vlans=[2])
+    assert get_available_vlan(stitch_port=stitch_port) is None
+
+
 def test_policy_with_site_and_no_site():
     yaml_str = '''
 fabric:

@@ -372,7 +372,8 @@ class FabricSlice:
         from fabrictestbed_extensions.fablib.fablib import fablib
         from . import fabric_slice_helper
 
-        self._ensure_management_ips()
+        if self.nodes:
+            self._ensure_management_ips()
 
         # TODO KOMAL
         '''

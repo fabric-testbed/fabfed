@@ -193,16 +193,28 @@ class NetworkBuilder:
             if not vlan:
                 vlan = self.stitch_port.get('vlan')
 
+            if vlan and 'allocated_vlans' in self.stitch_port and vlan in self.stitch_port['allocated_vlans']:
+                from fabfed.exceptions import ResourceNotAvailable
+
+                raise ResourceNotAvailable(
+                    f"vlan {vlan} is already used. allocated_vlans={self.stitch_port['allocated_vlans']}")
+
+            if not vlan:
+                from fabfed.policy.tag_handler import get_available_vlan
+
+                vlan = get_available_vlan(stitch_port=self.stitch_port)
+
             labels = Labels(ipv4_subnet=subnet)
 
             if vlan:
                 labels = Labels.update(labels, vlan=str(vlan))
 
-            # if region:
-            #     labels = Labels.update(labels, region=region)
+            if region:
+                labels = Labels.update(labels, region=region)
 
             if device: 
                 labels = Labels.update(labels, device_name=device)
+
             if port: 
                 labels = Labels.update(labels, local_name=port)
 
@@ -257,7 +269,7 @@ class NetworkBuilder:
                 logger.info(f"Added Facility Port to slice: name={device}:site={site}:vlan={vlan}")
                 facility_port_interface = facility_port.get_interfaces()[0]
                 self.facility_port_interfaces.append(facility_port_interface)
-        elif self.device and self.vlan and self.site:  # USED FOR TESTING
+        elif self.device and self.vlan and self.site:  # USED FOR QUICK TESTING
             logger.info(f"Adding Facility Port to slice: name={self.device}:site={self.site}:vlan={self.vlan}")
             facility_port = self.slice_object.add_facility_port(name=self.device,
                                                                 site=self.site,

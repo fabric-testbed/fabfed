@@ -2,14 +2,20 @@ class FabfedException(Exception):
     """Base class for other exceptions"""
     pass
 
+
 class AnsibleException(FabfedException):
     pass
+
 
 class ParseConfigException(FabfedException):
     pass
 
 
 class ResourceTypeNotSupported(FabfedException):
+    pass
+
+
+class ResourceNotAvailable(FabfedException):
     pass
 
 
