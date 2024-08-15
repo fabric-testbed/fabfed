@@ -39,7 +39,7 @@ class ChiNetwork(Network):
         self.subnet_name = f'{name}-subnet'
         self.router_name = f'{name}-router'
 
-        if vlan > 0:
+        if vlan:
             resource_properties = json.dumps(
                 ["and", ["==", "$stitch_provider", self.stitch_provider], ["==", "$segment_id", str(vlan)]]
             )

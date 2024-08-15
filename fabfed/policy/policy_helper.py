@@ -171,11 +171,14 @@ def _populate_stitch_port(*, facility_ports, stitch_port):
         for iface in interface_list:
             labels = iface.labels
 
-            if labels.device_name != stitch_port['device_name'] \
-                    or labels.local_name != stitch_port['local_name']:
+            if labels.device_name and labels.device_name != stitch_port['device_name']:
                 continue
 
-            if 'region' not in stitch_port:
+            if labels.local_name and 'local_name' in stitch_port['local_name'] \
+                    and labels.local_name != stitch_port['local_name']:
+                continue
+
+            if labels.region and 'region' not in stitch_port:
                 stitch_port['region'] = labels.region
 
             if 'vlan_range' not in stitch_port:
@@ -262,11 +265,37 @@ def find_stitch_port_for_providers(policy: Dict[str, ProviderPolicy],
 
         facility_ports = fablib.get_facility_ports()
 
+        # import sys
+        # print("************");
+        # fablib.list_facility_ports()
+        # # print(facility_ports)
+        # print("************");
+        # print("***** BEGIN *******");
+        #
+        # for fp in facility_ports.topology.facilities.values():
+        #     if fp.name != "ESnet-StarLight" or fp.site != "STAR":
+        #         continue
+        #
+        #     print("Hurray ...", fp.name)
+        #     interface_list = [iface for iface in fp.interface_list if iface.labels]
+        #     print("Hurray ...", fp.name, len(interface_list))
+        #
+        #     for iface in interface_list:
+        #         labels = iface.labels
+        #
+        #     print("RANGE=", labels.vlan_range)
+        #     label_allocations = iface.get_property("label_allocations")
+        #     print("ALOCATED=", label_allocations.vlan if label_allocations else [])
+        #
+        # print("***** END *******");
+        # sys.exit(1)
+
         for si in removed_duplicates_stitch_infos:
             stitch_port = si.stitch_port
 
             if stitch_port['provider'] == "fabric":
                 _populate_stitch_port(facility_ports=facility_ports, stitch_port=stitch_port)
+
 
     return removed_duplicates_stitch_infos
 
@@ -675,43 +704,43 @@ def fix_network_site(resource):
         resource.attributes[Constants.RES_SITE] = site
 
 
-def get_vlan_from_range(*, resource: dict):
-    vlan_range = get_vlan_range(resource=resource)
-
-    if not vlan_range:
-        return -1
-
-    vlan_range = vlan_range[0]
-    x = vlan_range.split("-")
-
-    import random
-
-    vlan = random.randrange(int(x[0]), int(x[1]) + 1)
-    return vlan
-
-
-def get_vlan_range(*, resource: dict):
-    stitch_infos = resource.get(Constants.RES_STITCH_INFO)
-
-    if not stitch_infos:
-        return None
-
-    if isinstance(stitch_infos, dict):  # This is for testing purposes.
-        producer = stitch_infos['producer']
-        consumer = stitch_infos['consumer']
-        stitch_info = StitchInfo(stitch_port=stitch_infos['stitch_port'], producer=producer, consumer=consumer)
-        stitch_infos = resource[Constants.RES_STITCH_INFO] = [stitch_info]
-
-    stitch_ports = [stitch_infos[0].stitch_port]
-
-    if PEER in stitch_infos[0].stitch_port:
-        stitch_ports.append(stitch_infos[0].stitch_port[PEER])
-
-    for stitch_port in stitch_ports:
-        if Constants.STITCH_VLAN_RANGE in stitch_port:
-            return stitch_port[Constants.STITCH_VLAN_RANGE]
-
-    return None
+# def get_vlan_from_range(*, resource: dict):
+#     vlan_range = get_vlan_range(resource=resource)
+#
+#     if not vlan_range:
+#         return -1
+#
+#     vlan_range = vlan_range[0]
+#     x = vlan_range.split("-")
+#
+#     import random
+#
+#     vlan = random.randrange(int(x[0]), int(x[1]) + 1)
+#     return vlan
+#
+#
+# def get_vlan_range(*, resource: dict):
+#     stitch_infos = resource.get(Constants.RES_STITCH_INFO)
+#
+#     if not stitch_infos:
+#         return None
+#
+#     if isinstance(stitch_infos, dict):  # This is for testing purposes.
+#         producer = stitch_infos['producer']
+#         consumer = stitch_infos['consumer']
+#         stitch_info = StitchInfo(stitch_port=stitch_infos['stitch_port'], producer=producer, consumer=consumer)
+#         stitch_infos = resource[Constants.RES_STITCH_INFO] = [stitch_info]
+#
+#     stitch_ports = [stitch_infos[0].stitch_port]
+#
+#     if PEER in stitch_infos[0].stitch_port:
+#         stitch_ports.append(stitch_infos[0].stitch_port[PEER])
+#
+#     for stitch_port in stitch_ports:
+#         if Constants.STITCH_VLAN_RANGE in stitch_port:
+#             return stitch_port[Constants.STITCH_VLAN_RANGE]
+#
+#     return None
 
 
 def get_stitch_port_for_provider(*, resource: dict, provider: str):

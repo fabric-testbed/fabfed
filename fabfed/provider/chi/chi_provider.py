@@ -135,18 +135,23 @@ class ChiProvider(Provider):
             stitch_infos: List[StitchInfo] = resource.get(Constants.RES_STITCH_INFO)
             assert stitch_infos, f"resource {label} missing stitch info"
             assert isinstance(stitch_infos, list), f"resource {label} expecting a list for stitch info"
-            assert len(stitch_infos) == 1, f"resource {label} expect a list of size for stitch info "
-            assert stitch_infos[0].stitch_port['peer'] != self.type, f"resource {label} stitch provider has wrong type"
+            assert len(stitch_infos) == 1, f"resource {label} expect a list of size 1 for stitch info "
+            assert stitch_infos[0].stitch_port['peer']['provider'] != self.type, f"resource {label} stitch provider has wrong type"
 
             interfaces = resource.get(Constants.RES_INTERFACES, list())
 
             if interfaces and 'vlan' not in interfaces[0]:
                 raise ProviderException(f"{self.label} expecting {label}'s interface to have a vlan")
 
-            vlan = -1
+            vlan = None
 
             if interfaces:
                 vlan = interfaces[0]['vlan']
+
+            if not vlan:
+                from fabfed.policy.tag_handler import get_available_vlan
+
+                vlan = get_available_vlan(stitch_port=stitch_infos[0].stitch_port['peer'])
 
             net_name = self.resource_name(resource)
             from fabfed.provider.chi.chi_network import ChiNetwork

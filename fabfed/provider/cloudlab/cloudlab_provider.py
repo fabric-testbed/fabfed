@@ -6,7 +6,6 @@ from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
 from .cloudlab_constants import *
 from .cloudlab_exceptions import CloudlabException
-from fabfed.policy.policy_helper import get_stitch_port_for_provider, get_vlan_from_range
 
 logger = get_logger()
 
@@ -136,6 +135,23 @@ class CloudlabProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
         label = resource.get(Constants.LABEL)
 
+        if rtype == Constants.RES_TYPE_NODE:
+            from .cloudlab_node import CloudlabNode
+            import fabfed.provider.api.dependency_util as util
+
+            assert util.has_resolved_internal_dependencies(resource=resource, attribute='network')
+            net = util.get_single_value_for_dependency(resource=resource, attribute='network')
+            node_count = resource[Constants.RES_COUNT]
+
+            for idx in range(0, node_count):
+                node_name = self.resource_name(resource, idx)
+                node = CloudlabNode(label=label, name=f'{node_name}', provider=self, network=net)
+                self._nodes.append(node)
+                self.resource_listener.on_added(source=self, provider=self, resource=node)
+            return
+
+        vlan_saved = False
+
         if rtype == Constants.RES_TYPE_NETWORK and \
                 self.retrieve_attribute_from_saved_state(resource, self.resource_name(resource), attribute='interface'):
             net_name = self.resource_name(resource)
@@ -153,21 +169,7 @@ class CloudlabProvider(Provider):
                     f"{self.label} ignoring: {label}'s interface {interfaces} does not match provisioned vlan {vlan}")
 
             resource[Constants.RES_INTERFACES] = [{'vlan': vlan}]
-
-        if rtype == Constants.RES_TYPE_NODE:
-            from .cloudlab_node import CloudlabNode
-            import fabfed.provider.api.dependency_util as util
-
-            assert util.has_resolved_internal_dependencies(resource=resource, attribute='network')
-            net = util.get_single_value_for_dependency(resource=resource, attribute='network')
-            node_count = resource[Constants.RES_COUNT]
-
-            for idx in range(0, node_count):
-                node_name = self.resource_name(resource, idx)
-                node = CloudlabNode(label=label, name=f'{node_name}', provider=self, network=net)
-                self._nodes.append(node)
-                self.resource_listener.on_added(source=self, provider=self, resource=node)
-            return
+            vlan_saved = True
 
         from .cloudlab_network import CloudNetwork
 
@@ -178,8 +180,10 @@ class CloudlabProvider(Provider):
         assert stitch_infos, f"resource {label} missing stitch info"
         assert isinstance(stitch_infos, list), f"resource {label} expecting a list for stitch info"
         assert len(stitch_infos) == 1, f"resource {label} expect a list of size for stitch info "
-        assert stitch_infos[0].stitch_port['peer'] != self.type, f"resource {label} stitch provider has wrong type"
+        assert stitch_infos[0].stitch_port['peer']['provider'] != self.type, \
+            f"resource {label} stitch provider has wrong type"
         cloudlab_stitch_port = stitch_infos[0].stitch_port
+        peer_stitch_port = stitch_infos[0].stitch_port['peer']
 
         if not profile:
             profile = cloudlab_stitch_port.get(Constants.RES_PROFILE)
@@ -198,8 +202,19 @@ class CloudlabProvider(Provider):
 
         interfaces = resource.get(Constants.RES_INTERFACES, list())
 
+        if not vlan_saved and interfaces and 'allocated_vlans' in peer_stitch_port:
+            vlan = interfaces[0]['vlan']
+
+            if vlan in peer_stitch_port['allocated_vlans']:
+                from fabfed.exceptions import ResourceNotAvailable
+
+                raise ResourceNotAvailable(
+                    f"vlan {vlan} is already used. allocated_vlans={peer_stitch_port['allocated_vlans']}")
+
         if not interfaces:
-            vlan = get_vlan_from_range(resource=resource)
+            from fabfed.policy.tag_handler import get_available_vlan
+
+            vlan = get_available_vlan(stitch_port=stitch_infos[0].stitch_port['peer'])
             interfaces = [{'vlan': vlan}] if vlan > 0 else []
 
         layer3 = resource.get(Constants.RES_LAYER3)
