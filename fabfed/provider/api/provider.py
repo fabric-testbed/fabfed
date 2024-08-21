@@ -329,7 +329,8 @@ class Provider(ABC):
                             self.add_resource(resource=internal_dependency)
                         except Exception as e2:
                             self.logger.warning(
-                                f"Adding no longer pending internally {internal_dependency_label} failed using {e2}")
+                                f"Adding no longer pending internally {internal_dependency_label} failed using {e2}",
+                                        exc_info=True)
 
         if label in self._added:
             self.logger.info(f"Create: {label} using {self.label}: {self._added}")
