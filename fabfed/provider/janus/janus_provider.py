@@ -83,9 +83,15 @@ class JanusProvider(Provider):
         assert resource.get(Constants.LABEL)
         assert resource.get(Constants.RES_TYPE) in Constants.RES_SUPPORTED_TYPES
         assert resource.get(Constants.RES_NAME_PREFIX)
+        creation_details = resource[Constants.RES_CREATION_DETAILS]
+
+        # count was set to zero 
+        if not creation_details['in_config_file']:
+            # TODO HANDLE UNINSTALL OF JANUS ON NODES ...
+            return
+
         assert resource.get(Constants.RES_COUNT, 1)
         assert resource.get(Constants.RES_IMAGE)
-
         self.logger.info(f"Validated:OK Resource={self.name} using {self.label}")
 
     def do_add_resource(self, *, resource: dict):
