@@ -34,12 +34,14 @@ class FabricNetwork(Network):
         if self.peering and isinstance(self.peering, list):
             for peering in self.peering:
                 if Constants.RES_CLOUD_ACCOUNT in peering.attributes:
-                    account_id = peering.attributes[Constants.RES_CLOUD_ACCOUNT]
-                    key = self.slice_name + "-" + account_id
+                    # account_id = peering.attributes[Constants.RES_CLOUD_ACCOUNT]
+                    # key = self.slice_name + "-" + account_id
+                    key = self.slice_name
                     self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
         elif self.peering and Constants.RES_CLOUD_ACCOUNT in self.peering.attributes:
-            account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
-            key = self.slice_name + "-" + account_id
+            # account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
+            # key = self.slice_name + "-" + account_id
+            key = self.slice_name
             self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
 
         for key, iface in ns.interfaces.items():
