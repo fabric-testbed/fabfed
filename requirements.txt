@@ -1,4 +1,4 @@
-fabrictestbed-extensions==1.7.3
+fabrictestbed-extensions==1.6.4
 python-chi
 sense-o-api==1.26
 ansible==9.5.1
