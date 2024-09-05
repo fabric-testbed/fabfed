@@ -543,8 +543,9 @@ def handle_stitch_info(config, policy, resources):
                     stitch_info.stitch_port['peer'] = dict()
                     stitch_info.stitch_port['peer'].update(peer1)
 
+                # Handle stitch port labels. The labels are inserted here to match it to a peering config
+                stitch_info.stitch_port[Constants.LABELS] = sorted([network.label, other_network.label])
                 network.attributes[Constants.RES_STITCH_INFO].append(stitch_info)
-
                 stitch_info = StitchInfo(stitch_port=dict(),
                                          producer=stitch_info.producer, consumer=stitch_info.consumer)
 
@@ -556,6 +557,8 @@ def handle_stitch_info(config, policy, resources):
                     stitch_info.stitch_port.update(peer2)
                     stitch_info.stitch_port['peer'] = dict()
                     stitch_info.stitch_port['peer'].update(peer1)
+                # Handle stitch port labels. The labels are inserted here to match it to a peering config
+                stitch_info.stitch_port[Constants.LABELS] = sorted([network.label, other_network.label])
                 other_network.attributes[Constants.RES_STITCH_INFO].append(stitch_info)
 
     for network in [resource for resource in resources if resource.is_network]:

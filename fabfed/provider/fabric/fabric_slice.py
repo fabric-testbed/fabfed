@@ -524,6 +524,7 @@ class FabricSlice:
             return
 
         self.logger.info(f"Submitting request for slice {self.name}")
+        # self.slice_object.validate()
         slice_id = self.slice_object.submit(wait=False)
         self.logger.info(f"Done Submitting request for slice {self.name}:{slice_id}")
         self.submitted = True

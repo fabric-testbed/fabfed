@@ -111,3 +111,4 @@ class Constants:
     RUN_SSH_TESTER = True
     COPY_TOKENS = False
     PROVIDER_STATE = 'provider_state'
+    LABELS = "labels"

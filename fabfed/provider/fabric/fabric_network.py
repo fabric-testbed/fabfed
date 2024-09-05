@@ -31,9 +31,17 @@ class FabricNetwork(Network):
         self.interface = []
 
         # TODO This is only needed for sense-aws and aws
-        if self.peering and Constants.RES_CLOUD_ACCOUNT in self.peering.attributes:
-            account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
-            key = self.slice_name + "-" + account_id
+        if self.peering and isinstance(self.peering, list):
+            for peering in self.peering:
+                if Constants.RES_CLOUD_ACCOUNT in peering.attributes:
+                    # account_id = peering.attributes[Constants.RES_CLOUD_ACCOUNT]
+                    # key = self.slice_name + "-" + account_id
+                    key = self.slice_name
+                    self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
+        elif self.peering and Constants.RES_CLOUD_ACCOUNT in self.peering.attributes:
+            # account_id = self.peering.attributes[Constants.RES_CLOUD_ACCOUNT]
+            # key = self.slice_name + "-" + account_id
+            key = self.slice_name
             self.interface.append(dict(id=key, provider="fabric", password='0xzsEwC7xk6c1fK_h.xHyAdx'))
 
         for key, iface in ns.interfaces.items():
@@ -156,89 +164,119 @@ class NetworkBuilder:
         logger.info(
             f'{self.net_name}:vlan={self.vlan},stitch_port={self.stitch_port},device={self.device},site={self.site}')
 
+    def _get_stitch_info_index(self, peering, stitch_ports):
+        for idx, stitch_port in enumerate(stitch_ports):
+            if peering.attributes[Constants.LABELS] == stitch_port[Constants.LABELS]:
+                return idx
+
+        return -1
+
     def handle_facility_port(self, *, sites):
         from fim.slivers.capacities_labels import Labels, Capacities
 
         self.sites.update(sites)
 
         if self.peering:
-            cloud = self.peering.attributes.get(Constants.RES_CLOUD_FACILITY)
-            asn = self.peering.attributes.get(Constants.RES_REMOTE_ASN)
-            account_id = self.peering.attributes.get(Constants.RES_CLOUD_ACCOUNT)
+            if not isinstance(self.peering, list):
+                self.peering = [self.peering]
 
-            if account_id is None:
-                account_id = self.discovered_stitch_infos[0].get("id")  # GCP
+            if not isinstance(self.stitch_port, list):
+                self.stitch_port = [self.stitch_port]
 
-            subnet = self.peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
-            peer_subnet = self.peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
-            region = self.peering.attributes.get(Constants.RES_CLOUD_REGION)
-            device = self.peering.attributes.get(Constants.RES_LOCAL_DEVICE)
-            port = self.peering.attributes.get(Constants.RES_LOCAL_PORT)
-            vlan = self.peering.attributes.get('cloud_vlan')
-            bw = self.peering.attributes.get('cloud_bw', 50)
+            for peering in self.peering:
+                idx = self._get_stitch_info_index(peering, self.stitch_port)
+                cloud = peering.attributes.get(Constants.RES_CLOUD_FACILITY)
 
-            if not device:
-                device = self.stitch_port.get(Constants.STITCH_PORT_DEVICE_NAME)
+                if not cloud:
+                    cloud = self.stitch_port[idx].get(Constants.STITCH_PORT_SITE)
+                    peering.attributes[Constants.RES_CLOUD_FACILITY] = cloud
 
-            if not port:
-                port = self.stitch_port.get(Constants.STITCH_PORT_LOCAL_NAME)
+             # TODO This is no needed at all with 1.7.3 and did not help ith 1.6
+            if self.peering[0].attributes[Constants.RES_CLOUD_FACILITY] == "GCP":
+                self.peering.reverse()
 
-            if not region:
-                region = self.stitch_port.get(Constants.STITCH_PORT_REGION)
+            for peering in self.peering:
+                idx = self._get_stitch_info_index(peering, self.stitch_port)
+                cloud = peering.attributes.get(Constants.RES_CLOUD_FACILITY)
+                asn = peering.attributes.get(Constants.RES_REMOTE_ASN)
+                account_id = peering.attributes.get(Constants.RES_CLOUD_ACCOUNT)
 
-            if not cloud:
-                cloud = self.stitch_port.get(Constants.STITCH_PORT_SITE)
-                self.peering.attributes[Constants.RES_CLOUD_FACILITY] = cloud  # TODO WORKAROUND FOR NOW
+                if account_id is None:
+                    account_id = self.discovered_stitch_infos[0].get("id")  # GCP
 
-            if not vlan:
-                vlan = self.stitch_port.get('vlan')
+                subnet = peering.attributes.get(Constants.RES_LOCAL_ADDRESS)
+                peer_subnet = peering.attributes.get(Constants.RES_REMOTE_ADDRESS)
+                region = peering.attributes.get(Constants.RES_CLOUD_REGION)
+                device = peering.attributes.get(Constants.RES_LOCAL_DEVICE)
+                port = peering.attributes.get(Constants.RES_LOCAL_PORT)
+                vlan = peering.attributes.get('cloud_vlan')
+                bw = peering.attributes.get('cloud_bw', 50)
 
-            labels = Labels(ipv4_subnet=subnet)
+                if not device:
+                    device = self.stitch_port[idx].get(Constants.STITCH_PORT_DEVICE_NAME)
 
-            if vlan:
-                labels = Labels.update(labels, vlan=str(vlan))
+                if not port:
+                    port = self.stitch_port[idx].get(Constants.STITCH_PORT_LOCAL_NAME)
 
-            # if region:
-            #     labels = Labels.update(labels, region=region)
+                if not region:
+                    region = self.stitch_port[idx].get(Constants.STITCH_PORT_REGION)
 
-            if device: 
-                labels = Labels.update(labels, device_name=device)
-            if port: 
-                labels = Labels.update(labels, local_name=port)
+                if not cloud:
+                    cloud = self.stitch_port[idx].get(Constants.STITCH_PORT_SITE)
+                    # peering.attributes[Constants.RES_CLOUD_FACILITY] = cloud  # TODO WORKAROUND FOR NOW
 
-            # TODO: al2s remote_name depends on the cloud provider
-            if cloud == "GCP":
-                peer_labels = Labels(ipv4_subnet=peer_subnet,
-                                     asn=str(asn),
-                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
-                                     account_id=account_id,
-                                     local_name='Google Cloud Platform')
-            else:
-                peer_labels = Labels(ipv4_subnet=peer_subnet,
-                                     asn=str(asn),
-                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
-                                     account_id=account_id,
-                                     region=region,
-                                     local_name=cloud)
+                if not vlan:
+                    vlan = self.stitch_port[idx].get('vlan')
 
-            logger.info(f"Creating Facility Port:Labels: {labels}")
-            logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
+                labels = Labels(ipv4_subnet=subnet)
 
-            if cloud == "GCP":
-                mtu_size = 1460
-            else:
-                mtu_size = 9001
-                
-            facility_port = self.slice_object.add_facility_port(
-                name='Cloud-Facility-' + cloud,
-                site=cloud,
-                labels=labels,
-                peer_labels=peer_labels,
-                capacities=Capacities(bw=int(bw), mtu=mtu_size))
+                if vlan:
+                    labels = Labels.update(labels, vlan=str(vlan))
 
-            facility_port_interface = facility_port.get_interfaces()[0]
-            self.facility_port_interfaces.append(facility_port_interface)
-            logger.info("CreatedFacilityPort:" + facility_port.toJson())
+                # if region:
+                #     labels = Labels.update(labels, region=region)
+
+                if device:
+                    labels = Labels.update(labels, device_name=device)
+                if port:
+                    labels = Labels.update(labels, local_name=port)
+
+                # TODO: al2s remote_name depends on the cloud provider
+                if cloud == "GCP":
+                    peer_labels = Labels(ipv4_subnet=peer_subnet,
+                                         asn=str(asn),
+                                         bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                         account_id=account_id,
+                                         local_name='Google Cloud Platform')
+                else:
+                    peer_labels = Labels(ipv4_subnet=peer_subnet,
+                                         asn=str(asn),
+                                         bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                         account_id=account_id,
+                                         region=region,
+                                         local_name=cloud)
+
+                logger.info(f"*******************************:BEGIN:" + cloud)
+                logger.info(f"Creating Facility Port:Labels: {labels}")
+                logger.info(f"Creating Facility Port:PeerLabels: {peer_labels}")
+
+                if cloud == "GCP":
+                    mtu_size = 1460
+                else:
+                    mtu_size = 9001
+
+                facility_port = self.slice_object.add_facility_port(
+                    name='Cloud-Facility-' + cloud,
+                    site=cloud,
+                    labels=labels,
+                    peer_labels=peer_labels,
+                    capacities=Capacities(bw=int(bw), mtu=mtu_size))
+
+                facility_port_interface = facility_port.get_interfaces()[0]
+                self.facility_port_interfaces.append(facility_port_interface)
+                logger.info("CreatedFacilityPort:" + facility_port.toJson())
+                logger.info(f"*******************************:END:" + cloud)
+
         elif self.discovered_stitch_infos:
             for discovered_stitch_info in self.discovered_stitch_infos:
                 logger.info(
@@ -288,15 +326,17 @@ class NetworkBuilder:
                 net_type = 'L2STS'
             else:
                 net_type = 'L2Bridge'
+
             logger.info(
                 f"Adding Network:{self.net_name} to slice:ifaces={[i.get_name() for i in interfaces]}:type={net_type}")
 
             if net_type == "L3VPN":
-                self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name,
-                                                                           interfaces=interfaces)
+                self.net: NetworkService = self.slice_object.add_l3network(name=self.net_name)
             else:
-                self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name,
-                                                                           interfaces=interfaces)
+                self.net: NetworkService = self.slice_object.add_l2network(name=self.net_name)
+
+            for itf in interfaces:
+                self.net.add_interface(itf)
             return
 
         tech = 'AL2S'

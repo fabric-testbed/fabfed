@@ -19,7 +19,7 @@ from fabfed.util.utils import get_logger
 logger = get_logger()
 
 
-GCP_REQUEST_RETRY_MAX = 3
+GCP_REQUEST_RETRY_MAX = 10 
 
 def find_vpc(*, service_key_path, project, vpc):
     credentials = service_account.Credentials.from_service_account_file(service_key_path)

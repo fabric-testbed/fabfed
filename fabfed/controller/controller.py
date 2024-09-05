@@ -127,6 +127,23 @@ class Controller:
         for networks_with_same_layer3 in layer3_to_network_mapping.values():
             partition_layer3_config(networks=networks_with_same_layer3)
 
+        # Handle peering labels. The labels are inserted here to match it to a stitch port
+        for network in networks:
+            peering_list = network.attributes.get(Constants.RES_PEERING)
+
+            if not peering_list:
+                continue
+
+            if not isinstance(peering_list, list):
+                peering_list = [peering_list]
+
+            for peering in peering_list:
+                if Constants.LABELS not in peering.attributes:
+                    peering.attributes[Constants.LABELS] = []
+
+                peering.attributes[Constants.LABELS].append(network.label)
+                peering.attributes[Constants.LABELS] = sorted(peering.attributes["labels"])
+
         peering_to_network_mapping = {}
 
         for network in networks:
@@ -134,9 +151,16 @@ class Controller:
                 continue
 
             network.attributes[Constants.RES_PEER_LAYER3] = []
-            peering = network.attributes.get(Constants.RES_PEERING)
 
-            if peering:
+            peering_list = network.attributes.get(Constants.RES_PEERING)
+
+            if not peering_list:
+                continue
+
+            if not isinstance(peering_list, list):
+                peering_list = [peering_list]
+
+            for peering in peering_list:
                 if peering.label in peering_to_network_mapping:
                     peering_to_network_mapping.get(peering.label).append(network)
                 else:
@@ -150,7 +174,6 @@ class Controller:
 
         for network in [net for net in networks if net.attributes.get(Constants.RES_STITCH_INFO)]:
             stitch_info = network.attributes.get(Constants.RES_STITCH_INFO)
-
             self.logger.info(f"{network}: stitch_info={stitch_info}")
 
     def plan(self, provider_states: List[ProviderState]):
@@ -427,7 +450,7 @@ class Controller:
             try:
                 provider.delete_resource(resource=resource.attributes)
             except Exception as e:
-                self.logger.warning(f"Exception occurred while deleting resource: {e} using {provider_label}")
+                self.logger.warning(f"Exception occurred while deleting resource: {e} using {provider_label}", exc_info=True)
                 remaining_resources.append(resource)
                 skip_resources.update([external_state.label for external_state in external_states])
                 exceptions.append(e)
