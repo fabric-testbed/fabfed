@@ -60,14 +60,18 @@ class GcpProvider(Provider):
         if rtype not in self.supported_resources:
             raise ResourceTypeNotSupported(f"{rtype} for {label}")
 
-        name_prefix = resource.get(Constants.RES_NAME_PREFIX)
+        name_prefix = resource[Constants.RES_NAME_PREFIX]
+        name_prefix = name_prefix.replace("_", "-")
         net_name = f'{self.name}-{name_prefix}'
+
         layer3 = resource.get(Constants.RES_LAYER3)
         peering = resource.get(Constants.RES_PEERING)
 
         from .gcp_network import GcpNetwork
+        from fabfed.policy.policy_helper import get_stitch_port_for_provider
 
-        net = GcpNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering)
+        stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
+        net = GcpNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering, stitch_port=stitch_port)
         self._networks.append(net)
 
         if self.resource_listener:
@@ -95,14 +99,18 @@ class GcpProvider(Provider):
             # DO NOTHING
             return
 
-        net_name = f'{self.name}-{resource.get(Constants.RES_NAME_PREFIX)}'
+        name_prefix = resource[Constants.RES_NAME_PREFIX]
+        name_prefix = name_prefix.replace("_", "-")
+        net_name = f'{self.name}-{name_prefix}'
         logger.debug(f"Deleting network: {net_name}")
 
         from .gcp_network import GcpNetwork
+        from fabfed.policy.policy_helper import get_stitch_port_for_provider
 
         layer3 = resource.get(Constants.RES_LAYER3)
         peering = resource.get(Constants.RES_PEERING)
-        net = GcpNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering)
+        stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
+        net = GcpNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering, stitch_port=stitch_port)
         net.delete()
         logger.debug(f"Done Deleting network: {net_name}")
 

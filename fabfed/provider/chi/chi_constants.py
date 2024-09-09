@@ -23,6 +23,7 @@ CHI_CONF_ATTRS = [CHI_USER,
 
 DEFAULT_NETWORK = "sharednet1"
 DEFAULT_NETWORKS = [DEFAULT_NETWORK, "sharedwan1", "containernet1"]
+DEFAULT_IMAGE = "CC-Ubuntu20.04"
 DEFAULT_FLAVOR = "m1.medium"
 
 DEFAULT_AUTH_URLS = dict(

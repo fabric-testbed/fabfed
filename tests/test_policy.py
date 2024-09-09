@@ -140,10 +140,10 @@ def load_local_policy_using(providers):
 def test_load_local_policy_using_sense():
     providers = ['sense', 'fabric']
     stitch_infos = load_local_policy_using(providers)
-    assert len(stitch_infos) == 4
+    assert len(stitch_infos) == 2 
     providers = ['fabric', 'sense']
     stitch_infos = load_local_policy_using(providers)
-    assert len(stitch_infos) == 4
+    assert len(stitch_infos) == 2 
 
 
 def test_load_local_policy_using_chi():
@@ -158,19 +158,19 @@ def test_load_local_policy_using_chi():
 def test_load_local_policy_using_clab():
     providers = ['cloudlab', 'fabric']
     stitch_infos = load_local_policy_using(providers)
-    assert len(stitch_infos) == 3
+    assert len(stitch_infos) == 2
     providers = ['cloudlab', 'fabric']
     stitch_infos = load_local_policy_using(providers)
-    assert len(stitch_infos) == 3
+    assert len(stitch_infos) == 2
 
 
 def test_load_local_policy_using_aws():
     providers = ['aws', 'fabric']
     stitch_infos = load_local_policy_using(providers)
-    assert len(stitch_infos) == 2
+    assert len(stitch_infos) == 1 
     providers = ['fabric', 'aws']
     stitch_infos = load_local_policy_using(providers)
-    assert len(stitch_infos) == 2
+    assert len(stitch_infos) == 1 
 
 
 def test_load_local_policy_using_gcp():

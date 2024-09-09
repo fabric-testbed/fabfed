@@ -29,6 +29,36 @@ class ControllerResourceListener(ResourceListener):
             temp_provider.on_deleted(source=self, provider=provider, resource=resource)
 
 
+def populate_layer3_config(*, networks: list):
+    from fabfed.exceptions import ControllerException
+
+    for network in networks:
+        layer3 = network.attributes.get(Constants.RES_LAYER3)
+
+        if not layer3:
+            continue
+
+        if Constants.RES_SUBNET not in layer3.attributes:
+            raise ControllerException(f"network {network.label} must have a subnet in its layer3 config")
+
+        subnet = layer3.attributes[Constants.RES_SUBNET]
+
+        try:
+            addr = subnet[:subnet.rindex("/")]
+            prefix = addr[:addr.rindex(".")]
+
+            if Constants.RES_NET_GATEWAY not in layer3.attributes:
+                layer3.attributes[Constants.RES_NET_GATEWAY] = prefix + ".1"
+
+            if Constants.RES_LAYER3_DHCP_START not in layer3.attributes:
+                layer3.attributes[Constants.RES_LAYER3_DHCP_START] = prefix + ".2"
+
+            if Constants.RES_LAYER3_DHCP_END not in layer3.attributes:
+                layer3.attributes[Constants.RES_LAYER3_DHCP_END] = prefix + ".254"
+        except:
+            raise ControllerException(f"Error parsing {subnet} for layer3 config in network {network.label}")
+
+
 def partition_layer3_config(*, networks: list):
     from ipaddress import IPv4Address
     from ..util.constants import Constants
@@ -94,44 +124,49 @@ def find_nodes_related_to_network(*, network, resources):
 
 def find_node_clusters(*, resources):
     networks = [r for r in resources if r.is_network]
-    clusters = []
-    visited_networks = []
-    visited_nodes = []
+    net_clusters = []
+    node_clusters = []
 
     for net in networks:
-        if net.label not in visited_networks:
+        net_cluster = None
+
+        for temp_net_cluster in net_clusters:
+            if net.label in temp_net_cluster:
+                net_cluster = temp_net_cluster
+                break
+
+        if net_cluster is None:
             peers = find_peer_networks(network=net)
 
-            if peers:
-                cluster = []
-                visited_networks.append(net.label)
+            for peer in peers:
+                for temp_net_cluster in net_clusters:
+                    if peer.label in temp_net_cluster:
+                        net_cluster = temp_net_cluster
+                        break
+
+            if net_cluster is None:
+                net_cluster = set()
+                net_clusters.append(net_cluster)
+
+            net_cluster.add(net.label)
+
+            for peer in peers:
+                net_cluster.add(peer.label)
+
+    added_nodes = []
+    for net_cluster in net_clusters:
+        node_cluster = []
+
+        for net in networks:
+            if net.label in net_cluster:
                 nodes = find_nodes_related_to_network(network=net, resources=resources)
-                visited_nodes.extend([n.label for n in nodes])
-                cluster.extend(nodes)
-
-                for peer in peers:
-                    visited_networks.append(peer.label)
-                    nodes = find_nodes_related_to_network(network=peer, resources=resources)
-                    visited_nodes.extend([n.label for n in nodes])
-
-                    if nodes:
-                        cluster.extend(nodes)
-
-                if cluster:
-                    clusters.append(cluster)
-
-    for net in networks:
-        if net.label not in visited_networks:
-            nodes = find_nodes_related_to_network(network=net, resources=resources)
-
-            if nodes:
-                visited_nodes.extend([n.label for n in nodes])
-                clusters.append(nodes)
+                node_cluster.extend(nodes)
+                added_nodes.extend([n.label for n in nodes])
+        node_clusters.append(node_cluster)
 
     nodes = [r for r in resources if r.is_node]
-
     for n in nodes:
-        if n.label not in visited_nodes:
-            clusters.append([n])
+        if n.label not in added_nodes:
+            node_clusters.append([n])
 
-    return clusters
+    return node_clusters

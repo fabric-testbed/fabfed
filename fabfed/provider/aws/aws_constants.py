@@ -1,7 +1,6 @@
 ACCESS_KEY = "ACCESS_KEY"
 SECRET_KEY = "SECRET_KEY"
 RETRY = 60
-BGPKEY = "0xzsEwC7xk6c1fK_h.xHyAdx"
 
 VLAN = 'vlan'
 AMAZON_SIDE_ASN = 'amazonSideAsn'

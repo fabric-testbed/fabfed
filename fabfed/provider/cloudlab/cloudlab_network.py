@@ -18,7 +18,7 @@ class CloudNetwork(Network):
         self._provider = provider
         self.stitch_info = stitch_info
         self.interface = interfaces or []
-        self.layer3 = layer3 or {}
+        self.layer3 = layer3
         self.cluster = cluster
 
     @property
@@ -57,17 +57,13 @@ class CloudNetwork(Network):
                 vlan = self.interface[0]['vlan']
                 bindings['vlan'] = str(vlan)
 
-            if self.cluster:
-                bindings['cluster'] = self.cluster
-
-
+            bindings['cluster'] = self.cluster
             nodes = [n for n in self.provider.nodes if n.net == self]
             bindings['node_count'] = str(len(nodes))
-            subnet = self.layer3.attributes.get(Constants.RES_SUBNET)
-
-            if subnet:
-                bindings['ip_subnet'] = str(subnet)
-
+            subnet = self.layer3.attributes[Constants.RES_SUBNET]
+            bindings['ip_subnet'] = str(subnet)
+            ip_start = self.layer3.attributes[Constants.RES_LAYER3_DHCP_START]
+            bindings['ip_start'] = str(ip_start)
             params['bindings'] = json.dumps(bindings)
             logger.info(f"Network {self.name} not found, creating... {params}")
             exitval, response = api.startExperiment(server, params).apply()
@@ -79,6 +75,15 @@ class CloudNetwork(Network):
             logger.info("Network already exists, checking status")
         else:
             raise CloudlabException(exitval=exitval, response=response)
+
+    def wait_for_create(self):
+        import time
+        import emulab_sslxmlrpc.client.api as api
+        import emulab_sslxmlrpc.xmlrpc as xmlrpc
+
+        server = self.provider.rpc_server()
+        exp_params = self.provider.experiment_params(self.name)
+        exitval, response = api.experimentStatus(server, exp_params).apply()
 
         for attempt in range(CLOUDLAB_RETRY):
             exitval, response = api.experimentStatus(server, exp_params).apply()
@@ -137,7 +142,6 @@ class CloudNetwork(Network):
         logger.debug(json.dumps(status, indent=2))
         logger.info(f"STATUS_KEYS={status.keys()}")
 
-
         import xmltodict
 
         data_dict = xmltodict.parse(next(iter(status.values())))
@@ -147,14 +151,13 @@ class CloudNetwork(Network):
         temp = dict(id=self.label, vlan=link['@vlantag'])
         temp.update(self.stitch_info.stitch_port['peer'])
         temp['provider'] = self.stitch_info.stitch_port['provider']
-        self.interface = [dict(id='', provider=self.provider.type, vlan=link['@vlantag'])]
         self.interface = [temp]
 
         if not [n for n in self.provider.nodes if n.net == self]:
             return
 
         all_nodes = data_dict['rspec']['node']
-        nodes = [n for n in all_nodes if 'stitch' not in['@component_manager_id']]
+        nodes = [n for n in all_nodes if 'stitch' not in ['@component_manager_id']]
         n = nodes[0]
         self.stich_node_ip = n['interface']['ip']['@address']
         self.stich_site = n['jacks:site']['@id']

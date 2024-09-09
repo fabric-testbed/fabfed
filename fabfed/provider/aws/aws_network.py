@@ -8,11 +8,12 @@ logger = get_logger()
 
 
 class AwsNetwork(Network):
-    def __init__(self, *, label, name: str, provider: AwsProvider, layer3, peering, state=None):
+    def __init__(self, *, label, name: str, provider: AwsProvider, layer3, peering, stitch_port, state=None):
         super().__init__(label=label, name=name, site="")
         self._provider = provider
         self.layer3 = layer3
         self.peering = peering
+        self.stitch_port = stitch_port
         self.vpc_id = None
         self.vpn_id = None
         self.vif_details = {}
@@ -33,6 +34,15 @@ class AwsNetwork(Network):
 
     def create(self):
         region = self.peering.attributes.get(Constants.RES_CLOUD_REGION)
+
+        if not region:
+           region = self.stitch_port['peer'].get(Constants.STITCH_PORT_REGION)
+
+        if not region:
+           raise AwsException(f"Missing cloud region")
+
+        logger.info(f'{self.name} using region {region}')
+
         ec2_client = aws_utils.create_ec2_client(region=region,
                                                  access_key=self._provider.access_key,
                                                  secret_key=self._provider.secret_key)
@@ -58,6 +68,10 @@ class AwsNetwork(Network):
         logger.info(f'connection {self.connection_name} is available:connection_id={connection_id}')
 
         amazon_asn = self.peering.attributes.get(Constants.RES_REMOTE_ASN)
+
+        if isinstance(amazon_asn, str):
+           amazon_asn = int(amazon_asn)
+
         self.vpn_id = aws_utils.find_vpn_gateway(ec2_client=ec2_client, name=self.vpn_gateway_name)
 
         if not self.vpn_id:
@@ -87,6 +101,13 @@ class AwsNetwork(Network):
 
     def delete(self):
         region = self.peering.attributes.get(Constants.RES_CLOUD_REGION)
+
+        if not region:
+           region = self.stitch_port['peer'].get(Constants.STITCH_PORT_REGION)
+
+        if not region:
+           raise AwsException(f"Missing cloud region")
+
         ec2_client = aws_utils.create_ec2_client(region=region,
                                                  access_key=self._provider.access_key,
                                                  secret_key=self._provider.secret_key)

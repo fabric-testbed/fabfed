@@ -52,9 +52,7 @@ SENSE_GCP_PEERING_MAPPING = {
     Constants.RES_REMOTE_ASN: SENSE_GOOGLE_ASN,
     Constants.RES_REMOTE_ADDRESS: SENSE_GOOGLE_IP,
 
-    Constants.RES_SECURITY: SENSE_AUTHKEY,
-
-    Constants.RES_ID: SENSE_TO_HOSTED_CONN,
+    Constants.RES_SECURITY: SENSE_AUTHKEY
 }
 
 # This is what we get from node_details from manifest for AWS ...

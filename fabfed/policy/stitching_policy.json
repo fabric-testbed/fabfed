@@ -58,14 +58,6 @@
         ]
       },
       {
-        "name": "UKY-AL2S-dev",
-        "profile": "UKY-AL2S",
-        "preference": 10,
-        "member-of": [
-          "UKY"
-        ]
-      },
-      {
         "name": "GCP_PORTS",
         "profile": "Cloud-Facility-GCP",
         "preference": 100,
@@ -95,12 +87,6 @@
         ]
       },
       {
-        "name": "UKY",
-        "consumer-for": [
-          "sense"
-        ]
-      },
-      {
         "name": "GCP",
         "consumer-for": [
           "sense",
@@ -113,21 +99,14 @@
     "stitch-port": [
       {
         "name": "Cloudlab-Utah",
-        "profile": "fabfed-stitch-v2",
+        "profile": "aes-fabfed-stitch-utah",
         "member-of": [
           "CLOUDLAB"
         ]
       },
       {
         "name": "CloudLab-Clemson",
-        "profile": "fabfed-stitch-v2",
-        "member-of": [
-          "CLOUDLAB"
-        ]
-      },
-      {
-        "name": "MASS-OCT-MGHPCC",
-        "profile": "fabfed-stitch-v2",
+        "profile": "aes-fabfed-stitch-clem",
         "member-of": [
           "CLOUDLAB"
         ]
@@ -222,16 +201,9 @@
       },
       {
         "name": "GCP_PORTS",
-        "profile": "GCP-INTERCONN",
+        "profile": "FABRIC-GCP-INTERCON",
         "member-of": [
           "GCP"
-        ]
-      },
-      {
-        "name": "UKY-AL2S-dev",
-        "profile": "FABRIC-L2-DTN",
-        "member-of": [
-          "UKY"
         ]
       }
     ],

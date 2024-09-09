@@ -595,6 +595,12 @@ def fix_node_site(resource, resources):
 
             stitch_port = get_stitch_port_for_provider(resource=net.attributes, provider=net.provider.type)
 
+            if isinstance(stitch_port, list) and len(stitch_port) > 1:
+                return
+
+            if isinstance(stitch_port, list) and len(stitch_port) == 1:
+                stitch_port = stitch_port[0]
+
             if stitch_port:
                 site = stitch_port.get(Constants.RES_SITE)  # TODO FIX PYCHARM WARNING
                 resource.attributes[Constants.RES_SITE] = site
@@ -609,6 +615,13 @@ def fix_node_site(resource, resources):
                 return
 
             stitch_port = get_stitch_port_for_provider(resource=net.attributes, provider=net.provider.type)
+
+            if isinstance(stitch_port, list) and len(stitch_port) > 1:
+                return
+
+            if isinstance(stitch_port, list) and len(stitch_port) == 1:
+                stitch_port = stitch_port[0]
+
             if stitch_port:
                 site = stitch_port.get(Constants.RES_SITE)  # TODO FIX PYCHARM WARNING
                 resource.attributes[Constants.RES_SITE] = site

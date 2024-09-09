@@ -34,7 +34,7 @@ class FabricSlice:
 
         self.slice_object = fabric_slice_helper.init_slice(self.provider.name, destroy_phase)
 
-        if not destroy_phase:
+        if self.slice_object and self.slice_object.get_state() == "StableOK":
             self.slice_created = self.slice_object.get_state() == "StableOK"
             self.existing_nodes = [node.get_name() for node in self.slice_object.get_nodes()]
             self.existing_networks = []
@@ -100,7 +100,8 @@ class FabricSlice:
                 if label not in self.network_to_sites_mapping:
                     self.network_to_sites_mapping[label] = set()
 
-                self.network_to_sites_mapping[label].add(resource[Constants.RES_SITE])
+                if Constants.RES_SITE in resource:
+                    self.network_to_sites_mapping[label].add(resource[Constants.RES_SITE])
         else:
             raise Exception("Unknown resource ....")
 
@@ -117,28 +118,13 @@ class FabricSlice:
             net = FabricNetwork(label=label, delegate=delegate, layer3=layer3,
                                 peering=peering, peer_layer3=peer_layer3)
 
-            if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
-                temp = util.get_values_for_dependency(resource=resource, attribute='interface')
-
-                for node in temp:
-                    node.set_network_label(label)
-
             self.provider.networks.append(net)
             self.resource_listener.on_added(source=self, provider=self.provider, resource=net)
             return
 
         network_builder = NetworkBuilder(label, self.provider, self.slice_object, net_name, resource)
         network_builder.handle_facility_port(sites=self.network_to_sites_mapping[label])
-        temp = []
-        if util.has_resolved_internal_dependencies(resource=resource, attribute='interface'):
-            temp = util.get_values_for_dependency(resource=resource, attribute='interface')
-
-            for node in temp:
-                node.delegate.add_component(model=node.nic_model, name=FABRIC_STITCH_NET_IFACE_NAME)
-                node.set_network_label(label)
-                self.logger.info(f"Added {FABRIC_STITCH_NET_IFACE_NAME} interface to node {node.name}")
-
-        network_builder.handle_network(temp)
+        network_builder.handle_network()
         net = network_builder.build()
         self.provider.networks.append(net)
         self.slice_modified = self.slice_created
@@ -374,32 +360,6 @@ class FabricSlice:
 
         self._ensure_management_ips()
 
-        # TODO KOMAL
-        '''
-        for node in self.nodes:
-            for attempt in range(self.retry):
-                try:
-                    self.slice_object = fablib.get_slice(name=self.provider.name)
-                    delegate = self.slice_object.get_node(node.name)
-                    delegate.network_manager_stop()
-                    break
-                except Exception as e:
-                    if attempt == self.retry:
-                        raise e
-
-                    import time
-
-                    self.logger.info(
-                        f"Going to sleep. Will try stop network manager  ... slice {self.provider.label}")
-
-                    time.sleep(2)
-
-        if INCLUDE_FABNETS:
-            self.slice_object = fablib.get_slice(name=self.provider.name)
-            for node in self.nodes:
-                fabric_slice_helper.setup_fabric_networks(self.slice_object, node, node.v4net_name, node.v6net_name)
-        '''
-
         for network in self.networks:
             from ipaddress import IPv4Network
 
@@ -425,6 +385,7 @@ class FabricSlice:
                     subnet = peer_layer3.attributes.get(Constants.RES_SUBNET)
 
                     if subnet:
+                        self.logger.info(f"Slice {self.name}:Handling subnet {subnet} for peer {peer_layer3}")
                         vpc_subnet = fabric_slice_helper.to_vpc_subnet(subnet)
 
                         for node in self.nodes:
@@ -542,9 +503,10 @@ class FabricSlice:
             self.notified_create = True
             return
 
-        if not self.submitted:
+        if self.slice_created and not self.slice_modified:
             return
 
+        assert(self.submitted, "expecting slice to have been submitted")
         self.logger.info(f"Waiting for slice {self.name} to be stable")
 
         try:
@@ -605,6 +567,11 @@ class FabricSlice:
 
     def delete_resource(self, *, resource: dict):
         label = resource.get(Constants.LABEL)
+        rtype = resource.get(Constants.RES_TYPE)
+
+        if rtype == Constants.RES_TYPE_NODE.lower() and self.existing_networks:
+            return
+
         self.logger.debug(f"Destroying resource {self.name}: {label}")
 
         if self.slice_object:

@@ -50,6 +50,7 @@ class AwsProvider(Provider):
 
         peering = resource.get(Constants.RES_PEERING)
         prop = 'stitch_interface'
+        assert Constants.RES_SECURITY in peering.attributes
 
         if peering and util.has_resolved_external_dependencies(resource=resource, attribute=prop):
             net = util.get_single_value_for_dependency(resource=resource, attribute=prop)
@@ -62,8 +63,7 @@ class AwsProvider(Provider):
 
                 if isinstance(iface, dict) and iface.get("provider") == "fabric":
                     peering.attributes[Constants.RES_ID] = iface[Constants.RES_ID]
-                    peering.attributes[Constants.RES_SECURITY] = iface[Constants.RES_SECURITY]
-                    self.logger.info(f"Added id and password to peering config:id={iface[Constants.RES_ID]}")
+                    self.logger.info(f"Added id to peering config:id={iface[Constants.RES_ID]}")
 
         return peering
 
@@ -80,8 +80,11 @@ class AwsProvider(Provider):
         peering = self._handle_peering_config(resource)
 
         from .aws_network import AwsNetwork
+        from fabfed.policy.policy_helper import get_stitch_port_for_provider
 
-        net = AwsNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering)
+        stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
+        net = AwsNetwork(label=label, name=net_name, provider=self,
+                         layer3=layer3, peering=peering, stitch_port=stitch_port)
         self._networks.append(net)
 
         if self.resource_listener:
@@ -116,10 +119,12 @@ class AwsProvider(Provider):
         logger.debug(f"Deleting network: {net_name}")
 
         from .aws_network import AwsNetwork
+        from fabfed.policy.policy_helper import get_stitch_port_for_provider
 
+        stitch_port = get_stitch_port_for_provider(resource=resource, provider=self.type)
         layer3 = resource.get(Constants.RES_LAYER3)
         peering = resource.get(Constants.RES_PEERING)
-        net = AwsNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering, state=state)
+        net = AwsNetwork(label=label, name=net_name, provider=self, layer3=layer3, peering=peering, stitch_port=stitch_port, state=state)
         net.delete()
         logger.debug(f"Done Deleting network: {net_name}")
 
