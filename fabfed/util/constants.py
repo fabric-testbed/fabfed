@@ -59,6 +59,11 @@ class Constants:
     RES_CLOUD_ACCOUNT = "cloud_account"
     RES_CLOUD_REGION = "cloud_region"
     RES_CLOUD_VPC = "cloud_vpc"
+    RES_CLOUD_MTU = "cloud_mtu"
+    RES_CLOUD_BW = "cloud_bw"
+    RES_BW = "bw"
+    RES_CLOUD_VLAN = "cloud_vlan"
+    RES_BGP_KEY = "bgp_key"
 
     RES_LOCAL_DEVICE = "local_device"
     RES_LOCAL_PORT = "local_port"

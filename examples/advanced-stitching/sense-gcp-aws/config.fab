@@ -1,0 +1,76 @@
+variable:
+  - aws_subnet:
+      default: 10.140.0.0/24
+  - gcp_subnet:
+      default: 10.130.0.0/24
+  - site:
+      default: MAX 
+provider:
+   - sense:
+      - gcp_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: sense
+      - aws_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: sense
+   - fabric:
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: fabric
+config:
+  - layer3:
+      - gcp_layer:
+          subnet: '{{ var.gcp_subnet }}'    # subnet.cidr and vpc.cidr
+      - aws_layer:
+          subnet: '{{ var.aws_subnet }}'    # subnet.cidr and vpc.cidr
+      - fab_layer:
+          subnet: 192.168.10.0/24
+  - peering:
+      - gcp_peering:
+          cloud_mtu: 1500                   # sense gcp uses mtu 1500 by default
+          # cloud_vlan:
+          # cloud_bw: 50
+          local_asn: '55038'
+          local_address: 192.168.1.1/30
+          remote_asn: '16550'               # google asn
+          remote_address: 192.168.1.2/30    # google ip
+      - aws_peering:
+          cloud_account: '296256999979'
+          # cloud_vlan:
+          # cloud_bw: 50
+          local_asn: '55038'
+          local_address: 192.168.1.1/30
+          remote_asn: '64512'               # amazon_asn
+          remote_address: 192.168.1.2/30    # amazon_ip
+resource:
+  - network:
+      - gcpnet:
+          provider: '{{ sense.gcp_provider }}'
+          layer3: '{{ layer3.gcp_layer }}'
+          peering: '{{ peering.gcp_peering }}'
+      - aws_net:
+          provider: '{{ sense.aws_provider }}'
+          layer3: '{{ layer3.aws_layer }}'
+          peering: '{{ peering.aws_peering }}'
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: '{{ layer3.fab_layer }}'
+          peering: [ '{{ peering.gcp_peering }}', '{{ peering.aws_peering }}' ]
+          stitch_with:
+          - network: '{{ network.gcpnet }}'
+            stitch_option:
+                group_name: GCP
+          - network: '{{ network.aws_net }}'
+            stitch_option:
+                group_name: AWS
+  - node:
+      - gcp_node:
+          provider: '{{ sense.gcp_provider }}'
+          network: '{{ network.gcpnet }}'
+      - aws_node:
+          provider: '{{ sense.aws_provider }}'
+          network: '{{ network.aws_net }}'
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          network: '{{ network.fabric_network }}'
+          site: '{{ var.site }}'

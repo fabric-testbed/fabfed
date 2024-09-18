@@ -10,27 +10,19 @@
          "site": "CLEM",
          "vlan_range": ["3000-3999"] 
       },
-       "OCT-MGHPCC": {
-         "device_name": "OCT-MGHPCC",
-         "site": "MASS",
-         "vlan_range": ["3110-3119"] 
-      },
       "Cloud-Facility-AWS": [
          {
-            "device_name": "agg4.ashb",
-            "local_name": "HundredGigE0/0/0/7",
-            "site": "AWS"
-         },
-         {
-            "device_name": "agg3.ashb",
-            "local_name": "TenGigE0/0/0/11/3",
+            "device_name": "agg3.dall3",
+            "local_name": "TenGigE0/0/0/13/3",
+            "region": "us-east-1",
             "site": "AWS"
          }
       ],
       "Cloud-Facility-GCP": [
          {
-            "device_name": "agg4.ashb",
+            "device_name": "agg3.ashb",
             "local_name": "Bundle-Ether5",
+            "region": "us-east4",
             "site": "GCP"
          }
       ],
@@ -64,39 +56,23 @@
       ]
    },
    "cloudlab": {
-      "fabfed-stitch-v2": [
+      "aes-fabfed-stitch-utah": [
          {
             "name": "Cloudlab-Utah",
             "option": {
                "cluster": "urn:publicid:IDN+utah.cloudlab.us+authority+cm"
             }
-         },
+         }
+      ],
+      "aes-fabfed-stitch-clem": [
          {
             "name": "CloudLab-Clemson",
             "option": {
                "cluster": "urn:publicid:IDN+clemson.cloudlab.us+authority+cm"
             }
-         },
-         {
-            "name": "MASS-OCT-MGHPCC",
-            "option": {
-               "cluster": "urn:publicid:IDN+cloudlab.umass.edu+authority+cm"
-            }
          }
       ]
    },
    "sense": {
-      "FABRIC-L2-DTN": [
-         {
-            "name": "UKY-AL2S-dev",
-            "option": {
-               "interface": [
-                  {
-                     "id": "urn:ogf:network:al2s.internet2.net:oess:node+core1.loui.net.internet2.edu:port+HundredGigE0_0_0_24"
-                  }
-               ]
-            }
-         }
-      ]
    }
 }

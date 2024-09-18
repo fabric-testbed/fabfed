@@ -167,7 +167,7 @@ class ChiProvider(Provider):
                 network = net.name
 
             node_count = resource[Constants.RES_COUNT]
-            image = resource.get(Constants.RES_IMAGE)
+            image = resource.get(Constants.RES_IMAGE, DEFAULT_IMAGE)
             flavor = resource.get(Constants.RES_FLAVOR, DEFAULT_FLAVOR)
 
             for n in range(0, node_count):

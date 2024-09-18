@@ -87,16 +87,15 @@ def populate_options_using_interfaces(options, interfaces, edit_uri_entries):
 
 def get_profile_uuid(*, client=None, profile):
     client = client or get_client()
-    profiles = list_profiles(client=client)
+    profile_api = ProfileApi(req_wrapper=client)
 
-    profile_uuid = profile
-
-    for p in profiles:
-        if p.name == profile:
-            profile_uuid = p.uuid
-            break
-
-    return profile_uuid
+    try:
+        profile = profile_api.profile_search_get_with_http_info(search=profile)
+        profile = json.loads(profile, object_hook=lambda dct: SimpleNamespace(**dct))
+        profile_uuid = profile.uuid
+        return profile_uuid
+    except Exception as e:
+        raise SenseException(f"Exception searching for profile:{e}")
 
 
 def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, interfaces):
@@ -137,35 +136,19 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
             raise SenseException(f"Was not able to figure out peering mapping:{str(e)}")
 
         for k, v in peering_mapping.items():
-            if peering.attributes.get(k):
+            if k in peering.attributes:
                 path = "data.gateways[0].connects[0]." + v
-                options.append({path: peering.attributes.get(k)})
+                options.append({path: peering.attributes[k]})
 
     if layer3:
         edit_entry_paths = [e.path for e in edit_entries]
-        subnet = layer3.attributes.get(Constants.RES_SUBNET)
+        subnet = layer3.attributes[Constants.RES_SUBNET]
 
-        if subnet:
-            from ipaddress import IPv4Network
-            subnet = IPv4Network(subnet)
+        from ipaddress import IPv4Network
 
-        ip_start = layer3.attributes.get(Constants.RES_LAYER3_DHCP_START)
+        subnet = IPv4Network(subnet)
 
-        if ip_start:
-            if subnet:
-                ip_start = ip_start + "/" + str(subnet.prefixlen)
-
-            options.append({f"data.connections[{0}].suggest_ip_range[0].start": ip_start})
-
-        ip_end = layer3.attributes.get(Constants.RES_LAYER3_DHCP_END)
-
-        if ip_end:
-            if subnet:
-                ip_end = ip_end + "/" + str(subnet.prefixlen)
-
-            options.append({f"data.connections[{0}].suggest_ip_range[0].end": ip_end})
-
-        if subnet and "data.subnets[0].cidr" in edit_entry_paths:
+        if "data.subnets[0].cidr" in edit_entry_paths:
             options.append({f"data.subnets[0].cidr": str(subnet)})
             vpc_subnet = subnet
 
@@ -182,15 +165,23 @@ def create_instance(*, client=None, bandwidth, profile, alias, layer3, peering, 
 
     logger.info(f'Intent: {json.dumps(intent, indent=2)}')
     intent = json.dumps(intent)
-    response = workflow_api.instance_create(intent)  # service_uuid, intent_uuid, queries, model
 
-    try:
-        temp = json.loads(response)
-    except:
-        raise SenseException(f"did not receive json ....{response}")
+    import time
+    from random import randint
 
-    status = workflow_api.instance_get_status()
-    return temp['service_uuid'], status
+    for attempt in range(SENSE_RETRY):
+        try:
+            logger.info(f"creating instance: {alias}:attempt={attempt + 1}")
+            response = workflow_api.instance_create(intent)  # service_uuid, intent_uuid, queries, model
+            temp = json.loads(response)
+            status = workflow_api.instance_get_status()
+            return temp['service_uuid'], status
+        except Exception as e:
+            logger.warning(f"exception while creating instance {e}")
+
+        time.sleep(randint(30, 35))
+
+    raise SenseException(f"could not create instance {alias}")
 
 
 def instance_operate(*, client=None, si_uuid):
@@ -329,19 +320,6 @@ def discover_service_instances(*, client=None):
             instance['intents'].append(intent)
 
     return instances
-
-
-def list_profiles(*, client=None):
-    client = client or get_client()
-    profile_api = ProfileApi(req_wrapper=client)
-    profiles = profile_api.profile_list()
-
-    profiles = json.loads(profiles, object_hook=lambda dct: SimpleNamespace(**dct))
-
-    for profile in profiles:
-        profile.profile_details = describe_profile(client=client, uuid=profile.uuid)
-
-    return profiles
 
 
 def find_instance_by_alias(*, client=None, alias):

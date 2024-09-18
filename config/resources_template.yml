@@ -1,44 +1,44 @@
 config:
   - layer3:
-      - config_layer:
-          subnet:
+      - layer3:
+          subnet:  required
           gateway:
           ip_start:
           ip_end:
 
   - peering:
-      - my_peering:
-          # FOR FABRIC
-          cloud_account:
-          cloud_facility:
+      - peering:
+          cloud_account: required for aws
+
           local_device:
           local_port:
           cloud_region:
 
-          # FOR SENSE and FABRIC
-          local_asn:
-          local_address:
-          remote_asn:
-          remote_address:
+          cloud_bw:
+          cloud_vlan:
 
+          local_asn: required
+          local_address: required
+          remote_asn: required
+          remote_address: required
 resource:
   - node:
-      - sense_node:
-          provider:
-          name:
-          site:
+      - node:
+          provider: required
           network:
-          service:
+          site:
+          flavor:
           image:
           nic_model:
-          count:
-  - network:
-      - sense_net:
-          provider:
           name:
+          count:  
+  - network:
+      - net:
+          provider:
           layer3:
           peering:
-          count:
+          profile:
           stitch_with:
-          stitch_option: 
+          name:
+          bw:
           count:

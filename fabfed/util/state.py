@@ -210,13 +210,18 @@ def dump_states(states, to_json: bool, summary: bool = False):
     import sys
     from fabfed.model.state import get_dumper
 
-    if summary:
-        temp = []
+    temp = []
 
+    if not summary:
+        for provider_state in states:
+            for resource_state in provider_state.states():
+                temp.append(resource_state)
+
+    if summary:
         for provider_state in states:
             for node_state in provider_state.node_states:
                 attributes = {}
-                props = ['mgmt_ip', 'user', 'site', 'state', 'id', "name",
+                props = ['mgmt_ip', 'user', 'site', 'state', "name",
                          "dataplane_ipv4", "dataplane_ipv6", 'keyfile', 'jump_keyfile']
 
                 for prop in props:
@@ -228,7 +233,7 @@ def dump_states(states, to_json: bool, summary: bool = False):
 
             for network_state in provider_state.network_states:
                 attributes = dict()
-                props = ['id', 'name', 'interface', 'site', 'state', 'profile', "dtn", 'layer3']
+                props = ['name', 'site', 'state', 'profile']
 
                 for prop in props:
                     if prop in network_state.attributes:
@@ -248,17 +253,35 @@ def dump_states(states, to_json: bool, summary: bool = False):
                 service_state.attributes = attributes
                 temp.append(service_state)
 
-        states = temp
+    states = temp
+
+    output = dict()
+    nodes = []
+    networks = []
+    services = []
+
+    for state in states:
+        if state.is_node_state:
+            nodes.append(state)
+            pass
+        elif state.is_network_state:
+            networks.append(state)
+        else:
+            services.append(state)
+
+    output['networks'] = networks
+    output['nodes'] = nodes
+    output['services'] = services
 
     if to_json:
         import json
 
-        sys.stdout.write(json.dumps(states, cls=SetEncoder, indent=3))
+        sys.stdout.write(json.dumps(output, cls=SetEncoder, indent=3))
     else:
         import yaml
 
         sys.stdout.write(
-            yaml.dump(states, Dumper=get_dumper(), width=float("inf"), default_flow_style=False, sort_keys=False))
+            yaml.dump(output, Dumper=get_dumper(), width=float("inf"), default_flow_style=False, sort_keys=False))
 
 
 def dump_stats(stats, to_json: bool):

@@ -34,19 +34,21 @@ class ChiNetwork(Network):
         if stitch_info is not None:
             self.stitch_provider = stitch_info.stitch_port['peer']['provider']
 
-        self._retry = 10
+        self._retry = 10 
         self.lease_name = f'{name}-lease'
         self.subnet_name = f'{name}-subnet'
         self.router_name = f'{name}-router'
 
         if vlan > 0:
             resource_properties = json.dumps(
-                ["and", ["==", "$stitch_provider", self.stitch_provider], ["==", "$segment_id", str(vlan)]]
+                ["and", ["==", "$stitch_provider", self.stitch_provider], ["==", "$segment_id", str(vlan)]], indent=3
             )
         else:
             resource_properties = json.dumps(
-                ["==", "$stitch_provider", self.stitch_provider]
+                ["==", "$stitch_provider", self.stitch_provider], indent=3
             )
+
+        logger.info(f"Using resource_properties:{resource_properties}")
 
         self.reservations = [{
             "resource_type": "network",
@@ -67,33 +69,43 @@ class ChiNetwork(Network):
         return self.vlans
 
     def create(self):
+        import json
+
         chi.set('project_name', self.project_name)
         chi.set('project_domain_name', 'default')
         chi.use_site(self.site)
         self._lease_helper.create_lease_if_needed(reservations=self.reservations, retry=self._retry)
-        self.logger.info(f"Using active lease {self.lease_name}")
+        self.logger.debug(f"Using active lease {self.lease_name}:lease={json.dumps(self._lease_helper.lease, indent=3)}")
 
         self.vlans = []
         self.interface = []
         network_vlan = None
         chameleon_network_id = None
+        chameleon_network = dict()
 
         for attempt in range(self._retry):
             try:
                 chameleon_network = chi.network.get_network(self.name)
                 chameleon_network_id = chameleon_network['id']
-                network_vlan = chameleon_network['provider:segmentation_id']
-                break
+
+                if 'provider:segmentation_id' in chameleon_network:
+                    network_vlan = chameleon_network['provider:segmentation_id']
+                    break
             except Exception as e:
-                if attempt == self._retry - 1:
-                    self.logger.error(f'Giving up. Network is not ready {self.name}:{e}')
-                    raise e
+                self.logger.error(f'Error while retrieving vlan:{self.name}:{e}')
 
-                self.logger.warning(f'Network is not ready {self.name}. Trying again! attempt={attempt}:{e}')
-
+            self.logger.warning(f'Network is not ready {self.name}. Trying again! attempt={attempt}:network_details=={chameleon_network}')
             time.sleep(12)
 
-        assert network_vlan
+        if network_vlan is None:
+             temp = dict()
+
+             if chameleon_network:
+                 temp = json.dumps(chameleon_network, indent=3)
+
+             self.logger.error(f"Network {self.name} did not get vlan using 'provider:segmentation_id':network_details=={temp}")
+             raise Exception(f"Network {self.name} did not get vlan using 'provider:segmentation_id':network_details=={chameleon_network}")
+
         self.logger.info(f'Got network. network_name: {self.name}, network_vlan: {network_vlan}')
         self.vlans.append(network_vlan)
 

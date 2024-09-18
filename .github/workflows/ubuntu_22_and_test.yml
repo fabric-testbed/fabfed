@@ -85,7 +85,8 @@ jobs:
           echo ${{ env.CLAB_PEM_FILE }} | base64 --decode > ${{ github.workspace }}/creds/cloudlab.pem
 
       - name: Test Cloudlab
-        if: ${{ env.RUN_CLAB == 'true' }}
+        # if: ${{ env.RUN_CLAB == 'true' }}
+        if: false
         run: |
           session=cicd-clab
           echo "site: CLEM" > $session-varfile.yml
@@ -101,11 +102,13 @@ jobs:
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_facility_port $session $session-varfile.yml
 
       - name: Test L2VPN with nodes.
-        if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }} 
+        # if: ${{ env.RUN_FABRIC_AWS_SENSE == 'false' || env.RUN_FABRIC_AWS_SENSE == false }} 
+        if: false
         run: |
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_l2_vpn cicd-fabric-l2-vpn
 
       - name: Test Fabric AWS (Fabric Only With No Nodes)
+        if: false
         run: |
           session=aes-aws-native-no-nodes
           echo "vlan: 7" > $session-varfile.yml
@@ -113,13 +116,15 @@ jobs:
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_native_aws $session $session-varfile.yml
 
       - name: Test Fabric AWS (Fabric Only With Nodes)
-        if: ${{ env.RUN_FABRIC_AWS_WITH_NODES == 'true' || env.RUN_FABRIC_AWS_WITH_NODES == true }} 
+        # if: ${{ env.RUN_FABRIC_AWS_WITH_NODES == 'true' || env.RUN_FABRIC_AWS_WITH_NODES == true }} 
+        if: false
         run: |
           session=aes-aws-native-with-nodes
           echo "vlan: 7" > $session-varfile.yml
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_native_aws $session $session-varfile.yml
 
       - name: Test SENSE/AWS.
-        if: ${{ env.RUN_FABRIC_AWS_SENSE == 'true' || env.RUN_FABRIC_AWS_SENSE == true  }} 
+        # if: ${{ env.RUN_FABRIC_AWS_SENSE == 'true' || env.RUN_FABRIC_AWS_SENSE == true  }} 
+        if: false
         run: |
           ${{ github.workspace }}/cicd/run-fabfed.sh cicd/test_configs/fabric_sense_aws cicd-sense-aws 

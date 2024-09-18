@@ -1,6 +1,6 @@
 import logging
 
-from fabfed.model import ResolvedDependency
+from fabfed.model import ResolvedDependency, Resource
 from fabfed.util.constants import Constants
 
 
@@ -44,25 +44,25 @@ class DependencyResolver:
         self.logger.info(f"Checking if all dependencies are resolved for {label} using {self.label}:ret=false")
         return False
 
-    def resolve_dependency(self, *, resource: dict, from_resource):
-        resource_dict = vars(from_resource)
+    def resolve_dependency(self, *, resource: dict, from_resource: Resource):
+        from_resource_dict = vars(from_resource)
         label = resource[Constants.LABEL]
 
         for dependency in resource[self.dependency_label]:
             count = dependency.resource.attributes.get(Constants.RES_COUNT, 1)
             assert count > 0
 
-            if dependency.resource.label == resource_dict[Constants.LABEL]:
+            if dependency.resource.label == from_resource.label:
                 try:
                     if not dependency.attribute:
                         value = from_resource
                     elif "[" in dependency.attribute:
                         idx1 = dependency.attribute.find("[")
                         idx2 = dependency.attribute.find("]")
-                        value = resource_dict.get(dependency.attribute[0:idx1])
+                        value = from_resource_dict.get(dependency.attribute[0:idx1])
                         value = value[int(dependency.attribute[idx1 + 1: idx2])]
                     else:
-                        value = resource_dict.get(dependency.attribute)
+                        value = from_resource_dict.get(dependency.attribute)
 
                     if value and isinstance(value, list):
                         value = tuple(value)
@@ -72,7 +72,8 @@ class DependencyResolver:
 
                     if value:
                         resolved_dependencies = resource[self.resolved_dependency_label]
-                        found = None
+                        from typing import List, Dict, Union
+                        found: Union[ResolvedDependency, None] = None
 
                         for resolved_dependency in resolved_dependencies:
                             if resolved_dependency.attr == dependency.key \
@@ -84,21 +85,15 @@ class DependencyResolver:
                             resolved_dependency = ResolvedDependency(resource_label=dependency.resource.label,
                                                                      attr=dependency.key,
                                                                      value=(value,))
-                        else:
-                            # TODO REVIEW THIS CHANGE BY Ezra.
-                            # resolved_dependency = ResolvedDependency(resource_label=dependency.resource.label,
-                            #                                          attr=dependency.key,
-                            #                                          value=(found.value,))
-
+                            resolved_dependencies.append(resolved_dependency)
+                            self.logger.info(f"Resolved dependency {dependency} for {label} using {self.label}")
+                        elif len(found.value) < count:
                             resolved_dependency = ResolvedDependency(resource_label=dependency.resource.label,
                                                                      attr=dependency.key,
                                                                      value=(value,) + found.value)
                             resolved_dependencies.remove(found)
-
-                        resolved_dependencies.append(resolved_dependency)
-
-                        self.logger.info(
-                            f"Resolved dependency {dependency} for {label} using {self.label}")
+                            resolved_dependencies.append(resolved_dependency)
+                            self.logger.info(f"Resolved dependency {dependency} for {label} using {self.label}")
                     else:
                         self.logger.warning(
                             f"Could not resolve {dependency} for {label} using {self.label}")

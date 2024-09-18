@@ -43,6 +43,7 @@ class SenseProvider(Provider):
 
         peering = resource.get(Constants.RES_PEERING)
         prop = 'stitch_interface'
+        assert Constants.RES_SECURITY in peering.attributes
 
         if peering and util.has_resolved_external_dependencies(resource=resource, attribute=prop):
             net = util.get_single_value_for_dependency(resource=resource, attribute=prop)
@@ -55,8 +56,7 @@ class SenseProvider(Provider):
 
                 if isinstance(iface, dict) and iface.get("provider") == "fabric":
                     peering.attributes[Constants.RES_ID] = iface[Constants.RES_ID]
-                    peering.attributes[Constants.RES_SECURITY] = iface[Constants.RES_SECURITY]
-                    self.logger.info(f"Added id and password to peering config:id={iface[Constants.RES_ID]}")
+                    self.logger.info(f"Added id to peering config:id={iface[Constants.RES_ID]}")
 
         return peering
 

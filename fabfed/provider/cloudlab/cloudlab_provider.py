@@ -194,7 +194,7 @@ class CloudlabProvider(Provider):
                 cluster = cloudlab_stitch_port['option'][Constants.RES_CLUSTER]
 
         if not cluster:
-            logger.warning(f"no cluster was was found for {net_name}")
+            raise CloudlabException(f"no cluster was was found for {net_name}")
 
         interfaces = resource.get(Constants.RES_INTERFACES, list())
 
@@ -203,6 +203,11 @@ class CloudlabProvider(Provider):
             interfaces = [{'vlan': vlan}] if vlan > 0 else []
 
         layer3 = resource.get(Constants.RES_LAYER3)
+
+        if not layer3:
+            raise CloudlabException(f"no layer3 config  was was found for {net_name}")
+
+
         net = CloudNetwork(label=label, name=net_name, provider=self, stitch_info=stitch_infos[0],
                            profile=profile, interfaces=interfaces,
                            layer3=layer3, cluster=cluster)
@@ -239,14 +244,25 @@ class CloudlabProvider(Provider):
         if rtype == Constants.RES_TYPE_NETWORK:
             if self.networks:
                 self._networks[0].create()
-                self.resource_listener.on_created(source=self, provider=self, resource=self._networks[0])
-
             return
 
         if rtype == Constants.RES_TYPE_NODE:
             for node in [node for node in self._nodes if node.label == label]:
                 self.logger.debug(f"Creating node: {vars(node)}")
                 node.create()
+            return
+
+    def do_wait_for_create_resource(self, *, resource: dict):
+        rtype = resource.get(Constants.RES_TYPE)
+        label = resource.get(Constants.LABEL)
+
+        if rtype == Constants.RES_TYPE_NETWORK:
+            if self.networks:
+                self._networks[0].wait_for_create()
+                self.resource_listener.on_created(source=self, provider=self, resource=self._networks[0])
+
+        if rtype == Constants.RES_TYPE_NODE:
+            for node in [node for node in self._nodes if node.label == label]:
                 self.resource_listener.on_created(source=self, provider=self, resource=node)
                 self.logger.debug(f"Created node: {vars(node)}")
             return

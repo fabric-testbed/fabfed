@@ -307,3 +307,42 @@ def is_private_key(private_key_file: str):
         pass
 
     return False
+
+
+def generate_bgp_key_if_needed(friendly_name):
+    from fabfed.model.state import get_loader, get_dumper
+    import yaml
+    import os
+
+    file_path = os.path.join(get_base_dir(friendly_name), friendly_name + '_secrets.yml')
+    secrets = dict()
+
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as stream:
+            try:
+                secrets = yaml.load(stream, Loader=get_loader())
+            except Exception as e:
+                from fabfed.exceptions import StateException
+
+                raise StateException(f'Exception loading secrets at {file_path}:{e}')
+
+    if Constants.RES_BGP_KEY in secrets:
+        return secrets[Constants.RES_BGP_KEY]
+
+    import uuid
+    import hashlib
+
+    md = hashlib.md5()
+    temp = str(uuid.uuid4())
+    md.update(temp.encode('utf-8'))
+    secrets[Constants.RES_BGP_KEY] = md.hexdigest()
+
+    with open(file_path, "w") as stream:
+        try:
+            stream.write(yaml.dump(secrets, Dumper=get_dumper()))
+        except Exception as e:
+            from fabfed.exceptions import StateException
+
+            raise StateException(f'Exception saving secrets in file {file_path}:{e}')
+
+    return secrets[Constants.RES_BGP_KEY]

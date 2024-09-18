@@ -115,6 +115,10 @@ class Controller:
         layer3_to_network_mapping = {}
         networks = [resource for resource in self.resources if resource.is_network]
 
+        from .helper import populate_layer3_config
+
+        populate_layer3_config(networks=networks)
+
         for network in networks:
             layer3 = network.attributes.get(Constants.RES_LAYER3)
 
@@ -143,6 +147,12 @@ class Controller:
 
                 peering.attributes[Constants.LABELS].append(network.label)
                 peering.attributes[Constants.LABELS] = sorted(peering.attributes["labels"])
+
+                if Constants.RES_SECURITY not in peering.attributes:
+                    from fabfed.util.utils import generate_bgp_key_if_needed
+
+                    provider = self.provider_factory.get_provider(label=network.provider.label)
+                    peering.attributes[Constants.RES_SECURITY] = generate_bgp_key_if_needed(provider.name)
 
         peering_to_network_mapping = {}
 
@@ -352,7 +362,7 @@ class Controller:
         nodes = [n for prov in self.provider_factory.providers if prov.type != "dummy" for n in prov.nodes]
 
         if nodes:
-            clusters = find_node_clusters(resources=resources)
+            clusters = [ nodes ] # find_node_clusters(resources=resources)
 
             for cluster in clusters:
                 tester = SshNodeTester(nodes=[n for n in nodes if n.label in [n.label for n in cluster]])

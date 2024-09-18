@@ -13,7 +13,7 @@ class SenseNetwork(Network):
         self.profile = profile
         self.layer3 = layer3
         self.peering = peering
-        self.interface = interfaces if interfaces is not None else []
+        self.interface = interfaces or []
         self.bandwidth = bandwidth
         self.switch_ports = []
         self.dtn = []
@@ -95,16 +95,6 @@ class SenseNetwork(Network):
                         self.dtn = [dtn[0: dtn.find('/')]]
                     else:
                         self.dtn = [dtn]
-                        
-        # if self.peering and self.intents[0]['json']['service'] == 'vcn':
-        #     try:
-        #         template_file = 'gcp-template.json'
-        #         details = sense_utils.manifest_create(si_uuid=si_uuid, template_file=template_file)
-        #         for node_details in details.get("Nodes", []):
-        #             self.peering.attributes['cloud_account'] = node_details.get("Pairing Key", [])
-        #             break
-        #     except:
-        #         pass
 
     def delete(self):
         from . import sense_utils
