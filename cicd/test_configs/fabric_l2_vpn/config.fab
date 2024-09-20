@@ -1,7 +1,6 @@
 variable:
   - fabric_site:
       default: MAX 
-
 provider:
   - fabric:
     - fabric_provider:
@@ -11,22 +10,13 @@ config:
   - layer3:
       - my_layer:
           subnet: 192.168.1.0/24
-          gateway: 192.168.1.1
-          ip_start: 192.168.1.2
-          ip_end: 192.168.1.254
-
 resource:
   - node:
       - rocky_node:
             provider:  '{{ fabric.fabric_provider }}'
-            site: '{{ var.fabric_site }}' 
-            count: 1
-            image: default_rocky_8
-            nic_model: NIC_Basic
-            flavor: {'cores': 2, 'ram': 8, 'disk': 10}
             network: '{{ network.fabric_network }}'
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          layer3: "{{ layer3.my_layer }}"
+          layer3: '{{ layer3.my_layer }}'
           count: 1

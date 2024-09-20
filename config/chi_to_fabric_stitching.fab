@@ -9,39 +9,36 @@ provider:
           profile: chi
 variable:
   - fabric_site:
-      default: STAR
+      default: TACC 
   - chi_site:
-      default: CHI@UC
+      default: CHI@TACC
 config:
   - layer3:
       - my_layer:
           subnet: 192.168.100.0/24
-          gateway: 192.168.100.1
-          ip_start: 192.168.100.100
-          ip_end: 192.168.100.250
 resource:
   - network:
       - chi_network:
           provider: '{{ chi.chi_provider }}'
           site: '{{ var.chi_site }}'
-          name: stitch_net
           layer3: "{{ layer3.my_layer }}"
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          stitch_with: '{{ network.chi_network }}'
           layer3: "{{ layer3.my_layer }}"
+          stitch_with:
+            - network:  '{{ network.chi_network }}'
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: '{{ var.fabric_site }}'
-          count: 1
-          image: default_rocky_8
           network: '{{ network.fabric_network }}'
-          # nic_model: NIC_ConnectX_5. Defaults to NIC_Basic
+          site: '{{ var.fabric_site }}'
+          image: default_rocky_8
+          nic_model: NIC_Basic
+          count: 1
       - chi_node:
           provider: '{{ chi.chi_provider }}'
+          network: '{{ network.chi_network }}'
           site: '{{ var.chi_site }}'
           image: CC-Ubuntu20.04
-          network: '{{ network.chi_network }}'
-          count: 1
           flavor: m1.medium
+          count: 1

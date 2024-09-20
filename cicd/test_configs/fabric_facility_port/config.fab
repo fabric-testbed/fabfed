@@ -1,9 +1,8 @@
 variable:
   - vlan:
-      default: 3101
+     default: 3101
   - node_count:
       default: 0 
-
 provider:
   - fabric:
       - fabric_provider:
@@ -13,16 +12,10 @@ config:
   - layer3:
       - my_layer:
           subnet: 192.168.1.0/24
-          gateway: 192.168.1.1
-          ip_start: 192.168.1.2
-          ip_end: 192.168.1.254
 resource:
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: UTAH # CLEM  # UTAH
-          image: default_rocky_8
-          nic_model: NIC_Basic
           network: '{{ network.fabric_network }}'
           count: '{{ var.node_count }}' 
   - network:

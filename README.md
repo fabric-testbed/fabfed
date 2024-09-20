@@ -12,7 +12,7 @@ The FabFed code took the initial form from the Mobius API, and refactored and re
 The example below showcases network stitching across providers, a [chi](https://www.chameleoncloud.org/) provider and a [fabric](https://portal.fabric-testbed.net/) provider. The configuration, while incomplete, highlights how fabfed-py expresses dependencies.  
 
 - For more details, refer to fabfed's [workflow design](./docs/workflow_design.md)
-- For a complete example, refer to  [Fabric Chameleon Stitching](./examples/stitch)
+- For a complete example, refer to  [Fabric Chameleon Stitching](./examples/basic-stitching/chameleon)
 
 ```
   1 resource:
@@ -26,7 +26,8 @@ The example below showcases network stitching across providers, a [chi](https://
   9       - fabric_network:
  10            provider: '{{ fabric.fabric_provider }}'
  11            site: 'STAR'
- 12            stitch_with: '{{ network.chi_network }}'
+ 12            stitch_with:
+ 13              - network: '{{ network.chi_network }}'
 ```
 
 # <a name="install"></a>Installation
