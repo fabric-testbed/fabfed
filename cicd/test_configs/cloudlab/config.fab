@@ -15,24 +15,21 @@ config:
   - layer3:
       - my_layer:
           subnet: 192.168.1.0/24
-          gateway: 192.168.1.1
-          ip_start: 192.168.1.2
-          ip_end: 192.168.1.254
 resource:
   - network:
       - cnet:
           provider: '{{cloudlab.cloudlab_provider }}'
-          layer3: "{{ layer3.my_layer }}"
+          layer3: '{{ layer3.my_layer }}'
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          layer3: "{{ layer3.my_layer }}"
-          # interface: '{{ node.fabric_node }}'
-          stitch_with: '{{ network.cnet }}'
+          layer3: '{{ layer3.my_layer }}'
+          stitch_with:
+            - network:  '{{ network.cnet }}'
   - node:
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
           site: '{{ var.site }}'
-          network: "{{ network.fabric_network }}"
+          network: '{{ network.fabric_network }}'
       - cnode:
           provider: '{{ cloudlab.cloudlab_provider }}'
-          network: "{{ network.cnet }}"
+          network: '{{ network.cnet }}'

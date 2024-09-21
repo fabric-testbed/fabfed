@@ -124,9 +124,6 @@ config:
   - layer3:
       - my_layer:
           subnet: 192.168.100.0/24
-          gateway: 192.168.100.1
-          ip_start: 192.168.100.100
-          ip_end: 192.168.100.250
 resource:
   - network:
       - chi_network:
@@ -143,13 +140,11 @@ In the example below the `fabric` and the `aws` networks share or point to the s
 config:
   - peering:
       - my_peering:
-          cloud_account: "REPLACE_ME" 
-          cloud_region: "us-east-1"
-
+          cloud_account: "REPLACEME_WITH_AMAZON_CLOUD_ACCOUNT" 
           cloud_vpc: "vpc-0c641c70ee2ec1790"
-          remote_asn: 64512 # amazon_asn
-          local_asn: 55038  # customer_asn
+          local_asn: 55038                     # customer
           local_address: "192.168.1.1/30"
+          remote_asn: 64512                    # amazon
           remote_address: "192.168.1.2/30"
 resource:
   - network:
@@ -184,9 +179,10 @@ config:
 resource:
  - network:
       - cloudlab_network:
-          stitch_with: '{{ network.fabric_network }}'
-          stitch_option:
-             policy: "{{ policy.si_cloudlab_fabric }}"
+          stitch_with:
+            - network: '{{ network.fabric_network }}'
+              stitch_option:
+                 policy: "{{ policy.si_cloudlab_fabric }}"
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
 ```
@@ -199,7 +195,7 @@ As of now we support the following types: <i>node</i>, <i>network</i>, and <i>se
 ### <a name="nodes"></a>Nodes
 A <i>node</i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
  
-A <i>node</i> or a <i>network</i> would refer to this node using its type and label like so: ```'{{ node.fabric_node }}'```
+A <i>service</i> or a <i>network</i> would refer to this node using its type and label like so: ```'{{ node.fabric_node }}'```
  
 ```
 resource:                                               # Class
@@ -207,8 +203,8 @@ resource:                                               # Class
       - fabric_node:                                    # Label can be any string
             provider: '{{ fabric.fabric_provider }}'
             site: '{{ var.fabric_site }}'
-            count: 1
-            image: default_rocky_8                                  
+            image: default_rocky_8   
+            count: 1                               
 ```
 ### <a name="networks"></a>Networks
 A <i>network</i> <b>must</b> refer to a provider. Here it refers to the provider declared above. 
@@ -240,32 +236,28 @@ resource:                                                          # Class
       - dtn_service:                                               # Label can be any string
           - provider: '{{ janus.janus_provider }}'
             node: [ '{{ node.my_node0 }}', '{{ node.my_node1 }}' ] # List of nodes to apply the service to
-            image: [Optional]
-            profile: [Optional]
 ```
  
 # <a name="dependencies"></a>Dependencies
-A resource can refer to other resources that it depends on. Line 14 in the example below, states that the <i>fabric_nonde</i> depends 
+A resource can refer to other resources that it depends on. Line 14 in the example below, states that the <i>fabric_node</i> depends 
 on the <i>fabric_network</i>. This is an `internal dependency` as both resources are handled by the same provider. The fabfed 
-controller detects this internal dependency and processes the fabric_network before the fabric_network. 
- 
+controller detects internal and external dependencies processes the resources in the correct during the apply phase and the destroy phase
+
+Internally the controller handles external and internal dependencies differently. In the example below the controller would `add` the fabric node after `adding` the fabric network. And would `add` the fabric node after `creating` the chameleon network. 
 ```
-1. resource:
-2.   - network:
-3.      - chi_network:
-4.             provider: '{{ chi.chi_provider }}'
-5.             layer3: "{{ layer3.my_layer }}"
-6.             stitch_with: '{{ network.fabric_network }}'  # External Dependency. Normally this would mean fabric_network would be processed first. 
-7.      - fabric_network:
-8.             provider: '{{ fabric.fabric_provider }}'
-9.             layer3: "{{ layer3.my_layer }}"
-10.
-11      - fabric_node:
-12             provider: '{{ fabric.fabric_provider }}'
-13             site: '{{ var.fabric_site }}'
-14             network: '{{ network.fabric_network }}' # Internal dependency
-14             image: default_rocky_8
-15             count: 1
+resource:
+  - network:
+      - chi_network:
+          provider: '{{ chi.chi_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+      - fabric_network:
+          provider: '{{ fabric.fabric_provider }}'
+          layer3: "{{ layer3.my_layer }}"
+          stitch_with:
+            - network: '{{ network.fabric_network }}' # External dependency 
+      - fabric_node:
+          provider: '{{ fabric.fabric_provider }}'
+          network: '{{ network.fabric_network }}'     # Internal dependency
 ```
 
  # <a name="stitching"></a>Network Stitching Policy
@@ -325,43 +317,41 @@ Also note the `stitch_option` right below the `stitch_with`. If `stitch_option` 
  ```
 fabfed stitch-policy -providers "fabric,aws" 
  ```
- To view the stitch port that would be selected use the -stitch-info option before you -apply.
+ To view the stitch port that would be selected use the `-stitch-info` option.
  ```
 fabfed workflow -s my-aws-test -stitch-info -summary
  ```
  ```
-  - network:
-      - aws_network:
-          provider: '{{ aws.aws_provider }}'
-          name: aws-net
-          layer3: "{{ layer3.aws_layer }}"
-          peering: "{{ peering.my_peering }}"
-          stitch_with: '{{ network.fabric_network }}'
-          stitch_option:
-            device_name: agg3.ashb.net.internet2.edu
-          count: 1 
-      - fabric_network:
-          provider: '{{ fabric.fabric_provider }}'
-          layer3: "{{ layer3.fab_layer }}"
-          peering: "{{ peering.my_peering }}"
-          count: 1 
+- network:
+    - aws_network:
+        provider: '{{ aws.aws_provider }}'
+        layer3: "{{ layer3.aws_layer }}"
+        peering: "{{ peering.my_peering }}"
+        stitch_with:
+          - network: '{{ network.fabric_network }}'
+            stitch_option:
+              device_name: agg3.dall3
+    - fabric_network:
+        provider: '{{ fabric.fabric_provider }}'
+        layer3: "{{ layer3.fab_layer }}"
+        peering: "{{ peering.my_peering }}"
  ```
   # <a name="stitching_override"></a>Overriding Stitching Policy
  
  Fabfed uses system defined stitching. Here we discuss the several ways one can override the stitch configuration. As of this writting there are 3 approaches. The first two approaches require some changes in the fabfed workflow definition. These are the simpler approaches. There is also a third approach which allows one can use to provide a complete stitching policy.
 
  ### <a name="simple"></a>Using The Network Resource
-The `stitch_option` can be used to tell fabfed to select a stitch point from sense to fabric that uses the agg4.ashb.net.internet2.edu. This stitch point returns a default profile needed by the sense provider. 
-Instead of changing the policy files, one can simply use an attribute in the network resource. Here we use the `profile` to override the default. In this approach, one can only use attributes that supported by the network schema.
+The `stitch_option` can be used to tell fabfed to select a stitch point from sense to fabric that uses the agg3.dall3. This stitch point returns a default profile needed by the sense provider. 
+Instead of changing the policy files, one can simply uses the network attribute `profile`in the sense network. Here we use the `profile` attribute to override the default. 
  
  ```
   - network:
       - sense_network:
           profile: my-new-sense-profile
-          stitch_with: '{{ network.fabric_network }}'
-          stitch_option: 
-              device_name: agg3.ashb
-
+          stitch_with:
+            - network: '{{ network.fabric_network }}'
+              stitch_option: 
+                  device_name: agg3.dall3
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
           layer3: "{{ layer3.fab_layer }}"
@@ -386,9 +376,10 @@ config:
 resource:
  - network:
       - cloudlab_network:
-          stitch_with: '{{ network.fabric_network }}'
-          stitch_option:
-             policy: "{{ policy.si_cloudlab_fabric }}"
+          stitch_with:
+            - network: '{{ network.fabric_network }}'
+              stitch_option:
+                policy: "{{ policy.si_cloudlab_fabric }}"
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
  ```
@@ -408,7 +399,7 @@ fabfed workflow -s my-session -apply -p my-policy.yaml
  # <a name="breaking"></a>Breaking The Configuration
  
  A configuration can be broken into many configuration files ending with ```.fab``` extensions. Fabfed does not care about how the files are named. 
- It loads all the files residing in a given directory that match the pattern ```*.fab```. It does so in no particular order and then proceeds to parse the assembled result. see [Fabric Chameleon Stitch](../examples/stitch)
+ It loads all the files residing in a given directory that match the pattern ```*.fab```. It does so in no particular order and then proceeds to parse the assembled result. see [Fabric Chameleon Stitch](../examples/basic-stitching/chameleon)
  
  
 

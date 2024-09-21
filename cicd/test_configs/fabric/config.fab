@@ -1,33 +1,28 @@
 variable:
   - fabric_site:
-      default: WASH 
+      default: WASH
   - other_fabric_site:
       default: SALT
-
 provider:
   - fabric:
-    - fabric_provider:
-         credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
-         profile: fabric
+      - fabric_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml.cicd
+          profile: fabric
 config:
   - layer3:
       - my_layer:
           subnet: 192.168.1.0/24
-          gateway: 192.168.1.1
-          ip_start: 192.168.1.2
-          ip_end: 192.168.1.254
-
 resource:
   - node:
       - rocky_node:
-            provider: '{{ fabric.fabric_provider }}'
-            site: '{{ var.fabric_site }}' 
+          provider: '{{ fabric.fabric_provider }}'
+          network: '{{ network.fabric_network }}'
+          site: '{{ var.fabric_site }}'
       - other_node:
-            provider: '{{ fabric.fabric_provider }}'
-            site: '{{ var.other_fabric_site }}' 
+          provider: '{{ fabric.fabric_provider }}'
+          network: '{{ network.fabric_network }}'
+          site: '{{ var.other_fabric_site }}'
   - network:
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          layer3: "{{ layer3.my_layer }}"
-          interface: [ '{{ node.rocky_node }}', '{{ node.other_node }}' ]
-          count: 1
+          layer3: '{{ layer3.my_layer }}'
