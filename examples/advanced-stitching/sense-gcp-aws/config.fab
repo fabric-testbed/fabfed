@@ -17,6 +17,10 @@ provider:
       - fabric_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
           profile: fabric
+   - janus:
+      - janus_provider:
+          credential_file: ~/.fabfed/fabfed_credentials.yml
+          profile: janus
 config:
   - layer3:
       - gcp_layer:
@@ -74,3 +78,11 @@ resource:
           provider: '{{ fabric.fabric_provider }}'
           network: '{{ network.fabric_network }}'
           site: '{{ var.site }}'
+  - service:
+      - dtn_service:
+          provider: '{{ janus.janus_provider }}'
+          controller: '{{ node.fabric_node }}'
+          node: ['{{ node.gcp_node }}', '{{ node.fabric_node }}', '{{ node.aws_node }}']
+          image: dtnaas/tools
+          profile: fabfed
+          count: 0 # SET THIS TO 1 if you want use janus service
