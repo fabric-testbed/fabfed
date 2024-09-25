@@ -1,1 +1,1 @@
-__VERSION__ = "1.9a"
+__VERSION__ = "1.9b"
