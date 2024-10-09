@@ -1,7 +1,8 @@
 variable:
-  - site:
-      default: UTAH # CLEM
-
+  - node_count:
+      default: 1
+  - cloulab_device:
+      default: CloudLab-Clemson    # Utah-Cloudlab-Powder
 provider:
   - cloudlab:
       - cloudlab_provider:
@@ -14,41 +15,39 @@ provider:
   - janus:
       - janus_provider:
           credential_file: ~/.fabfed/fabfed_credentials.yml
-          profile: janus 
-
+          profile: janus
 config:
   - layer3:
-      - my_layer:
+      - layer3_config:
           subnet: 192.168.1.0/24
-          gateway: 192.168.1.1
-          ip_start: 192.168.1.2
-          ip_end: 192.168.1.254
 resource:
   - network:
       - cnet:
           provider: '{{cloudlab.cloudlab_provider }}'
-          layer3: "{{ layer3.my_layer }}"
+          layer3: '{{ layer3.layer3_config }}'
       - fabric_network:
           provider: '{{ fabric.fabric_provider }}'
-          layer3: "{{ layer3.my_layer }}"
-          stitch_with: '{{ network.cnet }}'
+          layer3: '{{ layer3.layer3_config }}'
+          stitch_with:
+            - network: '{{ network.cnet }}'
+              stitch_option:
+                device_name: '{{ var.cloulab_device }}'
   - node:
+      - cloudlab_node:
+          provider: '{{ cloudlab.cloudlab_provider }}'
+          network: '{{ network.cnet }}'
+          count: '{{ var.node_count }}'
       - fabric_node:
           provider: '{{ fabric.fabric_provider }}'
-          site: '{{ var.site }}'
-          image: default_rocky_8
-          nic_model: NIC_Basic
-          network: "{{ network.fabric_network }}"
-          count: 1
-      - cnode:
-          provider: '{{ cloudlab.cloudlab_provider }}'
-          network: "{{ network.cnet }}"
-          count: 1
+          # image: default_rocky_8
+          # nic_model: NIC_Basic
+          network: '{{ network.fabric_network }}'
+          count: '{{ var.node_count }}'
   - service:
       - dtn_service:
           provider: '{{ janus.janus_provider }}'
-          node: [ '{{ node.cnode }}', '{{ node.fabric_node }}' ]
           controller: '{{ node.fabric_node }}'
+          node: ['{{ node.cloudlab_node }}', '{{ node.fabric_node }}']
           image: dtnaas/tools
           profile: fabfed
-          count: 0
+          count: 0 # SET THIS TO 1 if you want use janus service
