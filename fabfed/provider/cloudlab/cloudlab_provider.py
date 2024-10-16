@@ -6,13 +6,11 @@ from fabfed.util.constants import Constants
 from fabfed.util.utils import get_logger
 from .cloudlab_constants import *
 from .cloudlab_exceptions import CloudlabException
-from fabfed.policy.policy_helper import get_stitch_port_for_provider, get_vlan_from_range
 
 logger = get_logger()
 
 
 class CloudlabProvider(Provider):
-
     def __init__(self, *, type, label, name, config: dict):
         super().__init__(type=type, label=label, name=name, logger=logger, config=config)
         self.supported_resources = [Constants.RES_TYPE_NETWORK, Constants.RES_TYPE_NODE]
@@ -116,7 +114,7 @@ class CloudlabProvider(Provider):
         stitch_info = resource.get(Constants.RES_STITCH_INFO)
 
         if not stitch_info:
-            raise ProviderException(f"{self.label} expecting stitch info in {rtype} resource {label}")
+            raise ProviderException(f'{self.label} expecting stitch info in {rtype} resource {label}')
 
     def resource_name(self, resource: dict, idx: int = 0):
         rtype = resource.get(Constants.RES_TYPE)
@@ -136,24 +134,6 @@ class CloudlabProvider(Provider):
         rtype = resource.get(Constants.RES_TYPE)
         label = resource.get(Constants.LABEL)
 
-        if rtype == Constants.RES_TYPE_NETWORK and \
-                self.retrieve_attribute_from_saved_state(resource, self.resource_name(resource), attribute='interface'):
-            net_name = self.resource_name(resource)
-            interface = self.retrieve_attribute_from_saved_state(resource, net_name, attribute='interface')
-
-            vlan = interface['vlan']
-
-            if isinstance(vlan, str):
-                vlan = int(vlan)
-
-            interfaces = resource.get(Constants.RES_INTERFACES, list())
-
-            if interfaces and interfaces[0]['vlan'] != vlan:
-                self.logger.warning(
-                    f"{self.label} ignoring: {label}'s interface {interfaces} does not match provisioned vlan {vlan}")
-
-            resource[Constants.RES_INTERFACES] = [{'vlan': vlan}]
-
         if rtype == Constants.RES_TYPE_NODE:
             from .cloudlab_node import CloudlabNode
             import fabfed.provider.api.dependency_util as util
@@ -169,6 +149,26 @@ class CloudlabProvider(Provider):
                 self.resource_listener.on_added(source=self, provider=self, resource=node)
             return
 
+        vlan_saved = False
+
+        if self.retrieve_attribute_from_saved_state(resource, self.resource_name(resource), attribute='interface'):
+            net_name = self.resource_name(resource)
+            interface = self.retrieve_attribute_from_saved_state(resource, net_name, attribute='interface')
+
+            vlan = interface['vlan']
+
+            if isinstance(vlan, str):
+                vlan = int(vlan)
+
+            interfaces = resource.get(Constants.RES_INTERFACES, list())
+
+            if interfaces and interfaces[0]['vlan'] != vlan:
+                self.logger.warning(
+                    f"{self.label} ignoring: {label}'s interface {interfaces} does not match provisioned vlan {vlan}")
+
+            resource[Constants.RES_INTERFACES] = [{'vlan': vlan}]
+            vlan_saved = True
+
         from .cloudlab_network import CloudNetwork
 
         net_name = self.resource_name(resource)
@@ -177,15 +177,17 @@ class CloudlabProvider(Provider):
         stitch_infos: List[StitchInfo] = resource.get(Constants.RES_STITCH_INFO)
         assert stitch_infos, f"resource {label} missing stitch info"
         assert isinstance(stitch_infos, list), f"resource {label} expecting a list for stitch info"
-        assert len(stitch_infos) == 1, f"resource {label} expect a list of size for stitch info "
-        assert stitch_infos[0].stitch_port['peer'] != self.type, f"resource {label} stitch provider has wrong type"
+        assert len(stitch_infos) == 1, f"resource {label} expect a list of size 1 for stitch info "
+        assert stitch_infos[0].stitch_port['peer']['provider'] != self.type, \
+            f"resource {label} stitch provider has wrong type"
         cloudlab_stitch_port = stitch_infos[0].stitch_port
+        peer_stitch_port = stitch_infos[0].stitch_port['peer']
 
         if not profile:
             profile = cloudlab_stitch_port.get(Constants.RES_PROFILE)
 
         if not profile:
-            raise CloudlabException(message=f"must have a profile for {net_name}")
+            raise CloudlabException(message=f'must have a profile for {net_name}')
 
         cluster = resource.get(Constants.RES_CLUSTER)
 
@@ -194,19 +196,34 @@ class CloudlabProvider(Provider):
                 cluster = cloudlab_stitch_port['option'][Constants.RES_CLUSTER]
 
         if not cluster:
-            raise CloudlabException(f"no cluster was was found for {net_name}")
+            raise CloudlabException(message=f'no cluster was was found for {net_name}')
 
         interfaces = resource.get(Constants.RES_INTERFACES, list())
 
-        if not interfaces:
-            vlan = get_vlan_from_range(resource=resource)
+        if interfaces:
+            vlan = interfaces[0]['vlan']
+
+            if not vlan_saved:
+                from fabfed.policy.facility_port_handler import load_facility_info
+                from fabfed.exceptions import ResourceNotAvailable
+
+                load_facility_info(stitch_infos)
+
+                if vlan in peer_stitch_port['allocated_vlans']:
+                    raise ResourceNotAvailable(
+                        f"vlan {vlan} is already used. allocated_vlans={peer_stitch_port['allocated_vlans']}")
+        else:
+            from fabfed.policy.facility_port_handler import load_facility_info
+            from fabfed.policy.tag_handler import get_available_vlan
+
+            load_facility_info(stitch_infos)
+            vlan = get_available_vlan(stitch_port=peer_stitch_port)
             interfaces = [{'vlan': vlan}] if vlan > 0 else []
 
         layer3 = resource.get(Constants.RES_LAYER3)
 
         if not layer3:
-            raise CloudlabException(f"no layer3 config  was was found for {net_name}")
-
+            raise CloudlabException(message=f"no layer3 config was found for {net_name}")
 
         net = CloudNetwork(label=label, name=net_name, provider=self, stitch_info=stitch_infos[0],
                            profile=profile, interfaces=interfaces,

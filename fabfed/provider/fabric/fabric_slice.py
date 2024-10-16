@@ -325,6 +325,9 @@ class FabricSlice:
         self.provider._networks = temp
 
     def _ensure_management_ips(self):
+        if len(self.nodes) == 0:
+            return
+
         for attempt in range(self.retry):
             mngmt_ips = []
             from fabrictestbed_extensions.fablib.fablib import fablib
